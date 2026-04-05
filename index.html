@@ -1,0 +1,1337 @@
+[家庭財務系統_Firebase.html](https://github.com/user-attachments/files/26485472/_Firebase.html)
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>🏡 家庭財務系統</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700;900&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --brown: #5C4033;
+  --brown-light: #8D6E63;
+  --accent: #C8956C;
+  --accent-light: #E8C4A0;
+  --bg: #FAF3EB;
+  --bg2: #F2E8DC;
+  --card: #FFFAF5;
+  --border: #E0CDB8;
+  --green: #2E7D32;
+  --green-light: #E8F5E9;
+  --red: #C62828;
+  --red-light: #FFEBEE;
+  --yellow: #FFF8E1;
+  --yellow-border: #FFB300;
+  --blue: #1565C0;
+  --blue-light: #E3F2FD;
+  --text: #3E2723;
+  --muted: #A1887F;
+  --shadow: 0 2px 16px rgba(92,64,51,0.10);
+  --shadow-hover: 0 6px 24px rgba(92,64,51,0.18);
+  --radius: 16px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; }
+body { font-family: 'Noto Sans TC', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+
+/* ── LOGIN ── */
+.login-screen {
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #3E2723 0%, var(--brown) 50%, #8D6E63 100%);
+  padding: 20px;
+}
+.login-box {
+  background: var(--card);
+  border-radius: 24px;
+  padding: 40px 36px;
+  width: 100%; max-width: 360px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  text-align: center;
+  animation: fadeIn 0.4s ease;
+}
+@keyframes fadeIn { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+.login-icon { font-size: 56px; margin-bottom: 12px; }
+.login-title { font-family: 'Noto Serif TC', serif; font-size: 22px; font-weight: 900; color: var(--brown); margin-bottom: 4px; }
+.login-sub { font-size: 13px; color: var(--muted); margin-bottom: 28px; }
+.login-input {
+  width: 100%;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 20px;
+  text-align: center;
+  letter-spacing: 6px;
+  font-family: 'Noto Sans TC', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  margin-bottom: 16px;
+  transition: border-color 0.2s;
+}
+.login-input:focus { outline: none; border-color: var(--accent); }
+.login-btn {
+  width: 100%;
+  background: linear-gradient(135deg, var(--accent), var(--brown));
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 14px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'Noto Sans TC', sans-serif;
+  transition: opacity 0.2s;
+}
+.login-btn:hover { opacity: 0.9; }
+.login-error { color: var(--red); font-size: 13px; margin-top: 10px; font-weight: 600; }
+.login-members { display: flex; justify-content: center; gap: 12px; margin-top: 20px; }
+.login-member { font-size: 12px; color: var(--muted); background: var(--bg); padding: 4px 12px; border-radius: 12px; }
+
+/* ── APP SHELL ── */
+.app-shell { display: flex; flex-direction: column; height: 100vh; }
+.topbar {
+  background: linear-gradient(135deg, var(--brown) 0%, #3E2723 100%);
+  color: #fff; padding: 0 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 56px; flex-shrink: 0; z-index: 100;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+}
+.topbar-brand { font-family: 'Noto Serif TC', serif; font-size: 17px; font-weight: 700; letter-spacing: 1px; }
+.topbar-brand span { color: var(--accent-light); }
+.topbar-right { display: flex; align-items: center; gap: 10px; }
+.sync-indicator { display: flex; align-items: center; gap: 6px; }
+.sync-dot { width: 8px; height: 8px; border-radius: 50%; background: #aaa; transition: all 0.3s; flex-shrink: 0; }
+.sync-dot.synced { background: #4CAF50; box-shadow: 0 0 6px rgba(76,175,80,0.6); }
+.sync-dot.syncing { background: var(--accent-light); animation: pulse 1s infinite; }
+.sync-dot.error { background: #ef5350; }
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.3} }
+.sync-label { font-size: 11px; color: rgba(255,255,255,0.6); }
+.user-tabs { display: flex; gap: 0; background: rgba(255,255,255,0.12); border-radius: 20px; padding: 3px; }
+.user-tab {
+  padding: 4px 11px; border-radius: 16px; font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all 0.2s; color: rgba(255,255,255,0.65);
+  border: none; background: none; font-family: 'Noto Sans TC', sans-serif;
+}
+.user-tab.active { color: #fff; font-weight: 700; }
+.user-tab-伯涵.active { background: #1565C0; }
+.user-tab-珞熙.active { background: #AD1457; }
+.user-tab-楷宸.active { background: #2E7D32; }
+.btn-logout { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.7); border-radius: 8px; padding: 4px 10px; font-size: 11px; cursor: pointer; font-family: 'Noto Sans TC', sans-serif; }
+.btn-logout:hover { background: rgba(255,255,255,0.2); color: #fff; }
+
+/* ── LAYOUT ── */
+.layout { display: flex; flex: 1; overflow: hidden; }
+.sidebar {
+  width: 200px; background: #fff;
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow-y: auto; flex-shrink: 0;
+}
+.sidebar-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 16px; cursor: pointer;
+  font-size: 13px; color: var(--brown-light);
+  font-weight: 500; transition: all 0.15s;
+  border-right: 3px solid transparent;
+}
+.sidebar-item:hover { background: var(--bg); color: var(--brown); }
+.sidebar-item.active { background: var(--bg2); color: var(--brown); font-weight: 700; border-right-color: var(--accent); }
+.sidebar-item .icon { font-size: 16px; width: 20px; text-align: center; }
+.sidebar-section-label { font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; padding: 12px 16px 4px; }
+.content { flex: 1; overflow-y: auto; padding: 20px 20px 80px; }
+
+/* ── MOBILE NAV ── */
+.mobile-nav {
+  display: none; position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: #fff; border-top: 1px solid var(--border);
+  padding: 6px 0 max(6px, env(safe-area-inset-bottom));
+  z-index: 200; justify-content: space-around;
+}
+.mobile-nav-item {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 2px; cursor: pointer; padding: 4px 8px; border-radius: 10px;
+  color: var(--muted); font-size: 10px; font-weight: 600;
+}
+.mobile-nav-item .mn-icon { font-size: 20px; }
+.mobile-nav-item.active { color: var(--accent); }
+@media (max-width: 768px) {
+  .sidebar { display: none; }
+  .mobile-nav { display: flex; }
+  .content { padding: 12px 12px 80px; }
+}
+@media (min-width: 769px) and (max-width: 1024px) {
+  .sidebar { width: 58px; }
+  .sidebar-section-label, .sidebar-item span { display: none; }
+  .sidebar-item { justify-content: center; padding: 12px; }
+  .sidebar-item .icon { font-size: 20px; width: auto; }
+}
+
+/* ── CARDS ── */
+.card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; margin-bottom: 16px; }
+.card-header { padding: 13px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: linear-gradient(90deg, var(--bg) 0%, var(--card) 100%); }
+.card-title { font-family: 'Noto Serif TC', serif; font-size: 15px; font-weight: 700; color: var(--brown); }
+.card-body { padding: 16px 18px; }
+
+/* ── STAT CARDS ── */
+.stat-grid { display: grid; gap: 12px; margin-bottom: 16px; }
+.sg2 { grid-template-columns: repeat(2,1fr); }
+.sg3 { grid-template-columns: repeat(3,1fr); }
+.sg4 { grid-template-columns: repeat(4,1fr); }
+@media(max-width:600px){ .sg4,.sg3{grid-template-columns:repeat(2,1fr);} }
+.stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; box-shadow: var(--shadow); position: relative; overflow: hidden; }
+.stat-card::before { content:''; position:absolute; top:0;left:0;right:0;height:3px; background:var(--accent); }
+.stat-card.green::before{background:var(--green);}
+.stat-card.red::before{background:var(--red);}
+.stat-card.blue::before{background:var(--blue);}
+.stat-card.yellow::before{background:var(--yellow-border);}
+.stat-label { font-size:11px; color:var(--muted); font-weight:600; margin-bottom:6px; letter-spacing:0.5px; }
+.stat-value { font-size:22px; font-weight:700; color:var(--brown); font-family:'Noto Serif TC',serif; line-height:1.2; }
+.stat-value.sm{font-size:17px;}
+.stat-value.green{color:var(--green);}
+.stat-value.red{color:var(--red);}
+.stat-value.blue{color:var(--blue);}
+.stat-sub{font-size:11px;color:var(--muted);margin-top:4px;}
+
+/* ── TABLE ── */
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:480px;}
+th{background:var(--bg2);color:var(--muted);font-weight:700;padding:10px 12px;text-align:left;font-size:11px;letter-spacing:0.5px;white-space:nowrap;}
+td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:#FFF8F2;}
+.amount-pos{color:var(--green);font-weight:700;}
+.amount-neg{color:var(--red);font-weight:700;}
+.badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:var(--bg2);color:var(--muted);white-space:nowrap;}
+.badge-伯涵{background:var(--blue-light);color:var(--blue);}
+.badge-珞熙{background:#FCE4EC;color:#AD1457;}
+.badge-楷宸{background:var(--green-light);color:var(--green);}
+.badge-cash{background:#E8F5E9;color:#2E7D32;}
+.badge-card{background:#E3F2FD;color:#1565C0;}
+.badge-transfer{background:#F3E5F5;color:#6A1B9A;}
+
+/* ── FORMS ── */
+.fg{display:grid;gap:10px;}
+.fg2{grid-template-columns:repeat(2,1fr);}
+.fg3{grid-template-columns:repeat(3,1fr);}
+@media(max-width:600px){.fg2,.fg3{grid-template-columns:1fr;}}
+.form-group{display:flex;flex-direction:column;gap:4px;}
+.form-group label{font-size:11px;color:var(--muted);font-weight:700;letter-spacing:0.5px;}
+input,select,textarea{border:1.5px solid var(--border);border-radius:10px;padding:9px 12px;font-size:13px;font-family:'Noto Sans TC',sans-serif;background:#fff;color:var(--text);width:100%;transition:border-color 0.2s,box-shadow 0.2s;-webkit-appearance:none;}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(200,149,108,0.15);}
+textarea{resize:vertical;min-height:70px;}
+input.yellow-input{background:var(--yellow);border-color:var(--yellow-border);font-weight:700;}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:6px;border:none;border-radius:10px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:all 0.15s;white-space:nowrap;}
+.btn-primary{background:var(--accent);color:#fff;}
+.btn-primary:hover{background:#B8845C;}
+.btn-secondary{background:var(--bg2);color:var(--brown);border:1.5px solid var(--border);}
+.btn-secondary:hover{border-color:var(--accent);}
+.btn-sm{padding:5px 12px;font-size:12px;border-radius:8px;}
+.btn-del{background:none;border:none;color:#ccc;cursor:pointer;font-size:16px;padding:4px 8px;border-radius:6px;transition:all 0.15s;}
+.btn-del:hover{color:var(--red);background:var(--red-light);}
+
+/* ── PROGRESS ── */
+.progress-bg{background:var(--bg2);border-radius:10px;overflow:hidden;}
+.progress-fill{height:100%;border-radius:10px;transition:width 0.8s ease;}
+.prog-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:5px;}
+
+/* ── TABS ── */
+.tab-bar{display:flex;gap:4px;background:var(--bg2);border-radius:12px;padding:4px;margin-bottom:16px;}
+.tab-pill{flex:1;padding:8px 12px;border-radius:9px;font-size:12px;font-weight:600;text-align:center;cursor:pointer;transition:all 0.2s;color:var(--muted);border:none;background:none;font-family:'Noto Sans TC',sans-serif;}
+.tab-pill.active{background:#fff;color:var(--brown);box-shadow:0 2px 8px rgba(0,0,0,0.08);}
+
+/* ── MODAL ── */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(3px);z-index:500;display:flex;align-items:flex-end;justify-content:center;}
+@media(min-width:600px){.modal-backdrop{align-items:center;}}
+.modal-box{background:var(--card);border-radius:20px 20px 0 0;padding:24px 20px;width:100%;max-width:580px;max-height:92vh;overflow-y:auto;animation:slideUp 0.3s ease;}
+@media(min-width:600px){.modal-box{border-radius:20px;}}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-title{font-family:'Noto Serif TC',serif;font-weight:700;font-size:17px;color:var(--brown);margin-bottom:18px;}
+.modal-btns{display:flex;gap:10px;margin-top:20px;}
+.modal-btns .btn{flex:1;justify-content:center;padding:12px;}
+
+/* ── EMPTY / LOADING ── */
+.empty{text-align:center;padding:36px 20px;color:var(--muted);}
+.empty-icon{font-size:44px;margin-bottom:10px;}
+.empty p{font-size:13px;}
+.loading-screen{display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:14px;color:var(--muted);background:var(--bg);}
+.spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── MISC ── */
+.section-header{display:flex;align-items:center;justify-content:space-between;margin:20px 0 12px;}
+.section-title{font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);display:flex;align-items:center;gap:8px;}
+.page-title{font-family:'Noto Serif TC',serif;font-size:20px;font-weight:900;color:var(--brown);margin-bottom:4px;}
+.page-sub{font-size:12px;color:var(--muted);margin-bottom:18px;}
+.text-muted{color:var(--muted);font-size:12px;}
+.flex{display:flex;align-items:center;}
+.flex-between{display:flex;align-items:center;justify-content:space-between;}
+.gap-8{gap:8px;}
+.mb-12{margin-bottom:12px;}
+.mb-16{margin-bottom:16px;}
+.pill{display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;}
+.pill-income{background:#E8F5E9;color:var(--green);}
+.pill-expense{background:var(--red-light);color:var(--red);}
+.month-scroll{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;margin-bottom:16px;}
+.month-scroll::-webkit-scrollbar{display:none;}
+.month-chip{padding:6px 16px;border-radius:20px;border:1.5px solid var(--border);background:#fff;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;color:var(--muted);transition:all 0.15s;flex-shrink:0;}
+.month-chip.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+.month-chip:hover{border-color:var(--accent);}
+.card-星展{color:#9C27B0;}.card-富邦{color:#E53935;}.card-國泰{color:#1E88E5;}
+.card-台新{color:#43A047;}.card-中信{color:#FB8C00;}.card-永豐{color:#8E24AA;}
+.card-玉山{color:#00ACC1;}.card-聯邦{color:#6D4C41;}.card-其他{color:#757575;}
+.toast{position:fixed;top:70px;right:16px;background:var(--brown);color:#fff;padding:10px 18px;border-radius:12px;font-size:13px;font-weight:600;z-index:999;animation:toastIn 0.3s ease;box-shadow:0 4px 16px rgba(0,0,0,0.2);}
+@keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div class="loading-screen" id="loadingScreen">
+  <div class="spinner"></div>
+  <div>連接 Firebase 中…</div>
+</div>
+
+<div id="app" style="display:none;"></div>
+
+<!-- Firebase SDKs -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore, doc, getDoc, setDoc, onSnapshot, collection,
+  addDoc, deleteDoc, updateDoc, serverTimestamp, query, where, orderBy
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// ══════════════════════════════════════════════════════════════
+// FIREBASE CONFIG
+// ══════════════════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyCnVJQe7pSazJKMNc9XXshWk3S3gk-O2A4",
+  authDomain: "money-a362d.firebaseapp.com",
+  projectId: "money-a362d",
+  storageBucket: "money-a362d.firebasestorage.app",
+  messagingSenderId: "884211458396",
+  appId: "1:884211458396:web:78e6394bcdf97b666de199"
+};
+const FAMILY_PASSWORD = "820228";
+const FAMILY_ID = "family_main"; // Firestore document ID
+
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp);
+
+// ══════════════════════════════════════════════════════════════
+// CONSTANTS
+// ══════════════════════════════════════════════════════════════
+const USERS = ['伯涵','珞熙','楷宸'];
+const MONTHS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+const CREDIT_CARDS = ['星展','富邦','國泰','台新','中信','永豐','玉山','聯邦','其他'];
+const INCOME_CATS = ['薪資','助教費','獎金','投資收益','租金收入','利息','股票股利','其他被動收入','其他'];
+const EXPENSE_CATS = ['房租','房貸','車貸','保險工會','交通加油','水費','電費','瓦斯','網路','手機','餐飲','日用品','醫療','娛樂休閒','旅遊','教育進修','孝親費','固定分期','其他'];
+const PAY_METHODS = ['現金','轉帳','信用卡'];
+const BUDGET_CATS = ['房租','交通加油','保險工會','水電瓦斯','網路通訊','餐飲','日用品','其他備用'];
+const ASSET_TYPES = ['股票','ETF','基金','現金存款','定存','不動產','黃金','外幣','其他'];
+const DEBT_TYPES = ['房貸','車貸','信用貸款','學貸','信用卡分期','其他'];
+const DREAM_ICONS = ['🏠','🚗','✈️','💍','📚','💻','🎓','🏖️','🌏','💰','🏋️','🎸'];
+const PAGES = [
+  {id:'overview', icon:'📊', label:'總覽'},
+  {id:'networth',  icon:'💎', label:'資產負債'},
+  {id:'cashflow',  icon:'💵', label:'收入現金流'},
+  {id:'expenses',  icon:'🧾', label:'支出記帳'},
+  {id:'budget',    icon:'📋', label:'預算管理'},
+  {id:'creditcard',icon:'💳', label:'信用卡'},
+  {id:'dreams',    icon:'🌟', label:'夢想計畫'},
+  {id:'reports',   icon:'📈', label:'年度報表'},
+];
+const MOBILE_PAGES = ['overview','expenses','creditcard','dreams','reports'];
+
+// ══════════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════════
+let S = {
+  loggedIn: false,
+  user: '伯涵',
+  page: 'overview',
+  month: new Date().getMonth() + 1,
+  subTab: 0,
+  syncStatus: 'idle',
+  modal: null,
+  // Live data from Firestore
+  data: {
+    assets: [],
+    debts: [],
+    incomes: [],
+    expenses: [],
+    budgets: {},
+    dreams: [],
+    yearNotes: {}
+  }
+};
+
+// ══════════════════════════════════════════════════════════════
+// FIREBASE REALTIME LISTENER
+// ══════════════════════════════════════════════════════════════
+let unsubscribers = [];
+
+function startRealtimeSync() {
+  setSyncStatus('syncing');
+  // Listen to main family doc (assets, debts, budgets, dreams, yearNotes)
+  const mainRef = doc(db, 'families', FAMILY_ID);
+  const u1 = onSnapshot(mainRef, snap => {
+    if (snap.exists()) {
+      const d = snap.data();
+      S.data.assets = d.assets || [];
+      S.data.debts = d.debts || [];
+      S.data.budgets = d.budgets || {};
+      S.data.dreams = d.dreams || [];
+      S.data.yearNotes = d.yearNotes || {};
+    }
+    setSyncStatus('synced');
+    if (S.loggedIn) render();
+  }, () => setSyncStatus('error'));
+
+  // Listen to incomes collection
+  const incomesRef = collection(db, 'families', FAMILY_ID, 'incomes');
+  const u2 = onSnapshot(query(incomesRef), snap => {
+    S.data.incomes = snap.docs.map(d => ({id: d.id, ...d.data()}));
+    if (S.loggedIn) render();
+  });
+
+  // Listen to expenses collection
+  const expensesRef = collection(db, 'families', FAMILY_ID, 'expenses');
+  const u3 = onSnapshot(query(expensesRef), snap => {
+    S.data.expenses = snap.docs.map(d => ({id: d.id, ...d.data()}));
+    if (S.loggedIn) render();
+  });
+
+  unsubscribers = [u1, u2, u3];
+}
+
+// ══════════════════════════════════════════════════════════════
+// SAVE HELPERS
+// ══════════════════════════════════════════════════════════════
+async function saveMainDoc(patch) {
+  setSyncStatus('syncing');
+  try {
+    const ref = doc(db, 'families', FAMILY_ID);
+    await setDoc(ref, patch, { merge: true });
+    setSyncStatus('synced');
+  } catch(e) { setSyncStatus('error'); showToast('儲存失敗，請檢查網路'); }
+}
+async function addSubDoc(col, data) {
+  setSyncStatus('syncing');
+  try {
+    await addDoc(collection(db, 'families', FAMILY_ID, col), {...data, createdAt: serverTimestamp()});
+    setSyncStatus('synced');
+  } catch(e) { setSyncStatus('error'); showToast('儲存失敗'); }
+}
+async function delSubDoc(col, id) {
+  setSyncStatus('syncing');
+  try {
+    await deleteDoc(doc(db, 'families', FAMILY_ID, col, id));
+    setSyncStatus('synced');
+  } catch(e) { setSyncStatus('error'); showToast('刪除失敗'); }
+}
+
+// ══════════════════════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════════════════════
+function uid() { return Date.now().toString(36)+Math.random().toString(36).slice(2,5); }
+function fmt(n) { return Number(n||0).toLocaleString('zh-TW'); }
+function toNum(v) { return parseFloat(String(v||0).replace(/,/g,''))||0; }
+function todayStr() {
+  const d=new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function curYear() { return new Date().getFullYear(); }
+function mKey() { return `${curYear()}-${String(S.month).padStart(2,'0')}`; }
+function setSyncStatus(s) {
+  S.syncStatus = s;
+  const dot = document.querySelector('.sync-dot');
+  const lbl = document.querySelector('.sync-label');
+  if(dot) { dot.className='sync-dot '+s; }
+  if(lbl) { lbl.textContent = s==='synced'?'已同步':s==='syncing'?'同步中…':s==='error'?'離線':''; }
+}
+function showToast(msg) {
+  const el = document.createElement('div');
+  el.className = 'toast'; el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 2500);
+}
+function getIncomes(allUsers) {
+  return S.data.incomes.filter(i =>
+    i.month === S.month && i.year === curYear() &&
+    (allUsers || S.user==='全部' || i.user === S.user)
+  );
+}
+function getExpenses(allUsers) {
+  return S.data.expenses.filter(e =>
+    e.month === S.month && e.year === curYear() &&
+    (allUsers || S.user==='全部' || e.user === S.user)
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+// RENDER ENGINE
+// ══════════════════════════════════════════════════════════════
+function render() {
+  if (!S.loggedIn) { renderLogin(); return; }
+  document.getElementById('loadingScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('app').innerHTML = `
+  <div class="app-shell">
+    ${buildTopBar()}
+    <div class="layout">
+      ${buildSidebar()}
+      <main class="content">${buildPage()}</main>
+    </div>
+    ${buildMobileNav()}
+  </div>
+  ${S.modal ? buildModal() : ''}
+  `;
+  bindEvents();
+}
+
+function renderLogin() {
+  document.getElementById('loadingScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('app').innerHTML = `
+  <div class="login-screen">
+    <div class="login-box">
+      <div class="login-icon">🏡</div>
+      <div class="login-title">家庭財務系統</div>
+      <div class="login-sub">請輸入家庭密碼以進入</div>
+      <input class="login-input" type="password" id="pwInput" placeholder="••••••" maxlength="10"
+        onkeydown="if(event.key==='Enter')tryLogin()">
+      <button class="login-btn" onclick="tryLogin()">進入 →</button>
+      <div class="login-error" id="pwError"></div>
+      <div class="login-members">
+        ${USERS.map(u=>`<span class="login-member">${u}</span>`).join('')}
+      </div>
+    </div>
+  </div>`;
+  setTimeout(()=>document.getElementById('pwInput')?.focus(), 100);
+}
+
+// ── TOP BAR ─────────────────────────────────────────────────
+function buildTopBar() {
+  return `<div class="topbar">
+    <div class="topbar-brand">🏡 <span>家庭</span>財務</div>
+    <div class="topbar-right">
+      <div class="user-tabs">
+        ${USERS.map(u=>`<button class="user-tab user-tab-${u}${S.user===u?' active':''}" onclick="setUser('${u}')">${u}</button>`).join('')}
+      </div>
+      <div class="sync-indicator">
+        <div class="sync-dot ${S.syncStatus}"></div>
+        <span class="sync-label">${S.syncStatus==='synced'?'已同步':S.syncStatus==='syncing'?'同步中…':'離線'}</span>
+      </div>
+      <button class="btn-logout" onclick="logout()">登出</button>
+    </div>
+  </div>`;
+}
+
+// ── SIDEBAR ──────────────────────────────────────────────────
+function buildSidebar() {
+  return `<nav class="sidebar">
+    <div style="padding:10px 0;">
+      ${PAGES.map(p=>`<div class="sidebar-item${S.page===p.id?' active':''}" onclick="setPage('${p.id}')">
+        <span class="icon">${p.icon}</span><span>${p.label}</span>
+      </div>`).join('')}
+    </div>
+  </nav>`;
+}
+
+// ── MOBILE NAV ───────────────────────────────────────────────
+function buildMobileNav() {
+  const mp = PAGES.filter(p=>MOBILE_PAGES.includes(p.id));
+  const isOther = !MOBILE_PAGES.includes(S.page);
+  return `<nav class="mobile-nav">
+    ${mp.map(p=>`<div class="mobile-nav-item${S.page===p.id?' active':''}" onclick="setPage('${p.id}')">
+      <span class="mn-icon">${p.icon}</span>${p.label}
+    </div>`).join('')}
+    <div class="mobile-nav-item${isOther?' active':''}" onclick="setPage('networth')">
+      <span class="mn-icon">⋯</span>更多
+    </div>
+  </nav>`;
+}
+
+// ── MONTH SELECTOR ───────────────────────────────────────────
+function buildMonthSel() {
+  return `<div class="month-scroll">
+    ${MONTHS.map((m,i)=>`<div class="month-chip${S.month===i+1?' active':''}" onclick="setMonth(${i+1})">${m}</div>`).join('')}
+  </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════
+// PAGES
+// ══════════════════════════════════════════════════════════════
+function buildPage() {
+  switch(S.page) {
+    case 'overview':    return pageOverview();
+    case 'networth':    return pageNetworth();
+    case 'cashflow':    return pageCashflow();
+    case 'expenses':    return pageExpenses();
+    case 'budget':      return pageBudget();
+    case 'creditcard':  return pageCreditCard();
+    case 'dreams':      return pageDreams();
+    case 'reports':     return pageReports();
+    default: return pageOverview();
+  }
+}
+
+// ── OVERVIEW ─────────────────────────────────────────────────
+function pageOverview() {
+  const inc = getIncomes(true), exp = getExpenses(true);
+  const myInc = getIncomes(false), myExp = getExpenses(false);
+  const totalInc = inc.reduce((s,i)=>s+toNum(i.amount),0);
+  const totalExp = exp.reduce((s,e)=>s+toNum(e.amount),0);
+  const net = totalInc - totalExp;
+  const totalAssets = S.data.assets.reduce((s,a)=>s+toNum(a.value),0);
+  const totalDebts = S.data.debts.reduce((s,d)=>s+toNum(d.remainingAmount),0);
+  const netWorth = totalAssets - totalDebts;
+  const myI = myInc.reduce((s,i)=>s+toNum(i.amount),0);
+  const myE = myExp.reduce((s,e)=>s+toNum(e.amount),0);
+  const budgets = (S.data.budgets||{})[mKey()]||{};
+  const budgetTotal = Object.values(budgets).reduce((s,v)=>s+toNum(v),0);
+  const budgetUsed = exp.reduce((s,e)=>s+toNum(e.amount),0);
+  const bpct = budgetTotal>0?Math.min(100,Math.round(budgetUsed/budgetTotal*100)):0;
+  const bcol = bpct>90?'var(--red)':bpct>70?'var(--yellow-border)':'var(--green)';
+  const dreams = (S.data.dreams||[]).filter(d=>toNum(d.savedAmount)<toNum(d.targetAmount));
+
+  return `
+  <div class="page-title">📊 財務總覽</div>
+  <div class="page-sub">${curYear()}年 ${MONTHS[S.month-1]} — 查看中：${S.user}</div>
+  ${buildMonthSel()}
+  <div class="stat-grid sg4">
+    <div class="stat-card green"><div class="stat-label">家庭總收入</div><div class="stat-value green">$${fmt(totalInc)}</div><div class="stat-sub">${S.user} 貢獻 $${fmt(myI)}</div></div>
+    <div class="stat-card red"><div class="stat-label">家庭總支出</div><div class="stat-value red">$${fmt(totalExp)}</div><div class="stat-sub">${S.user} 支出 $${fmt(myE)}</div></div>
+    <div class="stat-card ${net>=0?'green':'red'}"><div class="stat-label">本月淨結餘</div><div class="stat-value ${net>=0?'green':'red'}">$${fmt(net)}</div><div class="stat-sub">${net>=0?'💚 有結餘！':'🔴 超支了'}</div></div>
+    <div class="stat-card blue"><div class="stat-label">家庭淨資產</div><div class="stat-value blue sm">$${fmt(netWorth)}</div><div class="stat-sub">資產 $${fmt(totalAssets)} ／ 負債 $${fmt(totalDebts)}</div></div>
+  </div>
+  <div class="stat-grid sg2">
+    <div class="card">
+      <div class="card-header"><span class="card-title">📋 預算使用進度</span><button class="btn btn-secondary btn-sm" onclick="setPage('budget')">管理</button></div>
+      <div class="card-body">
+        <div class="prog-labels"><span>已用 $${fmt(budgetUsed)}</span><span>預算 $${fmt(budgetTotal)}</span></div>
+        <div class="progress-bg" style="height:18px;"><div class="progress-fill" style="width:${bpct}%;background:${bcol};height:18px;"></div></div>
+        <div style="text-align:right;font-size:12px;font-weight:700;color:var(--brown);margin-top:4px;">${bpct}%</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">🌟 夢想進度</span><button class="btn btn-secondary btn-sm" onclick="setPage('dreams')">查看</button></div>
+      <div class="card-body">
+        ${dreams.length===0?'<div class="empty" style="padding:12px 0;"><p>尚無進行中的夢想</p></div>':
+          dreams.slice(0,3).map(dr=>{
+            const pct=toNum(dr.targetAmount)>0?Math.min(100,Math.round(toNum(dr.savedAmount)/toNum(dr.targetAmount)*100)):0;
+            return `<div class="mb-12">
+              <div class="flex-between mb-12" style="margin-bottom:5px;"><span style="font-weight:700;font-size:13px;">${dr.icon||'🎯'} ${dr.name}</span><span class="text-muted">${pct}%</span></div>
+              <div class="progress-bg" style="height:10px;"><div class="progress-fill" style="width:${pct}%;height:10px;background:var(--accent);"></div></div>
+            </div>`;
+          }).join('')}
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">📝 本月最新支出</span>
+      <button class="btn btn-primary btn-sm" onclick="openModal('addExpense')">＋ 記帳</button>
+    </div>
+    <div class="table-wrap">${expTable(exp.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,8))}</div>
+  </div>`;
+}
+
+// ── NET WORTH ────────────────────────────────────────────────
+function pageNetworth() {
+  const assets = S.data.assets||[], debts = S.data.debts||[];
+  const totalA = assets.reduce((s,a)=>s+toNum(a.value),0);
+  const totalD = debts.reduce((s,d)=>s+toNum(d.remainingAmount),0);
+  const nw = totalA-totalD;
+  const catTotals = {};
+  assets.forEach(a=>{ catTotals[a.type]=(catTotals[a.type]||0)+toNum(a.value); });
+
+  return `
+  <div class="page-title">💎 資產 & 負債</div>
+  <div class="page-sub">家庭淨資產 ＝ 所有資產 − 所有負債（即時更新）</div>
+  <div class="stat-grid sg3">
+    <div class="stat-card green"><div class="stat-label">總資產</div><div class="stat-value green">$${fmt(totalA)}</div></div>
+    <div class="stat-card red"><div class="stat-label">總負債</div><div class="stat-value red">$${fmt(totalD)}</div></div>
+    <div class="stat-card ${nw>=0?'blue':'red'}"><div class="stat-label">淨資產</div><div class="stat-value ${nw>=0?'blue':'red'}">$${fmt(nw)}</div></div>
+  </div>
+  <div class="stat-grid sg2">
+    <div class="card">
+      <div class="card-header"><span class="card-title">💰 資產清單</span><button class="btn btn-primary btn-sm" onclick="openModal('addAsset')">＋ 新增</button></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>名稱</th><th>類型</th><th>現值</th><th></th></tr></thead>
+        <tbody>${assets.length===0?`<tr><td colspan="4"><div class="empty"><div class="empty-icon">💰</div><p>尚無資產</p></div></td></tr>`:
+          assets.map(a=>`<tr>
+            <td><b>${a.name}</b>${a.note?`<br><span class="text-muted">${a.note}</span>`:''}</td>
+            <td><span class="badge badge-card">${a.type}</span></td>
+            <td class="amount-pos">$${fmt(a.value)}</td>
+            <td><button class="btn-del" onclick="doDelAsset('${a.id}')">×</button></td>
+          </tr>`).join('')}</tbody>
+      </table></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">🏦 負債清單</span><button class="btn btn-primary btn-sm" onclick="openModal('addDebt')">＋ 新增</button></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>名稱</th><th>類型</th><th>剩餘</th><th>月繳</th><th></th></tr></thead>
+        <tbody>${debts.length===0?`<tr><td colspan="5"><div class="empty"><div class="empty-icon">🏦</div><p>尚無負債</p></div></td></tr>`:
+          debts.map(d=>`<tr>
+            <td><b>${d.name}</b></td>
+            <td><span class="badge">${d.type}</span></td>
+            <td class="amount-neg">$${fmt(d.remainingAmount)}</td>
+            <td class="text-muted">$${fmt(d.monthlyPayment)}/月</td>
+            <td><button class="btn-del" onclick="doDelDebt('${d.id}')">×</button></td>
+          </tr>`).join('')}</tbody>
+      </table></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">📊 資產組成分析</span></div>
+    <div class="card-body">
+      ${Object.entries(catTotals).sort((a,b)=>b[1]-a[1]).map(([c,v])=>{
+        const pct = totalA>0?Math.round(v/totalA*100):0;
+        return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+          <div style="width:80px;font-size:12px;color:var(--muted);text-align:right;">${c}</div>
+          <div class="progress-bg" style="flex:1;height:14px;"><div class="progress-fill" style="width:${pct}%;height:14px;background:var(--blue);"></div></div>
+          <div style="width:110px;font-size:12px;font-weight:700;color:var(--brown);">$${fmt(v)}（${pct}%）</div>
+        </div>`;
+      }).join('')}
+      ${assets.length===0?'<div class="empty" style="padding:10px 0;"><p>新增資產後查看分析</p></div>':''}
+    </div>
+  </div>`;
+}
+
+// ── CASH FLOW ────────────────────────────────────────────────
+function pageCashflow() {
+  const all = getIncomes(true), mine = getIncomes(false);
+  const list = S.subTab===0 ? all : mine;
+  const totalAll = all.reduce((s,i)=>s+toNum(i.amount),0);
+  const totalMine = mine.reduce((s,i)=>s+toNum(i.amount),0);
+  const passive = all.filter(i=>i.isPassive).reduce((s,i)=>s+toNum(i.amount),0);
+  const active = all.filter(i=>!i.isPassive).reduce((s,i)=>s+toNum(i.amount),0);
+
+  return `
+  <div class="page-title">💵 收入 & 現金流</div>
+  <div class="page-sub">主動收入 ＋ 資產被動收入</div>
+  ${buildMonthSel()}
+  <div class="stat-grid sg4">
+    <div class="stat-card green"><div class="stat-label">家庭總收入</div><div class="stat-value green">$${fmt(totalAll)}</div></div>
+    <div class="stat-card green"><div class="stat-label">主動收入</div><div class="stat-value green sm">$${fmt(active)}</div></div>
+    <div class="stat-card blue"><div class="stat-label">被動收入</div><div class="stat-value blue sm">$${fmt(passive)}</div></div>
+    <div class="stat-card"><div class="stat-label">${S.user} 的收入</div><div class="stat-value sm">$${fmt(totalMine)}</div></div>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">💰 收入明細</span>
+      <div class="flex gap-8">
+        <div class="tab-bar" style="margin:0;">
+          <button class="tab-pill${S.subTab===0?' active':''}" onclick="setSubTab(0)">全家</button>
+          <button class="tab-pill${S.subTab===1?' active':''}" onclick="setSubTab(1)">${S.user}</button>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="openModal('addIncome')">＋ 新增</button>
+      </div>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>日期</th><th>金額</th><th>類別</th><th>類型</th><th>記錄人</th><th>備註</th><th></th></tr></thead>
+      <tbody>${list.length===0?`<tr><td colspan="7"><div class="empty"><div class="empty-icon">💸</div><p>本月尚無收入</p></div></td></tr>`:
+        list.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(i=>`<tr>
+          <td>${i.date||''}</td>
+          <td class="amount-pos">+$${fmt(i.amount)}</td>
+          <td><span class="badge">${i.category||''}</span></td>
+          <td>${i.isPassive?'<span class="pill pill-income">被動</span>':'<span style="font-size:11px;color:var(--muted);">主動</span>'}</td>
+          <td><span class="badge badge-${i.user}">${i.user||''}</span></td>
+          <td class="text-muted">${i.note||''}</td>
+          <td><button class="btn-del" onclick="doDelIncome('${i.id}')">×</button></td>
+        </tr>`).join('')}</tbody>
+    </table></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">📊 收入來源分析</span></div>
+    <div class="card-body">${incBreakdown(list)}</div>
+  </div>`;
+}
+
+// ── EXPENSES ─────────────────────────────────────────────────
+function pageExpenses() {
+  const all = getExpenses(true), mine = getExpenses(false);
+  const list = S.subTab===0 ? all : mine;
+  const totalAll = all.reduce((s,e)=>s+toNum(e.amount),0);
+  const totalMine = mine.reduce((s,e)=>s+toNum(e.amount),0);
+  const cardTotal = all.filter(e=>e.payMethod==='信用卡').reduce((s,e)=>s+toNum(e.amount),0);
+  const cashTotal = all.filter(e=>e.payMethod==='現金').reduce((s,e)=>s+toNum(e.amount),0);
+  const txTotal = all.filter(e=>e.payMethod==='轉帳').reduce((s,e)=>s+toNum(e.amount),0);
+
+  return `
+  <div class="page-title">🧾 支出記帳</div>
+  <div class="page-sub">每一筆花費都記清楚</div>
+  ${buildMonthSel()}
+  <div class="stat-grid sg4">
+    <div class="stat-card red"><div class="stat-label">家庭總支出</div><div class="stat-value red">$${fmt(totalAll)}</div></div>
+    <div class="stat-card"><div class="stat-label">${S.user} 支出</div><div class="stat-value sm">$${fmt(totalMine)}</div></div>
+    <div class="stat-card blue"><div class="stat-label">💳 信用卡</div><div class="stat-value sm blue">$${fmt(cardTotal)}</div></div>
+    <div class="stat-card"><div class="stat-label">💵 現金 ／ 轉帳</div><div class="stat-value sm">$${fmt(cashTotal+txTotal)}</div></div>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">📝 支出明細</span>
+      <div class="flex gap-8">
+        <div class="tab-bar" style="margin:0;">
+          <button class="tab-pill${S.subTab===0?' active':''}" onclick="setSubTab(0)">全家</button>
+          <button class="tab-pill${S.subTab===1?' active':''}" onclick="setSubTab(1)">${S.user}</button>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="openModal('addExpense')">＋ 記帳</button>
+      </div>
+    </div>
+    <div class="table-wrap">${expTable(list.sort((a,b)=>(b.date||'').localeCompare(a.date||'')))}</div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">📊 支出類別分析</span></div>
+    <div class="card-body">${expBreakdown(list)}</div>
+  </div>`;
+}
+
+// ── BUDGET ───────────────────────────────────────────────────
+function pageBudget() {
+  const budgets = (S.data.budgets||{})[mKey()]||{};
+  const allExp = getExpenses(true);
+  const totalBudget = Object.values(budgets).reduce((s,v)=>s+toNum(v),0);
+  const totalExp = allExp.reduce((s,e)=>s+toNum(e.amount),0);
+
+  return `
+  <div class="page-title">📋 預算管理</div>
+  <div class="page-sub">月初撥預算，月中追蹤，月底檢討</div>
+  ${buildMonthSel()}
+  <div class="stat-grid sg2">
+    <div class="stat-card yellow"><div class="stat-label">本月總預算</div><div class="stat-value">$${fmt(totalBudget)}</div><div class="stat-sub">月初設定</div></div>
+    <div class="stat-card red"><div class="stat-label">本月實際支出</div><div class="stat-value red">$${fmt(totalExp)}</div><div class="stat-sub">剩餘 $${fmt(totalBudget-totalExp)}</div></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">🗂️ 各類預算 vs 實際支出</span><span class="text-muted">點金額欄位可修改</span></div>
+    <div class="card-body">
+      ${BUDGET_CATS.map(cat=>{
+        const budget = toNum(budgets[cat]||0);
+        const used = allExp.filter(e=>e.budgetCat===cat||e.category===cat).reduce((s,e)=>s+toNum(e.amount),0);
+        const pct = budget>0?Math.min(100,Math.round(used/budget*100)):0;
+        const col = pct>100?'var(--red)':pct>80?'var(--yellow-border)':'var(--green)';
+        return `<div style="margin-bottom:20px;">
+          <div class="flex-between" style="margin-bottom:6px;">
+            <span style="font-weight:700;font-size:13px;">${cat}</span>
+            <div class="flex gap-8">
+              <input type="number" value="${budget||''}" placeholder="設定預算" class="yellow-input"
+                style="width:120px;padding:5px 8px;font-size:12px;"
+                onchange="saveBudget('${cat}',this.value)">
+              <span style="font-size:12px;color:var(--muted);">已用 $${fmt(used)}</span>
+            </div>
+          </div>
+          <div class="progress-bg" style="height:16px;"><div class="progress-fill" style="width:${pct}%;height:16px;background:${col};"></div></div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px;text-align:right;">
+            ${budget>0?`剩 $${fmt(budget-used)}（${pct}% 已用）`:'尚未設定預算'}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+// ── CREDIT CARD ──────────────────────────────────────────────
+function pageCreditCard() {
+  const allCard = getExpenses(true).filter(e=>e.payMethod==='信用卡');
+  const myCard = getExpenses(false).filter(e=>e.payMethod==='信用卡');
+  const list = S.subTab===0 ? allCard : myCard;
+  const byBank = {};
+  allCard.forEach(e=>{ const b=e.cardBank||'其他'; byBank[b]=(byBank[b]||0)+toNum(e.amount); });
+  const totalCard = allCard.reduce((s,e)=>s+toNum(e.amount),0);
+
+  return `
+  <div class="page-title">💳 信用卡管理</div>
+  <div class="page-sub">依銀行核對帳單，查詢消費明細</div>
+  ${buildMonthSel()}
+  <div class="stat-grid sg2">
+    <div class="stat-card blue"><div class="stat-label">本月信用卡總額（家庭）</div><div class="stat-value blue">$${fmt(totalCard)}</div></div>
+    <div class="stat-card"><div class="stat-label">刷卡筆數</div><div class="stat-value sm">${allCard.length} 筆</div></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">🏦 各銀行本月帳單</span><span class="text-muted">方便核對帳單</span></div>
+    <div class="card-body">
+      <div class="stat-grid sg3">
+        ${CREDIT_CARDS.map(b=>{
+          const v=byBank[b]||0;
+          return `<div class="stat-card ${v>0?'yellow':''}">
+            <div class="stat-label card-${b}" style="font-size:13px;font-weight:700;">${b}</div>
+            <div class="stat-value sm ${v>0?'blue':'text-muted'}">${v>0?'$'+fmt(v):'—'}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">📋 刷卡明細</span>
+      <div class="flex gap-8">
+        <div class="tab-bar" style="margin:0;">
+          <button class="tab-pill${S.subTab===0?' active':''}" onclick="setSubTab(0)">全家</button>
+          <button class="tab-pill${S.subTab===1?' active':''}" onclick="setSubTab(1)">${S.user}</button>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="openModal('addExpense','信用卡')">＋ 刷卡</button>
+      </div>
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>日期</th><th>金額</th><th>銀行</th><th>消費類別</th><th>記錄人</th><th>備註</th><th></th></tr></thead>
+      <tbody>${list.length===0?`<tr><td colspan="7"><div class="empty"><div class="empty-icon">💳</div><p>本月尚無刷卡記錄</p></div></td></tr>`:
+        list.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(e=>`<tr>
+          <td>${e.date||''}</td>
+          <td class="amount-neg">-$${fmt(e.amount)}</td>
+          <td><b class="card-${e.cardBank||'其他'}">${e.cardBank||'其他'}</b></td>
+          <td><span class="badge">${e.cardCategory||e.category||'—'}</span></td>
+          <td><span class="badge badge-${e.user}">${e.user||''}</span></td>
+          <td class="text-muted">${e.note||''}</td>
+          <td><button class="btn-del" onclick="doDelExpense('${e.id}')">×</button></td>
+        </tr>`).join('')}</tbody>
+    </table></div>
+  </div>`;
+}
+
+// ── DREAMS ───────────────────────────────────────────────────
+function pageDreams() {
+  const dreams = S.data.dreams||[];
+  return `
+  <div class="page-title">🌟 夢想計畫</div>
+  <div class="page-sub">設定目標金額，追蹤進度，讓夢想成真</div>
+  <div class="section-header">
+    <span class="section-title">🎯 夢想清單</span>
+    <button class="btn btn-primary btn-sm" onclick="openModal('addDream')">＋ 新增夢想</button>
+  </div>
+  ${dreams.length===0?`<div class="card"><div class="card-body"><div class="empty"><div class="empty-icon">🌈</div><p>還沒有夢想計畫！點右上角新增第一個</p></div></div></div>`:
+    dreams.map(dr=>{
+      const target=toNum(dr.targetAmount), saved=toNum(dr.savedAmount);
+      const pct=target>0?Math.min(100,Math.round(saved/target*100)):0;
+      const col=pct>=100?'var(--green)':pct>50?'var(--accent)':'var(--blue)';
+      const left=Math.max(0,target-saved);
+      let deadlineInfo='';
+      if(dr.deadline){
+        const days=Math.ceil((new Date(dr.deadline)-new Date())/(86400000));
+        deadlineInfo=days>0?`距離目標 ${days} 天`:`<span style="color:var(--red);">已到期</span>`;
+      }
+      return `<div class="card" style="border-left:4px solid ${col};">
+        <div class="card-header">
+          <span class="card-title">${dr.icon||'🎯'} ${dr.name}</span>
+          <div class="flex gap-8">
+            ${pct>=100?'<span class="pill pill-income">🎉 達成！</span>':''}
+            <button class="btn btn-secondary btn-sm" onclick="openModal('editDream','${dr.id}')">更新進度</button>
+            <button class="btn-del" onclick="doDelDream('${dr.id}')">×</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="stat-grid sg3">
+            <div><div class="stat-label">目標金額</div><div class="stat-value sm">$${fmt(target)}</div></div>
+            <div><div class="stat-label">已累積</div><div class="stat-value sm green">$${fmt(saved)}</div></div>
+            <div><div class="stat-label">還需要</div><div class="stat-value sm red">$${fmt(left)}</div></div>
+          </div>
+          <div class="prog-labels"><span>${deadlineInfo}</span><span style="font-weight:700;">${pct}%</span></div>
+          <div class="progress-bg" style="height:20px;"><div class="progress-fill" style="width:${pct}%;height:20px;background:${col};"></div></div>
+          ${dr.note?`<p class="text-muted" style="margin-top:8px;">${dr.note}</p>`:''}
+        </div>
+      </div>`;
+    }).join('')}`;
+}
+
+// ── REPORTS ──────────────────────────────────────────────────
+function pageReports() {
+  const months = Array.from({length:12},(_,i)=>i+1);
+  const md = months.map(m=>{
+    const mI = S.data.incomes.filter(i=>i.month===m&&i.year===curYear());
+    const mE = S.data.expenses.filter(e=>e.month===m&&e.year===curYear());
+    const inc=mI.reduce((s,i)=>s+toNum(i.amount),0);
+    const exp=mE.reduce((s,e)=>s+toNum(e.amount),0);
+    return {m,inc,exp,net:inc-exp};
+  });
+  const totalInc=md.reduce((s,m)=>s+m.inc,0);
+  const totalExp=md.reduce((s,m)=>s+m.exp,0);
+  const maxV=Math.max(...md.map(m=>Math.max(m.inc,m.exp)),1);
+
+  return `
+  <div class="page-title">📈 年度報表</div>
+  <div class="page-sub">${curYear()}年 全年財務分析</div>
+  <div class="stat-grid sg3">
+    <div class="stat-card green"><div class="stat-label">年度總收入</div><div class="stat-value green">$${fmt(totalInc)}</div></div>
+    <div class="stat-card red"><div class="stat-label">年度總支出</div><div class="stat-value red">$${fmt(totalExp)}</div></div>
+    <div class="stat-card ${totalInc-totalExp>=0?'blue':'red'}"><div class="stat-label">年度淨結餘</div><div class="stat-value ${totalInc-totalExp>=0?'blue':'red'}">$${fmt(totalInc-totalExp)}</div></div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">📊 月度收支走勢</span></div>
+    <div class="card-body" style="overflow-x:auto;">
+      <div style="min-width:580px;">
+        ${md.map(m=>{
+          const ip=Math.round(m.inc/maxV*100), ep=Math.round(m.exp/maxV*100);
+          return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+            <div style="width:28px;font-size:11px;color:var(--muted);text-align:right;">${m.m}月</div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:3px;">
+              <div class="progress-bg" style="height:11px;"><div class="progress-fill" style="width:${ip}%;height:11px;background:var(--green);"></div></div>
+              <div class="progress-bg" style="height:11px;"><div class="progress-fill" style="width:${ep}%;height:11px;background:var(--red);"></div></div>
+            </div>
+            <div style="width:90px;font-size:11px;"><div class="amount-pos">$${fmt(m.inc)}</div><div class="amount-neg">$${fmt(m.exp)}</div></div>
+            <div style="width:75px;font-size:11px;font-weight:700;${m.net>=0?'color:var(--green)':'color:var(--red)'};">$${fmt(m.net)}</div>
+          </div>`;
+        }).join('')}
+        <div style="display:flex;gap:16px;margin-top:8px;font-size:11px;color:var(--muted);">
+          <span>🟢 收入</span><span>🔴 支出</span><span>右側為淨結餘</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">📋 月度明細表</span></div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>月份</th><th>收入</th><th>支出</th><th>淨結餘</th><th>狀態</th></tr></thead>
+      <tbody>${md.map(m=>`<tr>
+        <td><b>${m.m}月</b></td>
+        <td class="amount-pos">$${fmt(m.inc)}</td>
+        <td class="amount-neg">$${fmt(m.exp)}</td>
+        <td class="${m.net>=0?'amount-pos':'amount-neg'}">$${fmt(m.net)}</td>
+        <td>${m.inc===0&&m.exp===0?'<span class="text-muted">—</span>':m.net>=0?'<span class="pill pill-income">結餘</span>':'<span class="pill pill-expense">超支</span>'}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>
+  </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════
+// SHARED TABLE HELPERS
+// ══════════════════════════════════════════════════════════════
+function expTable(list) {
+  if(!list.length) return `<div class="empty"><div class="empty-icon">📭</div><p>尚無支出記錄</p></div>`;
+  return `<table>
+    <thead><tr><th>日期</th><th>金額</th><th>類別</th><th>付款方式</th><th>記錄人</th><th>備註</th><th></th></tr></thead>
+    <tbody>${list.map(e=>`<tr>
+      <td>${e.date||''}</td>
+      <td class="amount-neg">-$${fmt(e.amount)}</td>
+      <td><span class="badge">${e.category||''}</span></td>
+      <td><span class="badge badge-${e.payMethod==='現金'?'cash':e.payMethod==='信用卡'?'card':'transfer'}">
+        ${e.payMethod||''}${e.cardBank?` · ${e.cardBank}`:''}
+      </span></td>
+      <td><span class="badge badge-${e.user}">${e.user||''}</span></td>
+      <td class="text-muted">${e.note||''}</td>
+      <td><button class="btn-del" onclick="doDelExpense('${e.id}')">×</button></td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+function incBreakdown(list) {
+  const cats={};
+  list.forEach(i=>{cats[i.category]=(cats[i.category]||0)+toNum(i.amount);});
+  const total=Object.values(cats).reduce((s,v)=>s+v,0);
+  if(!total) return '<div class="empty" style="padding:10px 0;"><p>新增收入後查看分析</p></div>';
+  return Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([c,v])=>{
+    const pct=Math.round(v/total*100);
+    return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+      <div style="width:90px;font-size:12px;color:var(--muted);text-align:right;">${c}</div>
+      <div class="progress-bg" style="flex:1;height:13px;"><div class="progress-fill" style="width:${pct}%;height:13px;background:var(--green);"></div></div>
+      <div style="width:110px;font-size:12px;font-weight:700;color:var(--brown);">$${fmt(v)}（${pct}%）</div>
+    </div>`;
+  }).join('');
+}
+
+function expBreakdown(list) {
+  const cats={};
+  list.forEach(e=>{cats[e.category]=(cats[e.category]||0)+toNum(e.amount);});
+  const total=Object.values(cats).reduce((s,v)=>s+v,0);
+  if(!total) return '<div class="empty" style="padding:10px 0;"><p>新增支出後查看分析</p></div>';
+  return Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([c,v])=>{
+    const pct=Math.round(v/total*100);
+    return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+      <div style="width:90px;font-size:12px;color:var(--muted);text-align:right;">${c}</div>
+      <div class="progress-bg" style="flex:1;height:13px;"><div class="progress-fill" style="width:${pct}%;height:13px;background:var(--red);"></div></div>
+      <div style="width:110px;font-size:12px;font-weight:700;color:var(--brown);">$${fmt(v)}（${pct}%）</div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════════════
+// MODALS
+// ══════════════════════════════════════════════════════════════
+function buildModal() {
+  const m = S.modal;
+  let content = '';
+
+  if (m.type === 'addIncome') {
+    content = `<div class="modal-title">💰 新增收入</div>
+    <div class="fg fg2">
+      <div class="form-group"><label>日期</label><input type="date" id="m_date" value="${todayStr()}"></div>
+      <div class="form-group"><label>金額（元）</label><input type="number" id="m_amount" placeholder="0"></div>
+      <div class="form-group"><label>收入類別</label><select id="m_cat">${INCOME_CATS.map(c=>`<option>${c}</option>`).join('')}</select></div>
+      <div class="form-group"><label>收入類型</label><select id="m_passive"><option value="0">主動收入（薪資、獎金等）</option><option value="1">被動收入（股利、利息、租金等）</option></select></div>
+      <div class="form-group"><label>記錄人</label><select id="m_user">${USERS.map(u=>`<option${u===S.user?' selected':''}>${u}</option>`).join('')}</select></div>
+      <div class="form-group"><label>備註</label><input type="text" id="m_note" placeholder="選填"></div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveIncome()">✓ 確認新增</button>
+    </div>`;
+  }
+
+  if (m.type === 'addExpense') {
+    const defMethod = m.defaultMethod || '現金';
+    content = `<div class="modal-title">🧾 記帳支出</div>
+    <div class="fg fg2">
+      <div class="form-group"><label>日期</label><input type="date" id="m_date" value="${todayStr()}"></div>
+      <div class="form-group"><label>金額（元）</label><input type="number" id="m_amount" placeholder="0"></div>
+      <div class="form-group"><label>支出類別</label><select id="m_cat">${EXPENSE_CATS.map(c=>`<option>${c}</option>`).join('')}</select></div>
+      <div class="form-group"><label>預算類別（對應預算追蹤）</label><select id="m_budgetcat"><option value="">不分類</option>${BUDGET_CATS.map(c=>`<option>${c}</option>`).join('')}</select></div>
+      <div class="form-group"><label>付款方式</label>
+        <select id="m_method" onchange="toggleCardFields()">
+          ${PAY_METHODS.map(p=>`<option${p===defMethod?' selected':''}>${p}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group" id="cardBankG" style="${defMethod==='信用卡'?'':'display:none'}">
+        <label>信用卡銀行</label>
+        <select id="m_cardBank">${CREDIT_CARDS.map(c=>`<option>${c}</option>`).join('')}</select>
+      </div>
+      <div class="form-group" id="cardCatG" style="${defMethod==='信用卡'?'':'display:none'}">
+        <label>消費類別（帳單分類）</label>
+        <input type="text" id="m_cardCat" placeholder="如：餐飲、購物、旅遊">
+      </div>
+      <div class="form-group"><label>記錄人</label><select id="m_user">${USERS.map(u=>`<option${u===S.user?' selected':''}>${u}</option>`).join('')}</select></div>
+      <div class="form-group"><label>備註</label><input type="text" id="m_note" placeholder="選填"></div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveExpense()">✓ 確認記帳</button>
+    </div>`;
+  }
+
+  if (m.type === 'addAsset') {
+    content = `<div class="modal-title">💰 新增資產</div>
+    <div class="fg fg2">
+      <div class="form-group"><label>資產名稱</label><input type="text" id="m_name" placeholder="如：台積電、玉山帳戶"></div>
+      <div class="form-group"><label>類型</label><select id="m_type">${ASSET_TYPES.map(t=>`<option>${t}</option>`).join('')}</select></div>
+      <div class="form-group"><label>現值（元）</label><input type="number" id="m_value" placeholder="0"></div>
+      <div class="form-group"><label>備註</label><input type="text" id="m_note" placeholder="選填"></div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveAsset()">✓ 確認</button>
+    </div>`;
+  }
+
+  if (m.type === 'addDebt') {
+    content = `<div class="modal-title">🏦 新增負債</div>
+    <div class="fg fg2">
+      <div class="form-group"><label>負債名稱</label><input type="text" id="m_name" placeholder="如：房貸、車貸"></div>
+      <div class="form-group"><label>類型</label><select id="m_type">${DEBT_TYPES.map(t=>`<option>${t}</option>`).join('')}</select></div>
+      <div class="form-group"><label>剩餘金額（元）</label><input type="number" id="m_remaining" placeholder="0"></div>
+      <div class="form-group"><label>每月還款（元）</label><input type="number" id="m_monthly" placeholder="0"></div>
+      <div class="form-group"><label>年利率（%）</label><input type="number" id="m_rate" placeholder="0" step="0.01"></div>
+      <div class="form-group"><label>備註</label><input type="text" id="m_note" placeholder="選填"></div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveDebt()">✓ 確認</button>
+    </div>`;
+  }
+
+  if (m.type === 'addDream') {
+    content = `<div class="modal-title">🌟 新增夢想計畫</div>
+    <div class="fg fg2">
+      <div class="form-group"><label>夢想名稱</label><input type="text" id="m_name" placeholder="如：買房、環遊世界"></div>
+      <div class="form-group"><label>圖示</label><select id="m_icon">${DREAM_ICONS.map(i=>`<option>${i}</option>`).join('')}</select></div>
+      <div class="form-group"><label>目標金額（元）</label><input type="number" id="m_target" placeholder="0"></div>
+      <div class="form-group"><label>已累積（元）</label><input type="number" id="m_saved" placeholder="0"></div>
+      <div class="form-group"><label>目標日期</label><input type="date" id="m_deadline"></div>
+      <div class="form-group"><label>備註說明</label><input type="text" id="m_note" placeholder="選填"></div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="saveDream()">✓ 確認</button>
+    </div>`;
+  }
+
+  if (m.type === 'editDream') {
+    const dr=(S.data.dreams||[]).find(d=>d.id===m.id)||{};
+    content = `<div class="modal-title">✏️ 更新夢想：${dr.name}</div>
+    <div class="fg fg2">
+      <div class="form-group"><label>目標金額（元）</label><input type="number" id="m_target" value="${dr.targetAmount||0}"></div>
+      <div class="form-group"><label>已累積（元）</label><input type="number" id="m_saved" value="${dr.savedAmount||0}"></div>
+      <div class="form-group"><label>目標日期</label><input type="date" id="m_deadline" value="${dr.deadline||''}"></div>
+      <div class="form-group"><label>備註</label><input type="text" id="m_note" value="${dr.note||''}"></div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" onclick="updateDream('${dr.id}')">✓ 更新</button>
+    </div>`;
+  }
+
+  return `<div class="modal-backdrop" onclick="backdropClose(event)">
+    <div class="modal-box">${content}</div>
+  </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════
+// ACTIONS — exposed to window
+// ══════════════════════════════════════════════════════════════
+window.tryLogin = () => {
+  const pw = document.getElementById('pwInput')?.value;
+  if (pw === FAMILY_PASSWORD) {
+    S.loggedIn = true;
+    sessionStorage.setItem('hf_auth','1');
+    render();
+  } else {
+    document.getElementById('pwError').textContent = '密碼錯誤，請再試一次';
+    document.getElementById('pwInput').value = '';
+    document.getElementById('pwInput').focus();
+  }
+};
+window.logout = () => { S.loggedIn=false; sessionStorage.removeItem('hf_auth'); render(); };
+window.setUser = u => { S.user=u; render(); };
+window.setPage = p => { S.page=p; S.subTab=0; render(); };
+window.setMonth = m => { S.month=m; render(); };
+window.setSubTab = t => { S.subTab=t; render(); };
+window.openModal = (type,extra) => { S.modal={type,defaultMethod:extra,id:extra}; render(); };
+window.closeModal = () => { S.modal=null; render(); };
+window.backdropClose = e => { if(e.target===e.currentTarget) closeModal(); };
+window.toggleCardFields = () => {
+  const v = document.getElementById('m_method')?.value==='信用卡';
+  const bg=document.getElementById('cardBankG'), cg=document.getElementById('cardCatG');
+  if(bg) bg.style.display=v?'':'none';
+  if(cg) cg.style.display=v?'':'none';
+};
+
+// ── SAVE ACTIONS ─────────────────────────────────────────────
+window.saveIncome = async () => {
+  const date=document.getElementById('m_date')?.value;
+  const amount=document.getElementById('m_amount')?.value;
+  const cat=document.getElementById('m_cat')?.value;
+  const passive=document.getElementById('m_passive')?.value==='1';
+  const user=document.getElementById('m_user')?.value;
+  const note=document.getElementById('m_note')?.value;
+  if(!date||!amount){ alert('請填日期和金額'); return; }
+  const d=new Date(date);
+  await addSubDoc('incomes',{date,amount:toNum(amount),category:cat,isPassive:passive,user,note,month:d.getMonth()+1,year:d.getFullYear()});
+  showToast('✅ 收入已記錄');
+  closeModal();
+};
+
+window.saveExpense = async () => {
+  const date=document.getElementById('m_date')?.value;
+  const amount=document.getElementById('m_amount')?.value;
+  const cat=document.getElementById('m_cat')?.value;
+  const budgetCat=document.getElementById('m_budgetcat')?.value;
+  const method=document.getElementById('m_method')?.value;
+  const cardBank=method==='信用卡'?document.getElementById('m_cardBank')?.value:'';
+  const cardCategory=method==='信用卡'?document.getElementById('m_cardCat')?.value:'';
+  const user=document.getElementById('m_user')?.value;
+  const note=document.getElementById('m_note')?.value;
+  if(!date||!amount){ alert('請填日期和金額'); return; }
+  const d=new Date(date);
+  await addSubDoc('expenses',{date,amount:toNum(amount),category:cat,budgetCat,payMethod:method,cardBank,cardCategory,user,note,month:d.getMonth()+1,year:d.getFullYear()});
+  showToast('✅ 支出已記帳');
+  closeModal();
+};
+
+window.saveAsset = async () => {
+  const name=document.getElementById('m_name')?.value;
+  const type=document.getElementById('m_type')?.value;
+  const value=document.getElementById('m_value')?.value;
+  const note=document.getElementById('m_note')?.value;
+  if(!name||!value){ alert('請填名稱和現值'); return; }
+  const assets=[...(S.data.assets||[]),{id:uid(),name,type,value:toNum(value),note}];
+  await saveMainDoc({assets});
+  showToast('✅ 資產已新增');
+  closeModal();
+};
+
+window.saveDebt = async () => {
+  const name=document.getElementById('m_name')?.value;
+  const type=document.getElementById('m_type')?.value;
+  const remaining=document.getElementById('m_remaining')?.value;
+  const monthly=document.getElementById('m_monthly')?.value;
+  const rate=document.getElementById('m_rate')?.value;
+  const note=document.getElementById('m_note')?.value;
+  if(!name){ alert('請填名稱'); return; }
+  const debts=[...(S.data.debts||[]),{id:uid(),name,type,remainingAmount:toNum(remaining),monthlyPayment:toNum(monthly),rate:toNum(rate),note}];
+  await saveMainDoc({debts});
+  showToast('✅ 負債已新增');
+  closeModal();
+};
+
+window.saveDream = async () => {
+  const name=document.getElementById('m_name')?.value;
+  const icon=document.getElementById('m_icon')?.value;
+  const target=document.getElementById('m_target')?.value;
+  const saved=document.getElementById('m_saved')?.value;
+  const deadline=document.getElementById('m_deadline')?.value;
+  const note=document.getElementById('m_note')?.value;
+  if(!name||!target){ alert('請填名稱和目標金額'); return; }
+  const dreams=[...(S.data.dreams||[]),{id:uid(),name,icon,targetAmount:toNum(target),savedAmount:toNum(saved||0),deadline,note}];
+  await saveMainDoc({dreams});
+  showToast('✅ 夢想計畫已新增');
+  closeModal();
+};
+
+window.updateDream = async (id) => {
+  const dreams=(S.data.dreams||[]).map(d=>d.id===id?{...d,
+    targetAmount:toNum(document.getElementById('m_target')?.value),
+    savedAmount:toNum(document.getElementById('m_saved')?.value),
+    deadline:document.getElementById('m_deadline')?.value,
+    note:document.getElementById('m_note')?.value
+  }:d);
+  await saveMainDoc({dreams});
+  showToast('✅ 夢想進度已更新');
+  closeModal();
+};
+
+window.saveBudget = async (cat, val) => {
+  const k=mKey();
+  const budgets={...(S.data.budgets||{})};
+  if(!budgets[k]) budgets[k]={};
+  budgets[k][cat]=toNum(val);
+  await saveMainDoc({budgets});
+};
+
+// ── DELETE ACTIONS ────────────────────────────────────────────
+window.doDelAsset = async id => {
+  if(!confirm('確認刪除此資產？')) return;
+  await saveMainDoc({assets:(S.data.assets||[]).filter(a=>a.id!==id)});
+  showToast('已刪除');
+};
+window.doDelDebt = async id => {
+  if(!confirm('確認刪除此負債？')) return;
+  await saveMainDoc({debts:(S.data.debts||[]).filter(d=>d.id!==id)});
+  showToast('已刪除');
+};
+window.doDelIncome = async id => {
+  if(!confirm('確認刪除？')) return;
+  await delSubDoc('incomes',id);
+  showToast('已刪除');
+};
+window.doDelExpense = async id => {
+  if(!confirm('確認刪除？')) return;
+  await delSubDoc('expenses',id);
+  showToast('已刪除');
+};
+window.doDelDream = async id => {
+  if(!confirm('確認刪除此夢想計畫？')) return;
+  await saveMainDoc({dreams:(S.data.dreams||[]).filter(d=>d.id!==id)});
+  showToast('已刪除');
+};
+
+function bindEvents() {}
+
+// ══════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════
+(async function init() {
+  // Check session
+  if (sessionStorage.getItem('hf_auth')==='1') S.loggedIn = true;
+  // Start Firebase realtime sync
+  startRealtimeSync();
+  // Show login or app immediately
+  if (!S.loggedIn) {
+    document.getElementById('loadingScreen').style.display='none';
+    document.getElementById('app').style.display='block';
+    renderLogin();
+  }
+})();
+</script>
+</body>
+</html>
