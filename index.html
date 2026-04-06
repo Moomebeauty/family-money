@@ -216,6 +216,7 @@ const PAGES=[
   {id:'cc',      ico:'💳',lbl:'信用卡'},
   {id:'ledger',  ico:'📒',lbl:'流水帳'},
   {id:'monthly', ico:'📅',lbl:'逐月收支'},
+  {id:'savings', ico:'🏦',lbl:'儲蓄計畫'},
   {id:'dreams',  ico:'🌟',lbl:'夢想計畫'},
   {id:'reports', ico:'📈',lbl:'年報'},
 ];
@@ -228,7 +229,8 @@ let S={
   data:{
     assets:[],debts:[],incomes:[],expenses:[],
     budgets:{},dreams:[],fixedItems:[...DEF_FIXED],
-    cats:[...DEF_CATS],banks:[...DEF_BANKS],ledgerBudgets:{},yearNotes:{},reconcile:{},monthlyTable:{}
+    cats:[...DEF_CATS],banks:[...DEF_BANKS],ledgerBudgets:{},yearNotes:{},reconcile:{},monthlyTable:{},
+    savingsPlans:[],savingsLogs:{}
   }
 };
 const getBanks=()=>S.data.banks&&S.data.banks.length?S.data.banks:[...DEF_BANKS];
@@ -251,6 +253,8 @@ function startSync(){
       S.data.yearNotes=d.yearNotes||{};
       S.data.reconcile=d.reconcile||{};
       S.data.monthlyTable=d.monthlyTable||{};
+      S.data.savingsPlans=d.savingsPlans||[];
+      S.data.savingsLogs=d.savingsLogs||{};
     }
     setSyncing('synced');
     if(S.auth) render();
@@ -363,6 +367,7 @@ function page(){
     case'cc':       return pgCC();
     case'ledger':   return pgLedger();
     case'monthly':  return pgMonthly();
+    case'savings':  return pgSavings();
     case'dreams':   return pgDreams();
     case'reports':  return pgReports();
     default: return pgOverview();
@@ -392,6 +397,13 @@ function pgOverview(){
   const bpct=bgtTotal>0?Math.min(100,Math.round(bgtUsed/bgtTotal*100)):0;
   const bcol=bpct>90?'var(--red)':bpct>70?'var(--yelb)':'var(--grn)';
   const dreams=(S.data.dreams||[]).filter(d=>toN(d.savedAmount)<toN(d.targetAmount));
+  const plans=S.data.savingsPlans||[];
+  const totalMoTarget=plans.reduce((s,p)=>s+toN(p.monthlyTarget),0);
+  const totalSaved=plans.reduce((s,p)=>s+toN(p.savedAmount)+(p.includeInvest?toN(p.investAmount):0),0);
+  const totalYearTarget=plans.reduce((s,p)=>s+toN(p.yearTarget),0);
+  const curMk=`${yr()}-${String(S.month).padStart(2,'0')}`;
+  const logs=S.data.savingsLogs||{};
+  const moSaved=plans.reduce((s,p)=>s+toN(logs[`${p.id}_${curMk}`]||0),0);
   return`
   <div class="pg-ttl">📊 財務總覽</div>
   <div class="pg-sub">${yr()}年 ${MOS[S.month-1]} — ${S.user}</div>
@@ -432,6 +444,24 @@ function pgOverview(){
       </div>
     </div>
   </div>
+  <div class="sg sg2">
+    <div class="card">
+      <div class="card-hd"><span class="card-ttl">🏦 儲蓄計畫概況</span><button class="btn btn-s btn-sm" onclick="setP('savings')">管理</button></div>
+      <div class="card-bd">
+        ${plans.length===0?`<div class="empty" style="padding:12px 0;"><p>尚未設定儲蓄目標</p><button class="btn btn-p btn-sm" style="margin-top:8px;" onclick="setP('savings')">立即設定</button></div>`:`
+        <div class="sg sg2" style="margin-bottom:12px;">
+          <div><div class="sl">月存目標</div><div class="sv sm grn">$${fmt(totalMoTarget)}</div><div class="ss">本月實際 $${fmt(moSaved)}</div></div>
+          <div><div class="sl">累計儲蓄＋投資</div><div class="sv sm" style="color:#7B1FA2;">$${fmt(totalSaved)}</div></div>
+        </div>
+        ${totalYearTarget>0?`<div class="plbl"><span>年度目標進度</span><span>${totalYearTarget>0?Math.min(100,Math.round(totalSaved/totalYearTarget*100)):0}%</span></div>
+        <div class="pb" style="height:12px;"><div class="pf" style="width:${Math.min(100,Math.round(totalSaved/totalYearTarget*100))}%;height:12px;background:var(--grn);"></div></div>`:''}
+        <div style="margin-top:10px;">${plans.slice(0,3).map(p=>`
+          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--bdr);font-size:12px;">
+            <span>${p.name}</span>
+            <span style="color:var(--grn);font-weight:700;">$${fmt(toN(p.savedAmount)+(p.includeInvest?toN(p.investAmount):0))}</span>
+          </div>`).join('')}</div>`}
+      </div>
+    </div>
   <div class="card">
     <div class="card-hd"><span class="card-ttl">📝 本月最新支出</span><button class="btn btn-p btn-sm" onclick="openM('addExp')">＋ 記帳</button></div>
     <div class="tw">${expTbl(getExp(true).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,8))}</div>
@@ -1000,6 +1030,166 @@ function pgMonthly(){
   <div class="tm" style="font-size:11px;">🟡 黃色格 = 已輸入數值 ｜ 空白格預設帶入固定支出設定值 ｜ 直接改格子即自動儲存</div>`;
 }
 
+// ── SAVINGS PLAN ──────────────────────────────────────────────
+function pgSavings(){
+  const plans=S.data.savingsPlans||[];
+  const curMk=`${yr()}-${String(S.month).padStart(2,'0')}`;
+  const logs=S.data.savingsLogs||{};
+
+  // 整體統計
+  const totalMonthlyTarget=plans.reduce((s,p)=>s+toN(p.monthlyTarget),0);
+  const totalYearTarget=plans.reduce((s,p)=>s+toN(p.yearTarget),0);
+  const totalSaved=plans.reduce((s,p)=>s+toN(p.savedAmount),0);
+  const totalInvest=plans.reduce((s,p)=>s+(p.includeInvest?toN(p.investAmount):0),0);
+  const totalEffective=totalSaved+totalInvest;
+
+  // 本月實際存入（從logs）
+  const moSaved=plans.reduce((s,p)=>{const k=`${p.id}_${curMk}`;return s+toN(logs[k]||0);},0);
+
+  const PLAN_ICONS={'緊急備用金':'🛡️','子女教育':'🎓','退休金':'👴','旅遊基金':'✈️','置產基金':'🏠','投資基金':'📈','其他':'💰'};
+  const PLAN_TYPES=Object.keys(PLAN_ICONS);
+  const PLAN_COLORS={'緊急備用金':'var(--red)','子女教育':'var(--blu)','退休金':'var(--grn)','旅遊基金':'var(--acc)','置產基金':'var(--brown)','投資基金':'#7B1FA2','其他':'var(--mut)'};
+
+  return`
+  <div class="pg-ttl">🏦 儲蓄計畫</div>
+  <div class="pg-sub">先儲蓄，再生活 — 月目標 ＋ 年度終極目標</div>
+  ${moSel()}
+
+  <!-- 整體概況 -->
+  <div class="sg sg4">
+    <div class="sc grn">
+      <div class="sl">月存目標合計</div>
+      <div class="sv grn">$${fmt(totalMonthlyTarget)}</div>
+      <div class="ss">本月實際 $${fmt(moSaved)}</div>
+    </div>
+    <div class="sc blu">
+      <div class="sl">年度目標合計</div>
+      <div class="sv blu sm">$${fmt(totalYearTarget)}</div>
+    </div>
+    <div class="sc grn">
+      <div class="sl">累計儲蓄</div>
+      <div class="sv grn sm">$${fmt(totalSaved)}</div>
+    </div>
+    <div class="sc" style="border-top:3px solid #7B1FA2;">
+      <div class="sl">儲蓄＋投資合計</div>
+      <div class="sv sm" style="color:#7B1FA2;">$${fmt(totalEffective)}</div>
+      <div class="ss">投資貢獻 $${fmt(totalInvest)}</div>
+    </div>
+  </div>
+
+  <!-- 年度整體進度 -->
+  ${totalYearTarget>0?`<div class="card" style="margin-bottom:16px;">
+    <div class="card-hd"><span class="card-ttl">📊 年度整體儲蓄進度</span></div>
+    <div class="card-bd">
+      <div class="plbl"><span>儲蓄＋投資 / 年度目標</span><span style="font-weight:700;">${totalYearTarget>0?Math.min(100,Math.round(totalEffective/totalYearTarget*100)):0}%</span></div>
+      <div class="pb" style="height:20px;margin-bottom:8px;">
+        <div class="pf" style="width:${totalYearTarget>0?Math.min(100,Math.round(totalSaved/totalYearTarget*100)):0}%;height:20px;background:var(--grn);border-radius:10px 0 0 10px;"></div>
+      </div>
+      <div style="display:flex;gap:16px;font-size:11px;color:var(--mut);">
+        <span>🟢 純儲蓄 $${fmt(totalSaved)}</span>
+        <span style="color:#7B1FA2;">🟣 投資 $${fmt(totalInvest)}</span>
+        <span>目標 $${fmt(totalYearTarget)}</span>
+        <span>還差 $${fmt(Math.max(0,totalYearTarget-totalEffective))}</span>
+      </div>
+    </div>
+  </div>`:''}
+
+  <!-- 各計畫卡片 -->
+  <div class="sec-hd">
+    <span class="sec-ttl">🎯 儲蓄目標清單</span>
+    <button class="btn btn-p btn-sm" onclick="openM('addSavingsPlan')">＋ 新增目標</button>
+  </div>
+
+  ${plans.length===0?`<div class="card"><div class="card-bd"><div class="empty">
+    <div class="empty-ico">🏦</div>
+    <p>還沒有儲蓄目標！<br>建議先設定「緊急備用金」（3-6個月支出）</p>
+  </div></div></div>`:''}
+
+  ${plans.map(p=>{
+    const icon=PLAN_ICONS[p.type]||'💰';
+    const color=PLAN_COLORS[p.type]||'var(--mut)';
+    const saved=toN(p.savedAmount);
+    const invest=p.includeInvest?toN(p.investAmount):0;
+    const effective=saved+invest;
+    const yearT=toN(p.yearTarget);
+    const moT=toN(p.monthlyTarget);
+    const pct=yearT>0?Math.min(100,Math.round(effective/yearT*100)):0;
+    const moK=`${p.id}_${curMk}`;
+    const moActual=toN(logs[moK]||0);
+
+    // 預計達標月數
+    const remaining=Math.max(0,yearT-effective);
+    const moTotal=moT+(p.includeInvest?toN(p.monthlyInvest||0):0);
+    const monthsLeft=moTotal>0?Math.ceil(remaining/moTotal):999;
+
+    return`<div class="card" style="border-left:4px solid ${color};margin-bottom:14px;">
+      <div class="card-hd">
+        <span class="card-ttl">${icon} ${p.name}</span>
+        <div class="fb g8">
+          <span class="bdg" style="background:${color}20;color:${color};">${p.type||'其他'}</span>
+          <button class="btn btn-s btn-sm" onclick="openM('editSavingsPlan','${p.id}')">✏️ 編輯</button>
+          <button class="bdel" onclick="delSavingsPlan('${p.id}')">×</button>
+        </div>
+      </div>
+      <div class="card-bd">
+        <div class="sg sg4" style="margin-bottom:14px;">
+          <div>
+            <div class="sl">月存目標</div>
+            <div class="sv sm" style="color:${color};">$${fmt(moT)}</div>
+            ${p.includeInvest?`<div class="ss">＋投資 $${fmt(p.monthlyInvest||0)}/月</div>`:''}
+          </div>
+          <div>
+            <div class="sl">本月實際存入</div>
+            <input type="number" class="yinp" value="${moActual||''}" placeholder="輸入本月存入"
+              style="width:110px;padding:5px 8px;font-size:13px;margin-top:4px;"
+              onchange="saveMoSavings('${p.id}','${curMk}',this.value)">
+          </div>
+          <div>
+            <div class="sl">累計儲蓄</div>
+            <div class="sv sm grn">$${fmt(saved)}</div>
+            ${p.includeInvest?`<div class="ss" style="color:#7B1FA2;">投資 $${fmt(invest)}</div>`:''}
+          </div>
+          <div>
+            <div class="sl">年度目標</div>
+            <div class="sv sm">$${fmt(yearT)}</div>
+            <div class="ss">${monthsLeft<999?`預計 ${monthsLeft} 個月達標`:'未設月存額'}</div>
+          </div>
+        </div>
+
+        <!-- 進度條 -->
+        <div class="plbl">
+          <span>儲蓄＋投資進度</span>
+          <span style="font-weight:700;color:${color};">${pct}%</span>
+        </div>
+        <div class="pb" style="height:16px;margin-bottom:6px;">
+          <div style="display:flex;height:16px;border-radius:10px;overflow:hidden;width:${Math.min(100,Math.round(saved/yearT*100))+Math.min(100-Math.min(100,Math.round(saved/yearT*100)),Math.round(invest/yearT*100))}%;">
+            <div style="flex:${saved};background:${color};"></div>
+            ${invest>0?`<div style="flex:${invest};background:#7B1FA2;"></div>`:''}
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;font-size:11px;color:var(--mut);flex-wrap:wrap;">
+          <span style="color:${color};">● 儲蓄 $${fmt(saved)}</span>
+          ${invest>0?`<span style="color:#7B1FA2;">● 投資 $${fmt(invest)}</span>`:''}
+          <span>目標 $${fmt(yearT)}</span>
+          <span>還差 $${fmt(Math.max(0,yearT-effective))}</span>
+        </div>
+        ${p.note?`<p class="tm" style="margin-top:8px;">${p.note}</p>`:''}
+      </div>
+    </div>`;
+  }).join('')}
+
+  <!-- 理財建議區 -->
+  <div class="card" style="border-left:4px solid var(--yelb);">
+    <div class="card-hd"><span class="card-ttl">💡 理財建議</span></div>
+    <div class="card-bd" style="font-size:13px;line-height:1.8;color:var(--txt);">
+      <p style="margin-bottom:8px;">📌 <b>先儲蓄原則</b>：薪資入帳後第一件事先轉出儲蓄，剩餘才是生活費</p>
+      <p style="margin-bottom:8px;">🛡️ <b>緊急備用金</b>：建議維持 3～6 個月家庭總支出（約 ${fmt(((S.data.fixedItems||[]).reduce((s,f)=>s+toN(f.amount),0))*4)} 元）</p>
+      <p style="margin-bottom:8px;">📈 <b>投資與儲蓄並行</b>：儲蓄保安全，投資創成長，建議比例 6:4 或 7:3</p>
+      <p>🎯 <b>目標導向</b>：每個儲蓄目標都應有明確用途，避免「存著存著就花掉」</p>
+    </div>
+  </div>`;
+}
+
 // ── DREAMS ────────────────────────────────────────────────────
 function pgDreams(){
   const dreams=S.data.dreams||[];
@@ -1377,6 +1567,34 @@ function modal(){
     </div>
     <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="updDebt('${d.id}')">✓ 更新</button></div>`;}
 
+  if(m.t==='addSavingsPlan'){const TYPES=['緊急備用金','子女教育','退休金','旅遊基金','置產基金','投資基金','其他'];c=`<div class="mttl">🏦 新增儲蓄目標</div>
+    <div class="fg fg2">
+      <div class="fgrp"><label>目標名稱</label><input type="text" id="m0" placeholder="如：緊急備用金、女兒教育金"></div>
+      <div class="fgrp"><label>類型</label><select id="m1">${TYPES.map(t=>`<option>${t}</option>`).join('')}</select></div>
+      <div class="fgrp"><label>每月存入目標（元）</label><input type="number" id="m2" placeholder="0"></div>
+      <div class="fgrp"><label>年度終極目標（元）</label><input type="number" id="m3" placeholder="0"></div>
+      <div class="fgrp"><label>目前累計儲蓄（元）</label><input type="number" id="m4" placeholder="0"></div>
+      <div class="fgrp"><label>納入投資追蹤</label><select id="m5" onchange="tglInvest()"><option value="0">否</option><option value="1">是</option></select></div>
+      <div class="fgrp" id="investBG" style="display:none"><label>目前投資金額（元）</label><input type="number" id="m6" placeholder="0"></div>
+      <div class="fgrp" id="investMoBG" style="display:none"><label>每月投入投資（元）</label><input type="number" id="m7" placeholder="0"></div>
+      <div class="fgrp" style="grid-column:1/-1"><label>備註</label><input type="text" id="m8" placeholder="選填"></div>
+    </div>
+    <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="saveSavingsPlan()">✓ 新增</button></div>`;}
+
+  if(m.t==='editSavingsPlan'){const TYPES=['緊急備用金','子女教育','退休金','旅遊基金','置產基金','投資基金','其他'];const p=(S.data.savingsPlans||[]).find(p=>p.id===m.x)||{};c=`<div class="mttl">✏️ 編輯儲蓄目標：${p.name||''}</div>
+    <div class="fg fg2">
+      <div class="fgrp"><label>目標名稱</label><input type="text" id="m0" value="${p.name||''}"></div>
+      <div class="fgrp"><label>類型</label><select id="m1">${TYPES.map(t=>`<option${t===(p.type||'')?' selected':''}>${t}</option>`).join('')}</select></div>
+      <div class="fgrp"><label>每月存入目標（元）</label><input type="number" id="m2" value="${p.monthlyTarget||0}"></div>
+      <div class="fgrp"><label>年度終極目標（元）</label><input type="number" id="m3" value="${p.yearTarget||0}"></div>
+      <div class="fgrp"><label>目前累計儲蓄（元）</label><input type="number" id="m4" value="${p.savedAmount||0}"></div>
+      <div class="fgrp"><label>納入投資追蹤</label><select id="m5" onchange="tglInvest()">${[['0','否'],['1','是']].map(([v,l])=>`<option value="${v}"${(v==='1'&&p.includeInvest)||(v==='0'&&!p.includeInvest)?' selected':''}>${l}</option>`).join('')}</select></div>
+      <div class="fgrp" id="investBG" style="${p.includeInvest?'':'display:none'}"><label>目前投資金額（元）</label><input type="number" id="m6" value="${p.investAmount||0}"></div>
+      <div class="fgrp" id="investMoBG" style="${p.includeInvest?'':'display:none'}"><label>每月投入投資（元）</label><input type="number" id="m7" value="${p.monthlyInvest||0}"></div>
+      <div class="fgrp" style="grid-column:1/-1"><label>備註</label><input type="text" id="m8" value="${p.note||''}"></div>
+    </div>
+    <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="updSavingsPlan('${p.id}')">✓ 更新</button></div>`;}
+
   if(m.t==='addCat'){c=`<div class="mttl">＋ 新增消費類別</div>
     <div class="fgrp"><label>類別名稱</label><input type="text" id="m0" placeholder="如：寵物、保健食品"></div>
     <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="saveCat()">✓ 新增</button></div>`;}
@@ -1491,6 +1709,31 @@ window.saveLedgerBudget=async(lid,val)=>{
   ledgerBudgets[lid]=toN(val);
   await saveMain({ledgerBudgets});toast('✅ 預算已更新');
 };
+window.tglInvest=()=>{const v=document.getElementById('m5')?.value==='1';['investBG','investMoBG'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=v?'':'none';});};
+window.saveMoSavings=async(pid,mk2,val)=>{
+  const savingsLogs={...(S.data.savingsLogs||{})};
+  const k=`${pid}_${mk2}`;
+  if(val===''||val===null){delete savingsLogs[k];}else{savingsLogs[k]=toN(val);}
+  await saveMain({savingsLogs});
+};
+window.saveSavingsPlan=async()=>{
+  const name=g('m0');if(!name){alert('請填目標名稱');return;}
+  const includeInvest=g('m5')==='1';
+  const plan={id:uid(),name,type:g('m1'),monthlyTarget:n('m2'),yearTarget:n('m3'),savedAmount:n('m4'),
+    includeInvest,investAmount:includeInvest?n('m6'):0,monthlyInvest:includeInvest?n('m7'):0,note:g('m8')};
+  const savingsPlans=[...(S.data.savingsPlans||[]),plan];
+  await saveMain({savingsPlans});toast('✅ 儲蓄目標已新增');closeMod();
+};
+window.updSavingsPlan=async(id)=>{
+  const includeInvest=g('m5')==='1';
+  const savingsPlans=(S.data.savingsPlans||[]).map(p=>p.id===id?{...p,
+    name:g('m0'),type:g('m1'),monthlyTarget:n('m2'),yearTarget:n('m3'),savedAmount:n('m4'),
+    includeInvest,investAmount:includeInvest?n('m6'):0,monthlyInvest:includeInvest?n('m7'):0,note:g('m8')}:p);
+  await saveMain({savingsPlans});toast('✅ 已更新');closeMod();
+};
+window.delSavingsPlan=async id=>{if(!confirm('確認刪除此儲蓄目標？'))return;
+  const savingsPlans=(S.data.savingsPlans||[]).filter(p=>p.id!==id);
+  await saveMain({savingsPlans});toast('已刪除');};
 window.saveBank=async()=>{
   const name=g('m0')?.trim();if(!name){alert('請填銀行名稱');return;}
   const banks=[...getBanks(),name];await saveMain({banks});toast(`✅ 銀行「${name}」已新增`);closeMod();
