@@ -189,7 +189,7 @@ const USERS=['伯涵','珞熙','楷宸'];
 const MOS=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
 const DEF_BANKS=['星展','富邦','國泰','聯邦','中信','永豐'];
 // 消費類別（信用卡 & 支出共用）— 可新增
-const DEF_CATS=['交通','飲食','購物','住家購物','通訊','女兒','愛美基金','醫療','娛樂','旅遊','教育進修','孝親費','其他'];
+const DEF_CATS=['交通','飲食','購物','住家購物','通訊','女兒','沐蜜','愛美基金','醫療','娛樂','旅遊','教育進修','孝親費','其他'];
 const INC_CATS=['薪資','助教費','獎金','投資收益','租金收入','利息','股票股利','其他被動收入','其他'];
 const PAY=['現金','轉帳','信用卡'];
 // 流水帳帳本
@@ -199,7 +199,36 @@ const LEDGERS=[
   {id:'union',   name:'🏢 工會保費流水帳', budget:7000, cats:['存入','工會費','保險','地價稅','房屋稅','其他']},
   {id:'gift',    name:'🧧 紅包基金流水帳', budget:5000, cats:['存入','伯涵爸爸','伯涵媽媽','珞熙媽媽','小朋友','伯涵阿姨','女兒','珞熙外婆','婉甄','璇璇','婚禮','其他']},
 ];
-// 固定支出預設
+// 信用卡類別 → 流水帳自動同步對應表
+const CC_LEDGER_MAP={
+  '交通':'traffic',
+  '通訊':'utility',
+};
+// 自動同步信用卡消費到對應流水帳
+async function syncCCToLedger(exp){
+  const lid=CC_LEDGER_MAP[exp.category];
+  if(!lid)return; // 不需要同步的類別直接略過
+  const d=new Date(exp.date||new Date());
+  const entry={
+    id:'cc_sync_'+exp.id,
+    lid,
+    date:exp.date,
+    amount:-Math.abs(toN(exp.amount)), // 支出為負數
+    cat:exp.category,
+    note:`💳 信用卡同步：${exp.cardBank||''}${exp.note?'・'+exp.note:''}`,
+    month:d.getMonth()+1,
+    year:d.getFullYear(),
+    ccSync:true, // 標記為信用卡自動同步
+    ccExpId:exp.id,
+  };
+  try{
+    await setDoc(doc(db,'families',FID,'ledgerEntries',entry.id),entry);
+  }catch(e){console.error('sync error',e);}
+}
+async function deleteCCSyncEntry(expId){
+  try{await deleteDoc(doc(db,'families',FID,'ledgerEntries','cc_sync_'+expId));}
+  catch(e){} // 若沒有同步記錄也沒關係
+}
 const DEF_FIXED=[
   {id:'f1',name:'房貸',amount:15606,note:'每月固定'},
   {id:'f2',name:'藏龍貸款',amount:10000,note:'每月固定'},
@@ -694,24 +723,36 @@ function pgCC(){
   const byCat={};allCard.forEach(e=>{const c=e.category||'其他';byCat[c]=(byCat[c]||0)+toN(e.amount);});
   const total=allCard.reduce((s,e)=>s+toN(e.amount),0);
   const cats=S.data.cats||DEF_CATS;
-  const recBase='cc_'+mk()+'_';
+  const recBase=`cc_${yr()}-${String(S.month).padStart(2,'0')}_`;
   const rec=S.data.reconcile||{};
 
-  // 帳務核對：各銀行帳單金額輸入
+  // 帳務核對：各銀行帳單金額輸入＋繳款日＋已繳勾選
   const recRows=banks.map(b=>{
     const sys=byBank[b]||0;
-    const inputVal=rec[recBase+b]??'';
+    const inputVal=rec[recBase+b+'_amt']??'';
+    const dueDate=rec[recBase+b+'_due']??'';
+    const paid=rec[recBase+b+'_paid']??false;
     const entered=inputVal!=='';
     const match=entered&&toN(inputVal)===sys;
     const mismatch=entered&&toN(inputVal)!==sys;
-    return`<tr>
-      <td><b class="c-${b}">${b}</b></td>
-      <td class="${sys>0?'an tm':'tm'}">${sys>0?'$'+fmt(sys):'—'}</td>
-      <td><input type="number" class="yinp" style="width:130px;padding:5px 8px;font-size:12px;"
-        value="${inputVal}" placeholder="輸入帳單金額"
-        onchange="saveCCRec('${b}','${mk()}',this.value)"></td>
-      <td style="font-weight:700;font-size:13px;color:${match?'var(--grn)':mismatch?'var(--red)':'var(--mut)'};">
-        ${match?'✅ 正確':mismatch?'⚠️ 不符':entered?'—':'—'}
+    return`<tr style="${paid?'opacity:0.6;':''}">
+      <td><b class="c-${b}">${b}</b>${paid?'<span style="font-size:10px;color:var(--grn);margin-left:4px;">✓已繳</span>':''}</td>
+      <td class="${sys>0?'an':'tm'}" style="font-size:12px;">${sys>0?'$'+fmt(sys):'—'}</td>
+      <td><input type="number" class="yinp" style="width:110px;padding:4px 6px;font-size:12px;"
+        value="${inputVal}" placeholder="帳單金額"
+        onchange="saveCCRec('${b}','amt',this.value)"></td>
+      <td><input type="date" class="yinp" style="width:130px;padding:4px 6px;font-size:12px;"
+        value="${dueDate}" title="繳款截止日"
+        onchange="saveCCRec('${b}','due',this.value)"></td>
+      <td>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;">
+          <input type="checkbox" ${paid?'checked':''} style="width:16px;height:16px;cursor:pointer;"
+            onchange="saveCCRec('${b}','paid',this.checked)">
+          已繳款
+        </label>
+      </td>
+      <td style="font-weight:700;font-size:12px;color:${match?'var(--grn)':mismatch?'var(--red)':'var(--mut)'};">
+        ${match?'✅ 正確':mismatch?'⚠️ 不符':'—'}
       </td>
       <td><button class="bdel" onclick="delBank('${b}')">×</button></td>
     </tr>`;
@@ -745,12 +786,12 @@ function pgCC(){
       <span class="card-ttl">✅ 帳務核對</span>
       <button class="btn btn-s btn-sm" onclick="openM('addBank')">＋ 新增銀行</button>
     </div>
-    <div class="tw"><table style="min-width:360px;">
-      <thead><tr><th>信用卡</th><th>系統帳單</th><th>銀行帳單金額</th><th>狀態</th><th></th></tr></thead>
+    <div class="tw"><table style="min-width:500px;">
+      <thead><tr><th>信用卡</th><th>系統帳單</th><th>銀行帳單金額</th><th>繳款截止日</th><th>繳款狀態</th><th>核對</th><th></th></tr></thead>
       <tbody>${recRows}</tbody>
     </table></div>
     <div class="card-bd" style="padding-top:8px;">
-      <span class="tm">🟡 黃色格 ＝ 輸入銀行帳單金額</span>
+      <span class="tm">🟡 填入帳單金額核對 ｜ 📅 設定繳款日 ｜ ☑️ 繳款後勾選</span>
     </div>
   </div>
 
@@ -871,13 +912,17 @@ function pgLedger(){
         <div class="tw"><table>
           <thead><tr><th>日期</th><th>金額</th><th>類別</th><th>說明</th><th>累計餘額</th><th></th></tr></thead>
           <tbody>${rows.length===0?`<tr><td colspan="6"><div class="empty"><div class="empty-ico">📒</div><p>本月尚無紀錄</p></div></td></tr>`:
-            rows.map(r=>`<tr>
+            rows.map(r=>`<tr style="${r.ccSync?'background:var(--bg2);':''}">
               <td>${r.date||''}</td>
               <td class="${toN(r.amount)>=0?'ap':'an'}">${toN(r.amount)>=0?'+':''}$${fmt(r.amount)}</td>
-              <td><span class="bdg">${r.cat||''}</span></td>
+              <td><span class="bdg">${r.cat||''}</span>${r.ccSync?'<span style="font-size:10px;color:var(--blu);margin-left:4px;">💳自動</span>':''}</td>
               <td class="tm">${r.note||''}</td>
               <td class="run-bal">$${fmt(r.run)}</td>
-              <td style="white-space:nowrap;"><button class="bdel" style="color:#aaa;font-size:13px;" onclick="openM('editLE','${r.id}')">✏️</button><button class="bdel" onclick="delLE('${r.id}')">×</button></td>
+              <td style="white-space:nowrap;">
+                ${r.ccSync
+                  ?'<span class="tm" style="font-size:11px;">信用卡同步</span>'
+                  :`<button class="bdel" style="color:#aaa;font-size:13px;" onclick="openM('editLE','${r.id}')">✏️</button><button class="bdel" onclick="delLE('${r.id}')">×</button>`}
+              </td>
             </tr>`).join('')}
           </tbody>
         </table></div>
@@ -1627,8 +1672,19 @@ window.saveInc=async()=>{
 window.saveExp=async()=>{
   const date=g('m0'),amount=n('m1');if(!date||!amount){alert('請填日期和金額');return;}
   const d=new Date(date),method=g('m3'),cardBank=method==='信用卡'?g('m_cb'):'';
-  await addSub('expenses',{date,amount,category:g('m2'),payMethod:method,cardBank,user:g('m4'),note:g('m5'),month:d.getMonth()+1,year:d.getFullYear()});
-  toast('✅ 支出已記帳');closeMod();
+  const category=g('m2');
+  const expId=uid();
+  const exp={date,amount,category,payMethod:method,cardBank,user:g('m4'),note:g('m5'),month:d.getMonth()+1,year:d.getFullYear(),_at:Date.now()};
+  setSyncing('syncing');
+  try{
+    await setDoc(doc(db,'families',FID,'expenses',expId),exp);
+    setSyncing('synced');
+    if(method==='信用卡'&&CC_LEDGER_MAP[category]){
+      await syncCCToLedger({...exp,id:expId});
+      toast(`✅ 已記帳並同步到${LEDGERS.find(l=>l.id===CC_LEDGER_MAP[category])?.name.replace(/[🚗💡🏢🧧]/u,'').trim()}`);
+    }else{toast('✅ 支出已記帳');}
+  }catch{setSyncing('error');toast('儲存失敗');return;}
+  closeMod();
 };
 window.saveAsset=async()=>{
   const name=g('m0'),value=n('m2');if(!name||!value){alert('請填名稱和現值');return;}
@@ -1681,10 +1737,23 @@ window.updInc=async(id)=>{
 window.updExp=async(id)=>{
   const date=g('m0'),amount=n('m1');if(!date||!amount){alert('請填日期和金額');return;}
   const d=new Date(date),method=g('m3'),cardBank=method==='信用卡'?g('m_cb'):'';
+  const category=g('m2');
   setSyncing('syncing');
-  try{await setDoc(doc(db,'families',FID,'expenses',id),{date,amount,category:g('m2'),payMethod:method,cardBank,user:g('m4'),note:g('m5'),month:d.getMonth()+1,year:d.getFullYear()});setSyncing('synced');}
-  catch{setSyncing('error');toast('儲存失敗');}
+  try{
+    await setDoc(doc(db,'families',FID,'expenses',id),{date,amount,category,payMethod:method,cardBank,user:g('m4'),note:g('m5'),month:d.getMonth()+1,year:d.getFullYear()});
+    // 重新同步流水帳
+    if(method==='信用卡'&&CC_LEDGER_MAP[category]){
+      await syncCCToLedger({id,date,amount,category,cardBank,note:g('m5')});
+    }else{
+      await deleteCCSyncEntry(id); // 類別改變了，刪除舊的同步記錄
+    }
+    setSyncing('synced');
+  }catch{setSyncing('error');toast('儲存失敗');return;}
   toast('✅ 已更新');closeMod();
+};
+window.delExp=async id=>{if(!confirm('確認刪除？'))return;
+  await deleteCCSyncEntry(id); // 同步刪除流水帳的對應記錄
+  await delSub('expenses',id);toast('已刪除');
 };
 window.updLE=async(id)=>{
   const date=g('m0'),amount=n('m1');if(!date||amount===0){alert('請填日期和金額');return;}
@@ -1740,8 +1809,14 @@ window.saveBank=async()=>{
 };
 window.delBank=async name=>{if(!confirm(`確認刪除「${name}」？`))return;
   const banks=getBanks().filter(b=>b!==name);await saveMain({banks});toast('已刪除');};
-window.saveCCRec=async(bank,mo,val)=>{
-  const reconcile={...(S.data.reconcile||{})};reconcile['cc_'+mo+'_'+bank]=val;await saveMain({reconcile});};
+window.saveCCRec=async(bank,field,val)=>{
+  const recBase=`cc_${yr()}-${String(S.month).padStart(2,'0')}_`;
+  const reconcile={...(S.data.reconcile||{})};
+  const key=recBase+bank+'_'+field;
+  if(val===''||val===false||val===null){delete reconcile[key];}
+  else{reconcile[key]=(field==='paid')?val:val;}
+  await saveMain({reconcile});
+};
 window.saveCat=async()=>{
   const name=g('m0')?.trim();if(!name){alert('請填類別名稱');return;}
   const cats=[...(S.data.cats||DEF_CATS),name];await saveMain({cats});toast(`✅ 類別「${name}」已新增`);closeMod();
@@ -1750,7 +1825,6 @@ window.saveCat=async()=>{
 window.delA=async id=>{if(!confirm('確認刪除？'))return;await saveMain({assets:(S.data.assets||[]).filter(a=>a.id!==id)});toast('已刪除');};
 window.delD=async id=>{if(!confirm('確認刪除？'))return;await saveMain({debts:(S.data.debts||[]).filter(d=>d.id!==id)});toast('已刪除');};
 window.delInc=async id=>{if(!confirm('確認刪除？'))return;await delSub('incomes',id);toast('已刪除');};
-window.delExp=async id=>{if(!confirm('確認刪除？'))return;await delSub('expenses',id);toast('已刪除');};
 window.delLE=async id=>{if(!confirm('確認刪除？'))return;await delSub('ledgerEntries',id);toast('已刪除');};
 window.delFixed=async id=>{if(!confirm('確認刪除此固定支出？'))return;await saveMain({fixedItems:(S.data.fixedItems||[]).filter(f=>f.id!==id)});toast('已刪除');};
 window.delDream=async id=>{if(!confirm('確認刪除此夢想？'))return;await saveMain({dreams:(S.data.dreams||[]).filter(d=>d.id!==id)});toast('已刪除');};
