@@ -834,11 +834,22 @@ function pgLedger(){
   const budget=ldBudgets[l.id]!==undefined?ldBudgets[l.id]:l.budget;
   const entries=getLedger(l.id).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   const allEntries=getLedgerAll(l.id);
-  let running=0;
-  const rows=entries.map((e,i)=>{running+=toN(e.amount);return{...e,run:running,oi:i};});
+
+  // 上月底前累計餘額
+  const curY=yr(), curM=S.month;
+  const prevBalance=allEntries
+    .filter(e=>e.year<curY||(e.year===curY&&e.month<curM))
+    .reduce((s,e)=>s+toN(e.amount),0);
+
+  // running 從上月結餘開始
+  let running=prevBalance;
+  const rows=entries.map(e=>{running+=toN(e.amount);return{...e,run:running};});
+  const moBalance=running; // 本月底結餘
+
   const cumTotal=allEntries.reduce((s,e)=>s+toN(e.amount),0);
   const mIn=entries.filter(e=>toN(e.amount)>0).reduce((s,e)=>s+toN(e.amount),0);
   const mOut=entries.filter(e=>toN(e.amount)<0).reduce((s,e)=>s+Math.abs(toN(e.amount)),0);
+  const moNet=mIn-mOut;
 
   // 累計分類統計（全部記錄）
   const cumCats={};
@@ -885,7 +896,7 @@ function pgLedger(){
         </div>
         <div class="sc grn"><div class="sl">本月存入</div><div class="sv grn sm">$${fmt(mIn)}</div></div>
         <div class="sc red"><div class="sl">本月支出</div><div class="sv red sm">$${fmt(mOut)}</div></div>
-        <div class="sc yel"><div class="sl">累計餘額</div><div class="sv sm">$${fmt(cumTotal)}</div></div>
+        <div class="sc ${moNet>=0?'grn':'red'}"><div class="sl">本月淨收支</div><div class="sv sm ${moNet>=0?'grn':'red'}">${moNet>=0?'+':''}$${fmt(moNet)}</div></div>
       </div>
 
       <!-- 對帳 -->
@@ -895,7 +906,7 @@ function pgLedger(){
           <span class="tm">帳戶實際餘額（從手機銀行查）</span>
           <input type="number" class="yinp" style="width:160px;padding:6px 10px;font-size:14px;"
             value="${recVal}" placeholder="輸入銀行餘額" onchange="saveRec('${l.id}','${mk()}',this.value)">
-          <span class="tm">帳本累計：$${fmt(cumTotal)}</span>
+          <span class="tm">帳本餘額：$${fmt(cumTotal)}</span>
         </div>
         ${diff!==null?`<div style="margin-top:8px;font-weight:700;font-size:13px;color:${diff===0?'var(--grn)':'var(--red)'};">
           ${diff===0?'✅ 帳戶核對一致！':`⚠️ 差額：$${fmt(Math.abs(diff))}，請檢查！`}
@@ -912,19 +923,36 @@ function pgLedger(){
         </div>
         <div class="tw"><table>
           <thead><tr><th>日期</th><th>金額</th><th>類別</th><th>說明</th><th>累計餘額</th><th></th></tr></thead>
-          <tbody>${rows.length===0?`<tr><td colspan="6"><div class="empty"><div class="empty-ico">📒</div><p>本月尚無紀錄</p></div></td></tr>`:
-            rows.map(r=>`<tr style="${r.ccSync?'background:var(--bg2);':''}">
-              <td>${r.date||''}</td>
-              <td class="${toN(r.amount)>=0?'ap':'an'}">${toN(r.amount)>=0?'+':''}$${fmt(r.amount)}</td>
-              <td><span class="bdg">${r.cat||''}</span>${r.ccSync?'<span style="font-size:10px;color:var(--blu);margin-left:4px;">💳自動</span>':''}</td>
-              <td class="tm">${r.note||''}</td>
-              <td class="run-bal">$${fmt(r.run)}</td>
-              <td style="white-space:nowrap;">
-                ${r.ccSync
-                  ?'<span class="tm" style="font-size:11px;">信用卡同步</span>'
-                  :`<button class="bdel" style="color:#aaa;font-size:13px;" onclick="openM('editLE','${r.id}')">✏️</button><button class="bdel" onclick="delLE('${r.id}')">×</button>`}
-              </td>
-            </tr>`).join('')}
+          <tbody>
+            <!-- 上月結餘 -->
+            <tr style="background:var(--bg2);font-weight:700;">
+              <td colspan="2" style="color:var(--mut);font-size:12px;">📅 上月結餘</td>
+              <td colspan="2"></td>
+              <td style="font-weight:700;font-size:14px;color:${prevBalance>=0?'var(--grn)':'var(--red)'};">$${fmt(prevBalance)}</td>
+              <td></td>
+            </tr>
+            ${rows.length===0
+              ?`<tr><td colspan="6"><div class="empty"><div class="empty-ico">📒</div><p>本月尚無紀錄</p></div></td></tr>`
+              :rows.map(r=>`<tr style="${r.ccSync?'background:#EFF8FF;':''}">
+                <td>${r.date||''}</td>
+                <td class="${toN(r.amount)>=0?'ap':'an'}">${toN(r.amount)>=0?'+':''}$${fmt(r.amount)}</td>
+                <td><span class="bdg">${r.cat||''}</span>${r.ccSync?'<span style="font-size:10px;color:var(--blu);margin-left:4px;">💳自動</span>':''}</td>
+                <td class="tm">${r.note||''}</td>
+                <td class="run-bal" style="font-weight:700;color:${r.run>=0?'var(--brown)':'var(--red)'};">$${fmt(r.run)}</td>
+                <td style="white-space:nowrap;">
+                  ${r.ccSync
+                    ?'<span class="tm" style="font-size:11px;">信用卡同步</span>'
+                    :`<button class="bdel" style="color:#aaa;font-size:13px;" onclick="openM('editLE','${r.id}')">✏️</button><button class="bdel" onclick="delLE('${r.id}')">×</button>`}
+                </td>
+              </tr>`).join('')}
+            <!-- 本月結餘 -->
+            <tr style="background:${moBalance>=0?'var(--grnl)':'var(--redl)'};font-weight:700;border-top:2px solid var(--bdr);">
+              <td colspan="2" style="font-size:12px;color:var(--mut);">💰 本月結餘</td>
+              <td style="font-size:11px;color:var(--mut);">存入$${fmt(mIn)} / 支出$${fmt(mOut)}</td>
+              <td></td>
+              <td style="font-size:16px;font-weight:700;color:${moBalance>=0?'var(--grn)':'var(--red)'};">$${fmt(moBalance)}</td>
+              <td></td>
+            </tr>
           </tbody>
         </table></div>
       </div>
