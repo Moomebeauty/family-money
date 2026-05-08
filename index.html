@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>🌸 家庭財務</title>
+<title>🏠 家庭財務</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700;900&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -755,7 +755,7 @@ window.exportCSV = () => {
   const csv = rows.map(r=>r.map(v=>'"'+(v||'').toString().replace(/"/g,'""')+'"').join(',')).join('\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}));
-  a.download = `項沐蜜財務_${MOS[S.month-1]}.csv`;
+  a.download = `家庭財務_${MOS[S.month-1]}.csv`;
   a.click();
   toast('✅ CSV 已下載');
 };
