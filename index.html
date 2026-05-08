@@ -2,773 +2,818 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>🏠 家庭財務</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700;900&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>家庭財務月報系統｜功能規格說明</title>
 <style>
-:root{
-  --rose:#C2747A;--roseDk:#9E5A60;--roseL:#F5E8EA;--roseMid:#E8C4C8;
-  --gold:#C4A46B;--goldL:#F9F0E0;--goldDk:#8C6B3A;
-  --grn:#5A8C6B;--grnL:#E8F5ED;--red:#C25A5A;--redL:#FAEAEA;
-  --blu:#5A7AC2;--bluL:#E8EEFA;--pur:#8C5AC2;--purL:#F0E8FA;
-  --brown:#6B4C3A;--txt:#2D1F1A;--mut:#7E6860;--bdr:#EAE0D8;
-  --bg:#FDFAF8;--bg2:#F7F0EC;--bg3:#F0E8E2;--card:#FFFFFF;
-  --shadow:0 2px 16px rgba(180,100,100,0.08);
-  --shadow2:0 4px 32px rgba(180,100,100,0.14);
-}
-*{box-sizing:border-box;margin:0;padding:0;letter-spacing:0.04em;}
-body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt);font-size:17px;min-height:100vh;line-height:1.65;}
-h1,h2,h3{font-family:'Noto Serif TC',serif;letter-spacing:0.08em;}
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500&display=swap');
 
-.app{display:flex;min-height:100vh;}
-.sidebar{width:220px;background:linear-gradient(180deg,var(--roseDk) 0%,var(--brown) 100%);padding:14px 0;flex-shrink:0;position:fixed;top:0;left:0;height:100vh;overflow-y:auto;z-index:100;}
-.sb-logo{padding:18px 20px 22px;border-bottom:1px solid rgba(255,255,255,0.15);margin-bottom:8px;}
-.sb-logo-ico{font-size:32px;margin-bottom:4px;}
-.sb-logo-txt{font-family:'Noto Serif TC',serif;font-size:17px;font-weight:900;color:#fff;letter-spacing:0.12em;}
-.sb-logo-sub{font-size:12px;color:rgba(255,255,255,0.6);letter-spacing:0.08em;margin-top:2px;}
-.sb-item{display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;transition:.2s;color:rgba(255,255,255,0.78);font-size:16px;border-left:4px solid transparent;letter-spacing:0.06em;}
-.sb-item:hover{background:rgba(255,255,255,0.1);color:#fff;}
-.sb-item.active{background:rgba(255,255,255,0.18);color:#fff;border-left-color:var(--gold);font-weight:700;}
-.sb-item .ico{font-size:20px;width:26px;text-align:center;}
+  :root {
+    --brown-dark:  #5C4033;
+    --brown-mid:   #8B6F5E;
+    --caramel:     #C8956C;
+    --cream:       #FAF3EB;
+    --tan:         #EDE0D4;
+    --tan-light:   #F5EBE0;
+    --white:       #FFFFFF;
+    --text-dark:   #3E2723;
+    --text-mid:    #6D4C41;
+    --text-light:  #9E8576;
+    --green:       #4A7C59;
+    --red:         #B5534A;
+    --border:      #D4B8A8;
+  }
 
-.main{margin-left:220px;flex:1;display:flex;flex-direction:column;}
-.topbar{background:var(--card);border-bottom:1px solid var(--bdr);padding:0 28px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:var(--shadow);}
-.tb-ttl{font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--roseDk);letter-spacing:0.08em;}
-.tb-right{display:flex;align-items:center;gap:12px;}
-.btn-out{background:none;border:1.5px solid var(--bdr);border-radius:8px;padding:7px 14px;font-size:14px;cursor:pointer;color:var(--mut);transition:.2s;letter-spacing:0.06em;font-family:'Noto Sans TC',sans-serif;}
-.btn-out:hover{border-color:var(--rose);color:var(--roseDk);}
+  * { box-sizing: border-box; margin: 0; padding: 0; }
 
-.content{padding:28px;flex:1;}
-.pg-ttl{font-family:'Noto Serif TC',serif;font-size:28px;font-weight:900;color:var(--roseDk);margin-bottom:6px;letter-spacing:0.1em;}
-.pg-sub{font-size:14px;color:var(--mut);margin-bottom:24px;letter-spacing:0.08em;}
+  body {
+    font-family: 'Noto Sans TC', sans-serif;
+    background: var(--cream);
+    color: var(--text-dark);
+    line-height: 1.7;
+  }
 
-/* CARDS */
-.card{background:var(--card);border-radius:14px;box-shadow:var(--shadow);margin-bottom:18px;overflow:hidden;}
-.card-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--bdr);gap:12px;flex-wrap:wrap;}
-.card-ttl{font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:var(--brown);letter-spacing:0.08em;}
-.card-bd{padding:18px 20px;}
+  /* ── Header ── */
+  header {
+    background: var(--brown-dark);
+    color: var(--white);
+    padding: 48px 60px 36px;
+    position: relative;
+    overflow: hidden;
+  }
+  header::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    background: var(--caramel);
+  }
+  header::after {
+    content: '🏠';
+    position: absolute;
+    right: 60px; top: 50%;
+    transform: translateY(-50%);
+    font-size: 80px;
+    opacity: 0.12;
+  }
+  header .tag {
+    display: inline-block;
+    background: var(--caramel);
+    color: var(--white);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    padding: 4px 14px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+  }
+  header h1 {
+    font-family: 'Noto Serif TC', serif;
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    color: var(--white);
+  }
+  header p {
+    color: #D4B8A8;
+    font-size: 15px;
+  }
+  .meta-row {
+    display: flex;
+    gap: 32px;
+    margin-top: 24px;
+    flex-wrap: wrap;
+  }
+  .meta-item {
+    font-size: 13px;
+    color: #C8A898;
+  }
+  .meta-item span { color: var(--caramel); font-weight: 500; }
 
-/* STAT GRID */
-.sg{display:grid;gap:14px;margin-bottom:18px;}
-.sg2{grid-template-columns:repeat(2,1fr);}
-.sg3{grid-template-columns:repeat(3,1fr);}
-.sg4{grid-template-columns:repeat(4,1fr);}
-.sg7{grid-template-columns:repeat(7,1fr);}
-.sc{background:var(--card);border-radius:12px;padding:16px 18px;box-shadow:var(--shadow);border-top:3px solid var(--bdr);}
-.sc.rose{border-top-color:var(--rose);}
-.sc.grn{border-top-color:var(--grn);}
-.sc.red{border-top-color:var(--red);}
-.sc.gold{border-top-color:var(--gold);}
-.sc.blu{border-top-color:var(--blu);}
-.sc.pur{border-top-color:var(--pur);}
-.sc.brown{border-top-color:var(--brown);}
-.sl{font-size:13px;color:var(--mut);margin-bottom:8px;font-weight:500;letter-spacing:0.06em;}
-.sv{font-family:'Noto Serif TC',serif;font-size:24px;font-weight:700;color:var(--txt);letter-spacing:0.04em;}
-.sv.sm{font-size:18px;}
-.sv.rose{color:var(--rose);}
-.sv.grn{color:var(--grn);}
-.sv.red{color:var(--red);}
-.sv.gold{color:var(--gold);}
-.sv.blu{color:var(--blu);}
-.sv.pur{color:var(--pur);}
-.ss{font-size:12px;color:var(--mut);margin-top:4px;letter-spacing:0.04em;}
+  /* ── Layout ── */
+  .container { max-width: 960px; margin: 0 auto; padding: 48px 32px; }
 
-/* TABLES */
-.tw{overflow-x:auto;}
-table{width:100%;border-collapse:collapse;font-size:15px;}
-th{background:var(--bg2);padding:12px 14px;text-align:left;font-size:13px;font-weight:700;color:var(--mut);border-bottom:1px solid var(--bdr);white-space:nowrap;letter-spacing:0.08em;}
-td{padding:13px 14px;border-bottom:1px solid var(--bdr);vertical-align:middle;letter-spacing:0.04em;}
-tr:last-child td{border-bottom:none;}
-tr:hover td{background:var(--bg);}
+  /* ── TOC ── */
+  .toc {
+    background: var(--white);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 32px;
+    margin-bottom: 48px;
+  }
+  .toc h2 {
+    font-family: 'Noto Serif TC', serif;
+    font-size: 16px;
+    color: var(--brown-dark);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .toc ol {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 32px;
+    padding-left: 20px;
+  }
+  .toc li { font-size: 14px; }
+  .toc a { color: var(--brown-mid); text-decoration: none; }
+  .toc a:hover { color: var(--caramel); text-decoration: underline; }
 
-/* BADGES */
-.bdg{display:inline-block;padding:3px 10px;border-radius:20px;font-size:13px;font-weight:600;letter-spacing:0.04em;}
-.bdg.rose{background:var(--roseL);color:var(--roseDk);}
-.bdg.grn{background:var(--grnL);color:var(--grn);}
-.bdg.red{background:var(--redL);color:var(--red);}
-.bdg.gold{background:var(--goldL);color:var(--goldDk);}
-.bdg.blu{background:var(--bluL);color:var(--blu);}
-.bdg.pur{background:var(--purL);color:var(--pur);}
+  /* ── Section ── */
+  .section { margin-bottom: 56px; }
 
-/* BUTTONS */
-.btn{border:none;border-radius:8px;padding:10px 18px;font-size:15px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;font-weight:600;transition:.2s;letter-spacing:0.08em;}
-.btn-p{background:linear-gradient(135deg,var(--rose),var(--roseDk));color:#fff;}
-.btn-p:hover{opacity:.9;transform:translateY(-1px);}
-.btn-s{background:var(--bg2);color:var(--brown);border:1.5px solid var(--bdr);}
-.btn-s:hover{border-color:var(--rose);color:var(--roseDk);}
-.btn-g{background:linear-gradient(135deg,var(--grn),#3a6b4c);color:#fff;}
-.btn-sm{padding:7px 14px;font-size:14px;}
-.bdel{background:none;border:none;color:var(--mut);cursor:pointer;padding:5px 8px;border-radius:6px;font-size:18px;transition:.2s;}
-.bdel:hover{background:var(--redL);color:var(--red);}
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 24px;
+    padding-bottom: 14px;
+    border-bottom: 2px solid var(--tan);
+  }
+  .section-num {
+    width: 36px; height: 36px;
+    background: var(--brown-dark);
+    color: var(--caramel);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 15px;
+    flex-shrink: 0;
+  }
+  .section h2 {
+    font-family: 'Noto Serif TC', serif;
+    font-size: 22px;
+    color: var(--brown-dark);
+  }
 
-/* PROGRESS */
-.pb{background:var(--bg2);border-radius:10px;overflow:hidden;}
-.pf{border-radius:10px;transition:width .4s ease;background:linear-gradient(90deg,var(--rose),var(--gold));}
-.plbl{display:flex;justify-content:space-between;font-size:14px;color:var(--mut);margin-bottom:7px;letter-spacing:0.04em;}
+  /* ── Module Card ── */
+  .module {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+  .module-header {
+    background: var(--tan);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .module-header h3 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--brown-dark);
+  }
+  .module-header .badge {
+    margin-left: auto;
+    font-size: 11px;
+    background: var(--caramel);
+    color: white;
+    padding: 2px 10px;
+    border-radius: 20px;
+  }
+  .module-body { padding: 20px; }
 
-/* FORMS */
-.fg{display:grid;gap:16px;}
-.fg2{grid-template-columns:1fr 1fr;}
-.fgrp{display:flex;flex-direction:column;gap:6px;}
-.fgrp label{font-size:14px;font-weight:600;color:var(--brown);letter-spacing:0.06em;}
-.fgrp input,.fgrp select,.fgrp textarea{
-  border:1.5px solid var(--bdr);border-radius:8px;padding:11px 14px;font-size:15px;
-  font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt);transition:.2s;width:100%;letter-spacing:0.04em;}
-.fgrp input:focus,.fgrp select:focus,.fgrp textarea:focus{outline:none;border-color:var(--rose);background:#fff;}
+  /* ── Table ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+    margin: 12px 0;
+  }
+  thead tr { background: var(--brown-dark); color: var(--white); }
+  thead th { padding: 10px 14px; text-align: left; font-weight: 500; }
+  tbody tr:nth-child(even) { background: var(--tan-light); }
+  tbody tr:nth-child(odd)  { background: var(--white); }
+  tbody td { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  tbody td:first-child { font-weight: 500; color: var(--brown-dark); }
 
-/* MODAL */
-.modal-bg{display:none;position:fixed;inset:0;background:rgba(45,31,26,0.5);z-index:1000;backdrop-filter:blur(4px);}
-.modal-bg.open{display:flex;align-items:center;justify-content:center;}
-.modal{background:var(--card);border-radius:18px;padding:30px;width:92%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow2);}
-.mttl{font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:var(--roseDk);margin-bottom:22px;letter-spacing:0.08em;}
-.mbtns{display:flex;gap:10px;justify-content:flex-end;margin-top:22px;flex-wrap:wrap;}
+  /* ── Field row ── */
+  .field-list { display: flex; flex-direction: column; gap: 8px; }
+  .field-row {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    font-size: 13.5px;
+  }
+  .field-name {
+    min-width: 140px;
+    font-weight: 600;
+    color: var(--brown-dark);
+    font-family: 'Noto Serif TC', serif;
+  }
+  .field-type {
+    font-size: 11px;
+    background: var(--tan);
+    color: var(--brown-mid);
+    padding: 1px 8px;
+    border-radius: 4px;
+    font-family: monospace;
+    flex-shrink: 0;
+  }
+  .field-desc { color: var(--text-mid); flex: 1; }
 
-/* MISC */
-.mo-scroll{display:flex;gap:8px;overflow-x:auto;padding-bottom:10px;margin-bottom:18px;scrollbar-width:none;}
-.mo-scroll::-webkit-scrollbar{display:none;}
-.mo-btn{padding:8px 16px;border-radius:20px;border:1.5px solid var(--bdr);background:var(--card);font-size:14px;cursor:pointer;white-space:nowrap;transition:.2s;color:var(--mut);letter-spacing:0.06em;font-family:'Noto Sans TC',sans-serif;}
-.mo-btn.active{background:var(--rose);border-color:var(--rose);color:#fff;font-weight:700;}
-.sec-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
-.sec-ttl{font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--brown);letter-spacing:0.08em;}
-.empty{text-align:center;padding:44px 20px;color:var(--mut);}
-.empty-ico{font-size:44px;margin-bottom:14px;}
-.notice{background:var(--roseL);border-left:4px solid var(--rose);border-radius:8px;padding:12px 16px;font-size:14px;color:var(--roseDk);margin-bottom:18px;letter-spacing:0.04em;}
-.toast{position:fixed;bottom:28px;right:28px;background:var(--brown);color:#fff;padding:14px 22px;border-radius:12px;font-size:15px;font-weight:600;z-index:9999;opacity:0;transform:translateY(10px);transition:.3s;pointer-events:none;letter-spacing:0.06em;}
-.toast.show{opacity:1;transform:translateY(0);}
+  /* ── Rule list ── */
+  .rule-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .rule-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 13.5px;
+    color: var(--text-mid);
+  }
+  .rule-list li::before {
+    content: '◆';
+    color: var(--caramel);
+    flex-shrink: 0;
+    margin-top: 2px;
+    font-size: 10px;
+  }
 
-/* QUICK ADD ROW */
-.quick-add{display:flex;gap:8px;align-items:flex-end;padding:14px 20px;background:var(--bg2);border-top:1px solid var(--bdr);flex-wrap:wrap;}
-.quick-add .fgrp{gap:4px;min-width:0;}
-.quick-add .fgrp label{font-size:12px;}
-.quick-add .fgrp input,.quick-add .fgrp select{padding:8px 10px;font-size:14px;}
-.qa-date{width:128px;}
-.qa-cat{width:120px;}
-.qa-note{flex:1;min-width:120px;}
-.qa-amt{width:110px;}
-.qa-card{width:100px;}
-.qa-rem{width:120px;}
+  /* ── Info box ── */
+  .info-box {
+    background: #FDF0E0;
+    border-left: 3px solid var(--caramel);
+    border-radius: 0 8px 8px 0;
+    padding: 12px 16px;
+    font-size: 13.5px;
+    color: var(--text-dark);
+    margin: 14px 0;
+  }
+  .info-box.green {
+    background: #EAF2EA;
+    border-color: var(--green);
+    color: #2D5016;
+  }
+  .info-box.red {
+    background: #F5E6DA;
+    border-color: var(--red);
+    color: #7A2020;
+  }
 
-/* RECON */
-.recon-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--bdr);}
-.recon-row:last-child{border-bottom:none;}
-.recon-card{font-size:14px;font-weight:700;width:48px;}
-.recon-rec{font-size:13px;color:var(--mut);flex:1;}
-.recon-inp{border:1.5px solid var(--bdr);border-radius:8px;padding:7px 10px;font-size:14px;width:110px;font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt);transition:.2s;}
-.recon-inp:focus{outline:none;border-color:var(--rose);}
-.recon-st{font-size:20px;width:28px;text-align:center;}
+  /* ── Formula block ── */
+  .formula {
+    background: var(--brown-dark);
+    color: #F0D9C8;
+    padding: 12px 18px;
+    border-radius: 8px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    margin: 10px 0;
+    overflow-x: auto;
+  }
+  .formula .comment { color: #9E7868; }
 
-/* CAT BAR */
-.cat-bar-row{margin-bottom:12px;}
-.cat-bar-hd{display:flex;justify-content:space-between;font-size:14px;margin-bottom:5px;}
-.cat-bar-nm{color:var(--brown);font-weight:600;}
-.cat-bar-amt{color:var(--mut);}
-.pb5{background:var(--bg2);border-radius:10px;height:6px;overflow:hidden;}
-.pf5{height:6px;border-radius:10px;transition:width .4s ease;}
+  /* ── Page map ── */
+  .page-map {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin: 16px 0;
+  }
+  .page-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 10px;
+    text-align: center;
+  }
+  .page-card .icon { font-size: 22px; margin-bottom: 6px; }
+  .page-card .name { font-size: 12px; font-weight: 600; color: var(--brown-dark); }
+  .page-card .desc { font-size: 11px; color: var(--text-light); margin-top: 4px; }
+  .page-card.highlight { border-color: var(--caramel); background: #FDF6EE; }
 
-@media(max-width:768px){
-  .sidebar{width:64px;}
-  .sb-item span:last-child{display:none;}
-  .sb-item{padding:14px;justify-content:center;}
-  .sb-logo-txt,.sb-logo-sub{display:none;}
-  .sb-logo{padding:12px;text-align:center;}
-  .main{margin-left:64px;}
-  .sg4,.sg7{grid-template-columns:repeat(2,1fr);}
-  .sg3{grid-template-columns:1fr;}
-  .sg2{grid-template-columns:1fr;}
-  .fg2{grid-template-columns:1fr;}
-  .pg-ttl{font-size:22px;}
-  .content{padding:16px;}
-}
+  /* ── Step flow ── */
+  .step-flow {
+    display: flex;
+    gap: 0;
+    margin: 16px 0;
+    overflow-x: auto;
+  }
+  .step-item {
+    flex: 1;
+    min-width: 120px;
+    text-align: center;
+    position: relative;
+  }
+  .step-item:not(:last-child)::after {
+    content: '→';
+    position: absolute;
+    right: -8px; top: 18px;
+    color: var(--caramel);
+    font-size: 18px;
+  }
+  .step-circle {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: var(--brown-mid);
+    color: white;
+    font-size: 14px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 8px;
+  }
+  .step-label { font-size: 12px; color: var(--text-mid); }
+
+  /* ── Footer ── */
+  footer {
+    background: var(--brown-dark);
+    color: #9E7868;
+    text-align: center;
+    padding: 24px;
+    font-size: 13px;
+  }
+  footer span { color: var(--caramel); }
+
+  @media (max-width: 600px) {
+    header { padding: 32px 24px; }
+    .container { padding: 32px 16px; }
+    .toc ol { grid-template-columns: 1fr; }
+    .page-map { grid-template-columns: repeat(2, 1fr); }
+    .step-flow { flex-direction: column; gap: 8px; }
+    .step-item::after { display: none; }
+  }
 </style>
 </head>
 <body>
-<div id="app"></div>
-<div class="modal-bg" id="modal-bg">
-  <div class="modal" id="modal-inner"></div>
-</div>
 
-<script>
-// ── CONFIG ───────────────────────────────────────────────────────────────────
-const CARDS = ["星展","富邦","國泰","台新","中信","永豐"];
-const CATEGORIES = ["交通","購物","住家購物","飲食","愛美基金","通訊","女兒","其他"];
-const MOS = ["一月","二月","三月","四月","五月","六月","七月","八月","九月","十月","十一月","十二月"];
-const CARD_COLORS = {
-  "星展":"rose","富邦":"grn","國泰":"blu","台新":"gold","中信":"pur","永豐":"red"
-};
-const CARD_HEX = {
-  "星展":"#C2747A","富邦":"#5A8C6B","國泰":"#5A7AC2","台新":"#C4A46B","中信":"#8C5AC2","永豐":"#C25A5A"
-};
-const CAT_COLORS = {
-  "交通":"#5A7AC2","購物":"#C4A46B","住家購物":"#C2747A",
-  "飲食":"#5A8C6B","愛美基金":"#8C5AC2","通訊":"#6B4C3A",
-  "女兒":"#C4A46B","其他":"#7E6860"
-};
-const PAGES = [
-  {id:'overview', ico:'📊', lbl:'總覽'},
-  {id:'txs',      ico:'💳', lbl:'消費明細'},
-  {id:'category', ico:'📂', lbl:'類別統計'},
-  {id:'cards',    ico:'💎', lbl:'信用卡統計'},
-  {id:'recon',    ico:'✅', lbl:'帳務核對'},
-  {id:'annual',   ico:'📈', lbl:'年度總覽'},
-];
+<!-- Header -->
+<header>
+  <div class="tag">Functional Specification</div>
+  <h1>🏠 家庭財務月報系統｜功能規格說明</h1>
+  <p>網頁版功能規格，供工程師開發參考</p>
+  <div class="meta-row">
+    <div class="meta-item">版本 <span>v1.0</span></div>
+    <div class="meta-item">對應原始系統 <span>家庭財務月報.xlsx</span></div>
+    <div class="meta-item">語言 <span>繁體中文</span></div>
+    <div class="meta-item">使用者 <span>伯涵、珞熙</span></div>
+  </div>
+</header>
 
-// ── STATE ────────────────────────────────────────────────────────────────────
-let S = {
-  page: 'overview',
-  month: new Date().getMonth() + 1,
-  modal: null,
-  data: {}, // { "2025-1": [{id,date,cat,note,amt,card,remark},...] }
-  recon: {}, // { "2025-1": { "星展": 0, ... } }
-  budget: {}, // { "2025-1": 30000 }
-};
+<div class="container">
 
-const yr = () => new Date().getFullYear();
-const mk = (m) => `${yr()}-${m || S.month}`;
-const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
-const today = () => new Date().toISOString().slice(0, 10);
-const fmt = v => { const n = parseFloat(String(v||0).replace(/,/g,''))||0; return n ? n.toLocaleString('zh-TW') : '0'; };
-const toN = v => parseFloat(String(v||0).replace(/,/g,''))||0;
+  <!-- TOC -->
+  <div class="toc">
+    <h2>📋 目錄</h2>
+    <ol>
+      <li><a href="#overview">系統概述</a></li>
+      <li><a href="#pages">頁面架構（10 個模組）</a></li>
+      <li><a href="#ledger">帳本流水帳規格</a></li>
+      <li><a href="#reconcile">對帳功能</a></li>
+      <li><a href="#monthly">12月份紀錄（年度樞紐）</a></li>
+      <li><a href="#dashboard">月報總覽儀表板</a></li>
+      <li><a href="#house">買房計畫模組</a></li>
+      <li><a href="#quarterly">季報 & 年報</a></li>
+      <li><a href="#rules">計算規則</a></li>
+      <li><a href="#ux">UX 需求</a></li>
+    </ol>
+  </div>
 
-function getTxs(m) { return S.data[mk(m)] || []; }
-function setTxs(arr, m) { S.data[mk(m)] = arr; save(); }
-function getRecon(m) { return S.recon[mk(m)] || {}; }
-function setRecon(obj, m) { S.recon[mk(m)] = obj; save(); }
-function getBudget(m) { return S.budget[mk(m)] || 30000; }
-
-// ── STORAGE ──────────────────────────────────────────────────────────────────
-function save() {
-  try {
-    localStorage.setItem('mumei_cc_data', JSON.stringify(S.data));
-    localStorage.setItem('mumei_cc_recon', JSON.stringify(S.recon));
-    localStorage.setItem('mumei_cc_budget', JSON.stringify(S.budget));
-  } catch(e) {}
-}
-function load() {
-  try {
-    const d = localStorage.getItem('mumei_cc_data') || localStorage.getItem('ccdata');
-    const r = localStorage.getItem('mumei_cc_recon') || localStorage.getItem('ccrecon');
-    const b = localStorage.getItem('mumei_cc_budget');
-    if (d) {
-      const parsed = JSON.parse(d);
-      // 舊格式：key 是 "0"~"11"（月份 index），新格式是 "2025-1"~"2025-12"
-      // 自動轉換舊格式
-      const isOldFormat = Object.keys(parsed).some(k => /^\d$|^\d{1,2}$/.test(k) && parseInt(k) < 12);
-      if (isOldFormat) {
-        const converted = {};
-        Object.entries(parsed).forEach(([k, v]) => {
-          const newKey = `${yr()}-${parseInt(k)+1}`;
-          converted[newKey] = v;
-        });
-        S.data = converted;
-        save(); // 存成新格式
-      } else {
-        S.data = parsed;
-      }
-    }
-    if (r) S.recon = JSON.parse(r);
-    if (b) S.budget = JSON.parse(b);
-  } catch(e) {}
-}
-
-// ── TOAST ────────────────────────────────────────────────────────────────────
-const toast = msg => {
-  const t = document.createElement('div');
-  t.className = 'toast'; t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => t.classList.add('show'), 10);
-  setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 2800);
-};
-
-// ── RENDER ───────────────────────────────────────────────────────────────────
-function render() {
-  document.getElementById('app').innerHTML = appHTML();
-  bindEvents();
-}
-
-function appHTML() {
-  const cur = PAGES.find(p => p.id === S.page) || PAGES[0];
-  return `
-<div class="app">
-  <nav class="sidebar">
-    <div class="sb-logo">
-      <div class="sb-logo-ico">🌸</div>
-      <div class="sb-logo-txt">項沐蜜財務</div>
-      <div class="sb-logo-sub">家庭信用卡管理</div>
+  <!-- 1. 系統概述 -->
+  <div class="section" id="overview">
+    <div class="section-header">
+      <div class="section-num">1</div>
+      <h2>系統概述</h2>
     </div>
-    ${PAGES.map(p => `<div class="sb-item${S.page===p.id?' active':''}" onclick="setP('${p.id}')">
-      <span class="ico">${p.ico}</span><span>${p.lbl}</span>
-    </div>`).join('')}
-  </nav>
-  <div class="main">
-    <div class="topbar">
-      <span class="tb-ttl">${cur.ico} ${cur.lbl}</span>
-      <div class="tb-right">
-        <button class="btn-out" onclick="exportCSV()">⬇ 匯出 CSV</button>
+
+    <div class="module">
+      <div class="module-header"><h3>🎯 核心目標</h3></div>
+      <div class="module-body">
+        <ul class="rule-list">
+          <li>協助家庭每月追蹤收入與各類支出，達成存錢買房的目標</li>
+          <li>主要目標：每月存「練習房貸金額 NT$15,606」到股票，同時累積頭期款</li>
+          <li>固定大支出：房貸 15,606 ／ 藏龍貸款 10,000 ／ 車貸 12,000 ／ 房租 12,500</li>
+          <li>使用者：伯涵（學校薪資 + 助教收入）、珞熙</li>
+        </ul>
       </div>
     </div>
-    <div class="content">${renderPage()}</div>
-  </div>
-</div>`;
-}
 
-function renderPage() {
-  switch(S.page) {
-    case 'overview':  return pgOverview();
-    case 'txs':       return pgTxs();
-    case 'category':  return pgCategory();
-    case 'cards':     return pgCards();
-    case 'recon':     return pgRecon();
-    case 'annual':    return pgAnnual();
-    default:          return pgOverview();
-  }
-}
-
-function moSel() {
-  return `<div class="mo-scroll">${MOS.map((m,i) =>
-    `<button class="mo-btn${S.month===i+1?' active':''}" onclick="setMo(${i+1})">${m}</button>`
-  ).join('')}</div>`;
-}
-
-// ── OVERVIEW ─────────────────────────────────────────────────────────────────
-function pgOverview() {
-  const txs = getTxs();
-  const total = txs.reduce((s,t) => s + toN(t.amt), 0);
-  const budget = getBudget();
-  const pct = budget ? Math.min(100, Math.round(total/budget*100)) : 0;
-  const rem = budget - total;
-  const catTotals = {};
-  CATEGORIES.forEach(c => catTotals[c] = txs.filter(t=>t.cat===c).reduce((s,t)=>s+toN(t.amt),0));
-  const topCat = Object.entries(catTotals).sort((a,b)=>b[1]-a[1])[0];
-
-  return `
-<div class="pg-ttl">總覽</div>
-<div class="pg-sub">${yr()} 年 ${MOS[S.month-1]}・家庭信用卡消費概況</div>
-${moSel()}
-
-<div class="sg sg4">
-  <div class="sc rose">
-    <div class="sl">本月總支出</div>
-    <div class="sv rose">$${fmt(total)}</div>
-    <div class="ss">${txs.length} 筆消費</div>
-  </div>
-  <div class="sc grn">
-    <div class="sl">月份預算</div>
-    <div class="sv grn" contenteditable="true" onblur="saveBudget(this.textContent)" style="outline:none;cursor:text;" title="點擊編輯">$${fmt(budget)}</div>
-    <div class="ss">點擊可修改</div>
-  </div>
-  <div class="sc ${rem>=0?'blu':'red'}">
-    <div class="sl">剩餘預算</div>
-    <div class="sv ${rem>=0?'blu':'red'}">${rem>=0?'$'+fmt(rem):'－$'+fmt(Math.abs(rem))}</div>
-    <div class="ss">${pct}% 已使用</div>
-  </div>
-  <div class="sc gold">
-    <div class="sl">最高類別</div>
-    <div class="sv gold sm">${topCat ? topCat[0] : '—'}</div>
-    <div class="ss">${topCat ? '$'+fmt(topCat[1]) : '尚無資料'}</div>
-  </div>
-</div>
-
-<div class="card">
-  <div class="card-hd"><span class="card-ttl">預算使用進度</span><span style="font-size:14px;color:var(--mut)">${pct}%</span></div>
-  <div class="card-bd">
-    <div class="pb" style="height:10px"><div class="pf" style="width:${pct}%;height:10px"></div></div>
-    <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--mut);margin-top:8px;">
-      <span>已用 $${fmt(total)}</span><span>預算 $${fmt(budget)}</span>
+    <div class="module">
+      <div class="module-header"><h3>📐 技術需求</h3></div>
+      <div class="module-body">
+        <table>
+          <thead><tr><th>項目</th><th>規格</th></tr></thead>
+          <tbody>
+            <tr><td>前端框架</td><td>React 或 Vue 3（任選），支援 PWA 離線使用</td></tr>
+            <tr><td>資料儲存</td><td>localStorage 或 IndexedDB（單機），或後端 API（可選）</td></tr>
+            <tr><td>匯出功能</td><td>可匯出 Excel（.xlsx）或 CSV</td></tr>
+            <tr><td>語言</td><td>繁體中文介面</td></tr>
+            <tr><td>裝置支援</td><td>桌面優先，手機版次要（記帳用）</td></tr>
+            <tr><td>色系</td><td>奶茶系：主色 #5C4033，強調 #C8956C，底色 #FAF3EB</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
-</div>
 
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
-  <div class="card">
-    <div class="card-hd"><span class="card-ttl">各信用卡本月</span></div>
-    <div class="card-bd" style="padding:12px 20px;">
-      ${CARDS.map(card => {
-        const sum = txs.filter(t=>t.card===card).reduce((s,t)=>s+toN(t.amt),0);
-        const p = total ? Math.round(sum/total*100) : 0;
-        return `<div style="margin-bottom:14px;">
-          <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:5px;">
-            <span style="font-weight:700;color:${CARD_HEX[card]}">${card}</span>
-            <span style="color:var(--mut)">$${fmt(sum)} <span style="font-size:12px">${p}%</span></span>
+  <!-- 2. 頁面架構 -->
+  <div class="section" id="pages">
+    <div class="section-header">
+      <div class="section-num">2</div>
+      <h2>頁面架構（10 個模組）</h2>
+    </div>
+
+    <div class="page-map">
+      <div class="page-card highlight"><div class="icon">📊</div><div class="name">月報總覽</div><div class="desc">主儀表板</div></div>
+      <div class="page-card"><div class="icon">📅</div><div class="name">12月份紀錄</div><div class="desc">年度樞紐</div></div>
+      <div class="page-card"><div class="icon">🚗</div><div class="name">交通費</div><div class="desc">流水帳</div></div>
+      <div class="page-card"><div class="icon">💡</div><div class="name">水電通訊</div><div class="desc">流水帳</div></div>
+      <div class="page-card"><div class="icon">🏢</div><div class="name">工會保險</div><div class="desc">流水帳</div></div>
+      <div class="page-card"><div class="icon">💰</div><div class="name">基金分配</div><div class="desc">存款追蹤</div></div>
+      <div class="page-card"><div class="icon">🧧</div><div class="name">紅包基金</div><div class="desc">流水帳</div></div>
+      <div class="page-card highlight"><div class="icon">🏠</div><div class="name">買房計畫</div><div class="desc">目標追蹤</div></div>
+      <div class="page-card"><div class="icon">📈</div><div class="name">季報</div><div class="desc">自動彙整</div></div>
+      <div class="page-card"><div class="icon">🏆</div><div class="name">年報</div><div class="desc">年度結算</div></div>
+    </div>
+
+    <div class="info-box">
+      💡 流水帳模組（交通費、水電通訊、工會保險、紅包基金）共用相同元件，僅預算金額不同。
+    </div>
+  </div>
+
+  <!-- 3. 帳本流水帳規格 -->
+  <div class="section" id="ledger">
+    <div class="section-header">
+      <div class="section-num">3</div>
+      <h2>帳本流水帳規格（共用元件）</h2>
+    </div>
+
+    <div class="module">
+      <div class="module-header">
+        <h3>📊 頂部儀表板（4 格卡片）</h3>
+        <span class="badge">每頁必有</span>
+      </div>
+      <div class="module-body">
+        <table>
+          <thead><tr><th>卡片名稱</th><th>計算方式</th><th>備註</th></tr></thead>
+          <tbody>
+            <tr><td>每月預算</td><td>固定值（設定時填入）</td><td>不可修改</td></tr>
+            <tr><td>本月存入</td><td>當月所有「正數」金額加總</td><td>依選取月份篩選</td></tr>
+            <tr><td>本月支出</td><td>當月所有「負數」金額加總（取絕對值顯示）</td><td>依選取月份篩選</td></tr>
+            <tr><td>累計餘額</td><td>全部記錄的金額加總（正負相消）</td><td>黃底標示，用於對帳</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="module">
+      <div class="module-header"><h3>📝 流水帳欄位定義</h3></div>
+      <div class="module-body">
+        <div class="field-list">
+          <div class="field-row">
+            <div class="field-name">日期</div>
+            <div class="field-type">date</div>
+            <div class="field-desc">格式 YYYY/MM/DD，必填</div>
           </div>
-          <div class="pb5"><div class="pf5" style="width:${p}%;background:${CARD_HEX[card]}"></div></div>
-        </div>`;
-      }).join('')}
-    </div>
-  </div>
-  <div class="card">
-    <div class="card-hd"><span class="card-ttl">各類別本月</span></div>
-    <div class="card-bd" style="padding:12px 20px;">
-      ${CATEGORIES.filter(c=>catTotals[c]>0).sort((a,b)=>catTotals[b]-catTotals[a]).slice(0,6).map(cat => {
-        const sum = catTotals[cat];
-        const p = total ? Math.round(sum/total*100) : 0;
-        return `<div style="margin-bottom:12px;">
-          <div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:5px;">
-            <span style="font-weight:700;color:${CAT_COLORS[cat]}">${cat}</span>
-            <span style="color:var(--mut)">$${fmt(sum)} <span style="font-size:12px">${p}%</span></span>
+          <div class="field-row">
+            <div class="field-name">金額</div>
+            <div class="field-type">number</div>
+            <div class="field-desc">正數 = 存入／負數 = 支出，必填。顯示時正數綠色、負數紅色</div>
           </div>
-          <div class="pb5"><div class="pf5" style="width:${p}%;background:${CAT_COLORS[cat]}"></div></div>
-        </div>`;
-      }).join('') || '<div class="empty"><div class="empty-ico">📭</div><p>本月尚無資料</p></div>'}
-    </div>
-  </div>
-</div>
-
-<div class="card">
-  <div class="card-hd"><span class="card-ttl">最近 5 筆消費</span>
-    <button class="btn btn-s btn-sm" onclick="setP('txs')">查看全部</button>
-  </div>
-  <div class="card-bd" style="padding:0">
-    ${txs.length === 0
-      ? '<div class="empty"><div class="empty-ico">💳</div><p>尚無消費記錄</p></div>'
-      : `<div class="tw"><table>
-          <thead><tr><th>日期</th><th>類別</th><th>細項</th><th>金額</th><th>信用卡</th></tr></thead>
-          <tbody>${[...txs].reverse().slice(0,5).map(t=>`<tr>
-            <td style="color:var(--mut);font-size:13px">${t.date||''}</td>
-            <td><span class="bdg" style="background:${CAT_COLORS[t.cat]}22;color:${CAT_COLORS[t.cat]}">${t.cat||'—'}</span></td>
-            <td>${t.note||''}</td>
-            <td style="font-weight:700;color:var(--roseDk)">$${fmt(t.amt)}</td>
-            <td><span class="bdg ${CARD_COLORS[t.card]||''}">${t.card||'—'}</span></td>
-          </tr>`).join('')}</tbody>
-        </table></div>`}
-  </div>
-</div>`;
-}
-
-// ── TRANSACTIONS ─────────────────────────────────────────────────────────────
-function pgTxs() {
-  const txs = getTxs();
-  const catOpts = CATEGORIES.map(c=>`<option value="${c}">${c}</option>`).join('');
-  const cardOpts = CARDS.map(c=>`<option value="${c}">${c}</option>`).join('');
-
-  return `
-<div class="pg-ttl">消費明細</div>
-<div class="pg-sub">${yr()} 年 ${MOS[S.month-1]}・直接在下方新增消費</div>
-${moSel()}
-
-<div class="card">
-  <div class="card-hd">
-    <span class="card-ttl">💳 ${MOS[S.month-1]} 消費明細</span>
-    <span style="font-size:14px;color:var(--mut)">${txs.length} 筆 ／ 合計 $${fmt(txs.reduce((s,t)=>s+toN(t.amt),0))}</span>
-  </div>
-  <div class="tw">
-    <table>
-      <thead>
-        <tr><th>日期</th><th>類別</th><th>細項</th><th style="text-align:right">金額</th><th>信用卡</th><th>備註</th><th></th></tr>
-      </thead>
-      <tbody>
-        ${txs.length === 0
-          ? `<tr><td colspan="7"><div class="empty"><div class="empty-ico">📭</div><p>尚無記錄，從下方新增</p></div></td></tr>`
-          : [...txs].reverse().map(t => `<tr>
-              <td style="color:var(--mut);font-size:13px">${t.date||''}</td>
-              <td><span class="bdg" style="background:${CAT_COLORS[t.cat]||'#eee'}22;color:${CAT_COLORS[t.cat]||'var(--mut)'}">${t.cat||'—'}</span></td>
-              <td>${t.note||''}</td>
-              <td style="text-align:right;font-weight:700;color:var(--roseDk)">$${fmt(t.amt)}</td>
-              <td><span class="bdg ${CARD_COLORS[t.card]||''}">${t.card||'—'}</span></td>
-              <td style="font-size:13px;color:var(--mut)">${t.remark||''}</td>
-              <td><button class="bdel" onclick="delTx('${t.id}')">✕</button></td>
-            </tr>`).join('')}
-      </tbody>
-    </table>
-  </div>
-  <div class="quick-add">
-    <div class="fgrp qa-date"><label>日期</label><input type="date" id="qa_date" value="${today()}"></div>
-    <div class="fgrp qa-cat"><label>類別</label><select id="qa_cat"><option value="">選擇類別</option>${catOpts}</select></div>
-    <div class="fgrp qa-note"><label>細項</label><input type="text" id="qa_note" placeholder="店名或說明"></div>
-    <div class="fgrp qa-amt"><label>金額</label><input type="number" id="qa_amt" placeholder="0" min="0"></div>
-    <div class="fgrp qa-card"><label>信用卡</label><select id="qa_card"><option value="">選擇</option>${cardOpts}</select></div>
-    <div class="fgrp qa-rem"><label>備註</label><input type="text" id="qa_rem" placeholder="（選填）"></div>
-    <button class="btn btn-p btn-sm" style="margin-bottom:1px" onclick="addTx()">＋ 新增</button>
-  </div>
-</div>`;
-}
-
-// ── CATEGORY ─────────────────────────────────────────────────────────────────
-function pgCategory() {
-  const txs = getTxs();
-  const total = txs.reduce((s,t)=>s+toN(t.amt),0);
-
-  return `
-<div class="pg-ttl">類別統計</div>
-<div class="pg-sub">${yr()} 年 ${MOS[S.month-1]}・各類別消費分析</div>
-${moSel()}
-
-<div class="sg sg3">
-  ${CATEGORIES.map(cat => {
-    const sum = txs.filter(t=>t.cat===cat).reduce((s,t)=>s+toN(t.amt),0);
-    const p = total ? Math.round(sum/total*100) : 0;
-    const rows = txs.filter(t=>t.cat===cat).sort((a,b)=>(b.amt||0)-(a.amt||0));
-    return `<div class="sc" style="border-top-color:${CAT_COLORS[cat]}">
-      <div class="sl">${cat}</div>
-      <div class="sv sm" style="color:${CAT_COLORS[cat]}">$${fmt(sum)}</div>
-      <div class="ss">${rows.length} 筆・佔 ${p}%</div>
-      <div class="pb5" style="margin-top:10px"><div class="pf5" style="width:${p}%;background:${CAT_COLORS[cat]}"></div></div>
-    </div>`;
-  }).join('')}
-</div>
-
-<div class="card">
-  <div class="card-hd"><span class="card-ttl">各類別消費明細</span></div>
-  <div class="card-bd" style="padding:0">
-    ${CATEGORIES.map(cat => {
-      const rows = txs.filter(t=>t.cat===cat);
-      if (!rows.length) return '';
-      const sum = rows.reduce((s,t)=>s+toN(t.amt),0);
-      return `<div style="border-bottom:1px solid var(--bdr);">
-        <div style="padding:14px 20px;background:var(--bg2);display:flex;justify-content:space-between;align-items:center;">
-          <span style="font-family:'Noto Serif TC',serif;font-weight:700;color:${CAT_COLORS[cat]}">${cat}</span>
-          <span style="font-weight:700;color:var(--txt)">$${fmt(sum)}</span>
+          <div class="field-row">
+            <div class="field-name">類別</div>
+            <div class="field-type">select</div>
+            <div class="field-desc">下拉選單（各帳本不同，見下方定義），必填</div>
+          </div>
+          <div class="field-row">
+            <div class="field-name">說明</div>
+            <div class="field-type">text</div>
+            <div class="field-desc">自由文字，選填</div>
+          </div>
+          <div class="field-row">
+            <div class="field-name">累計餘額</div>
+            <div class="field-type">auto</div>
+            <div class="field-desc">系統自動計算，不可手動輸入。等於該筆及之前所有金額加總</div>
+          </div>
         </div>
-        <div class="tw"><table>
-          <thead><tr><th>日期</th><th>細項</th><th style="text-align:right">金額</th><th>信用卡</th></tr></thead>
-          <tbody>${rows.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(t=>`<tr>
-            <td style="color:var(--mut);font-size:13px">${t.date||''}</td>
-            <td>${t.note||''}</td>
-            <td style="text-align:right;font-weight:700;color:var(--roseDk)">$${fmt(t.amt)}</td>
-            <td><span class="bdg ${CARD_COLORS[t.card]||''}">${t.card||'—'}</span></td>
-          </tr>`).join('')}</tbody>
-        </table></div>
-      </div>`;
-    }).join('') || '<div class="empty"><div class="empty-ico">📂</div><p>本月尚無資料</p></div>'}
-  </div>
-</div>`;
-}
 
-// ── CARDS PAGE ────────────────────────────────────────────────────────────────
-function pgCards() {
-  const txs = getTxs();
-  const total = txs.reduce((s,t)=>s+toN(t.amt),0);
-
-  return `
-<div class="pg-ttl">信用卡統計</div>
-<div class="pg-sub">${yr()} 年 ${MOS[S.month-1]}・各信用卡使用分析</div>
-${moSel()}
-
-<div class="sg sg3">
-  ${CARDS.map((card,i) => {
-    const sum = txs.filter(t=>t.card===card).reduce((s,t)=>s+toN(t.amt),0);
-    const cnt = txs.filter(t=>t.card===card).length;
-    const p = total ? Math.round(sum/total*100) : 0;
-    return `<div class="sc ${CARD_COLORS[card]}">
-      <div class="sl">${card}</div>
-      <div class="sv sm" style="color:${CARD_HEX[card]}">$${fmt(sum)}</div>
-      <div class="ss">${cnt} 筆・佔 ${p}%</div>
-      <div class="pb5" style="margin-top:10px"><div class="pf5" style="width:${p}%;background:${CARD_HEX[card]}"></div></div>
-    </div>`;
-  }).join('')}
-</div>
-
-<div class="card">
-  <div class="card-hd"><span class="card-ttl">各卡消費明細</span></div>
-  <div class="card-bd" style="padding:0">
-    ${CARDS.map(card => {
-      const rows = txs.filter(t=>t.card===card);
-      if (!rows.length) return '';
-      const sum = rows.reduce((s,t)=>s+toN(t.amt),0);
-      return `<div style="border-bottom:1px solid var(--bdr);">
-        <div style="padding:14px 20px;background:var(--bg2);display:flex;justify-content:space-between;align-items:center;">
-          <span style="font-family:'Noto Serif TC',serif;font-weight:700;color:${CARD_HEX[card]}">${card}</span>
-          <span style="font-weight:700">$${fmt(sum)}</span>
+        <div class="info-box" style="margin-top:16px">
+          ⚠️ 累計餘額欄由系統即時計算，不存進資料庫，每次載入依日期排序重新計算。
         </div>
-        <div class="tw"><table>
-          <thead><tr><th>日期</th><th>類別</th><th>細項</th><th style="text-align:right">金額</th></tr></thead>
-          <tbody>${rows.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(t=>`<tr>
-            <td style="color:var(--mut);font-size:13px">${t.date||''}</td>
-            <td><span class="bdg" style="background:${CAT_COLORS[t.cat]||'#eee'}22;color:${CAT_COLORS[t.cat]||'var(--mut)'}">${t.cat||'—'}</span></td>
-            <td>${t.note||''}</td>
-            <td style="text-align:right;font-weight:700;color:var(--roseDk)">$${fmt(t.amt)}</td>
-          </tr>`).join('')}</tbody>
-        </table></div>
-      </div>`;
-    }).join('') || '<div class="empty"><div class="empty-ico">💳</div><p>本月尚無資料</p></div>'}
-  </div>
-</div>`;
-}
-
-// ── RECONCILE ────────────────────────────────────────────────────────────────
-function pgRecon() {
-  const txs = getTxs();
-  const recon = getRecon();
-
-  return `
-<div class="pg-ttl">帳務核對</div>
-<div class="pg-sub">${yr()} 年 ${MOS[S.month-1]}・對照銀行帳單，確認記錄正確</div>
-${moSel()}
-
-<div class="notice">💡 請輸入各信用卡銀行帳單金額，系統自動與消費記錄比對</div>
-
-<div class="card">
-  <div class="card-hd"><span class="card-ttl">帳單核對表</span></div>
-  <div class="card-bd">
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:8px;font-size:13px;font-weight:700;color:var(--mut);padding:0 0 10px;border-bottom:1px solid var(--bdr);margin-bottom:4px;">
-      <span>信用卡</span><span style="text-align:right">帳單金額</span><span style="text-align:right">記錄金額</span><span style="text-align:right">差異</span><span style="text-align:center">狀態</span>
+      </div>
     </div>
-    ${CARDS.map(card => {
-      const recorded = txs.filter(t=>t.card===card).reduce((s,t)=>s+toN(t.amt),0);
-      const bankVal = toN(recon[card] || 0);
-      const diff = bankVal - recorded;
-      let status = '—', stColor = 'var(--mut)';
-      if (bankVal > 0) {
-        if (diff === 0) { status = '✅ 正確'; stColor = 'var(--grn)'; }
-        else if (diff > 0) { status = '⚠️ 帳單較多'; stColor = 'var(--gold)'; }
-        else { status = '❌ 帳單不足'; stColor = 'var(--red)'; }
-      }
-      return `<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:8px;align-items:center;padding:14px 0;border-bottom:1px solid var(--bdr);">
-        <span style="font-weight:700;color:${CARD_HEX[card]}">${card}</span>
-        <div style="text-align:right"><input class="recon-inp" type="number" placeholder="0"
-          value="${recon[card]||''}"
-          oninput="updateRecon('${card}',this.value)"
-          style="width:100%;text-align:right"></div>
-        <span style="text-align:right;font-weight:700">$${fmt(recorded)}</span>
-        <span style="text-align:right;font-weight:700;color:${diff===0?'var(--mut)':diff>0?'var(--red)':'var(--grn)'}">${bankVal>0?(diff>=0?'+':'')+fmt(diff):'—'}</span>
-        <span style="text-align:center;font-size:13px;font-weight:700;color:${stColor}">${status}</span>
-      </div>`;
-    }).join('')}
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:8px;padding:14px 0 0;font-weight:700;">
-      <span style="color:var(--brown)">合計</span>
-      <span style="text-align:right;color:var(--rose)">$${fmt(CARDS.reduce((s,c)=>s+toN(recon[c]||0),0))}</span>
-      <span style="text-align:right;color:var(--rose)">$${fmt(txs.reduce((s,t)=>s+toN(t.amt),0))}</span>
-      <span></span><span></span>
+
+    <div class="module">
+      <div class="module-header"><h3>🏷️ 各帳本類別選項</h3></div>
+      <div class="module-body">
+        <table>
+          <thead><tr><th>帳本</th><th>每月預算</th><th>類別選項</th></tr></thead>
+          <tbody>
+            <tr><td>🚗 交通費</td><td>10,000</td><td>存入、加油停車、汽車保養、過路費、其他</td></tr>
+            <tr><td>💡 水電通訊</td><td>5,000</td><td>存入、電費、水費、瓦斯、網路、手機、其他</td></tr>
+            <tr><td>🏢 工會保險</td><td>7,000</td><td>存入、工會費、勞保健保、地價稅、房屋稅、其他</td></tr>
+            <tr><td>🧧 紅包基金</td><td>4,350</td><td>存入、婚禮、喜宴、過年紅包、生日、其他</td></tr>
+            <tr><td>💰 基金分配</td><td>—</td><td>存入買房頭期款、存入練習房貸、存入股票、存入預備金、存入旅遊、存入進修、存入紅包、提領</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="module">
+      <div class="module-header"><h3>📊 右側統計區</h3></div>
+      <div class="module-body">
+        <ul class="rule-list">
+          <li>顯示各類別的累計金額（SUMIF 等效），排除「存入」類別</li>
+          <li>顯示當前篩選月份的小計（本月支出合計）</li>
+          <li>月份小計可一鍵複製，用於填入「12月份紀錄」</li>
+        </ul>
+      </div>
     </div>
   </div>
-</div>`;
-}
 
-// ── ANNUAL ───────────────────────────────────────────────────────────────────
-function pgAnnual() {
-  const annualData = MOS.map((m,i) => {
-    const txs = getTxs(i+1);
-    const total = txs.reduce((s,t)=>s+toN(t.amt),0);
-    const catTotals = {};
-    CATEGORIES.forEach(c => catTotals[c] = txs.filter(t=>t.cat===c).reduce((s,t)=>s+toN(t.amt),0));
-    const cardTotals = {};
-    CARDS.forEach(c => cardTotals[c] = txs.filter(t=>t.card===c).reduce((s,t)=>s+toN(t.amt),0));
-    return { month: m, total, catTotals, cardTotals };
-  });
+  <!-- 4. 對帳功能 -->
+  <div class="section" id="reconcile">
+    <div class="section-header">
+      <div class="section-num">4</div>
+      <h2>對帳功能</h2>
+    </div>
 
-  const grandTotal = annualData.reduce((s,d)=>s+d.total,0);
-  const maxMonth = annualData.reduce((mx,d)=>d.total>mx.total?d:mx, annualData[0]);
+    <div class="module">
+      <div class="module-header"><h3>⚖️ 即時對帳邏輯</h3></div>
+      <div class="module-body">
+        <div class="field-list">
+          <div class="field-row">
+            <div class="field-name">帳戶實際餘額</div>
+            <div class="field-type">number input</div>
+            <div class="field-desc">使用者手動輸入（從手機銀行查得），黃底標示欄位</div>
+          </div>
+          <div class="field-row">
+            <div class="field-name">帳本累計餘額</div>
+            <div class="field-type">auto</div>
+            <div class="field-desc">系統計算值</div>
+          </div>
+          <div class="field-row">
+            <div class="field-name">差額</div>
+            <div class="field-type">auto</div>
+            <div class="field-desc">帳戶實際餘額 − 帳本累計餘額</div>
+          </div>
+        </div>
 
-  return `
-<div class="pg-ttl">年度總覽</div>
-<div class="pg-sub">${yr()} 年・全年信用卡消費統計</div>
+        <div style="margin-top: 16px;">
+          <div class="info-box green">✅ 差額 = 0 → 顯示「帳戶核對一致！」</div>
+          <div class="info-box red">⚠️ 差額 ≠ 0 → 顯示「差額：XXX 元，請檢查！」並以紅色提示</div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-<div class="sg sg3">
-  <div class="sc rose"><div class="sl">年度總支出</div><div class="sv rose">$${fmt(grandTotal)}</div></div>
-  <div class="sc gold"><div class="sl">月均支出</div><div class="sv gold">$${fmt(Math.round(grandTotal/12))}</div></div>
-  <div class="sc blu"><div class="sl">最高月份</div><div class="sv blu sm">${maxMonth.month} $${fmt(maxMonth.total)}</div></div>
+  <!-- 5. 12月份紀錄 -->
+  <div class="section" id="monthly">
+    <div class="section-header">
+      <div class="section-num">5</div>
+      <h2>12月份紀錄（年度資料樞紐）</h2>
+    </div>
+
+    <div class="module">
+      <div class="module-header"><h3>📅 欄位結構（每月一欄，共 12 欄）</h3></div>
+      <div class="module-body">
+        <table>
+          <thead><tr><th>列名稱</th><th>資料來源</th><th>類型</th></tr></thead>
+          <tbody>
+            <tr><td>伯涵薪資收入</td><td>手動輸入</td><td>number</td></tr>
+            <tr><td>助教費收入</td><td>手動輸入</td><td>number</td></tr>
+            <tr><td>珞熙收入</td><td>手動輸入</td><td>number</td></tr>
+            <tr><td>其他收入</td><td>手動輸入</td><td>number</td></tr>
+            <tr><td>月總收入</td><td>自動加總以上四項</td><td>auto</td></tr>
+            <tr><td>房貸</td><td>固定值 15,606</td><td>fixed</td></tr>
+            <tr><td>藏龍貸款</td><td>固定值 10,000</td><td>fixed</td></tr>
+            <tr><td>車貸</td><td>固定值 12,000</td><td>fixed</td></tr>
+            <tr><td>房租</td><td>固定值 12,500</td><td>fixed</td></tr>
+            <tr><td>交通費小計</td><td>手動填入（從帳本複製）</td><td>number</td></tr>
+            <tr><td>水電通訊小計</td><td>手動填入（從帳本複製）</td><td>number</td></tr>
+            <tr><td>工會保險小計</td><td>手動填入（從帳本複製）</td><td>number</td></tr>
+            <tr><td>紅包基金小計</td><td>手動填入（從帳本複製）</td><td>number</td></tr>
+            <tr><td>月總支出</td><td>自動加總所有支出</td><td>auto</td></tr>
+            <tr><td>月淨結餘</td><td>月總收入 − 月總支出</td><td>auto</td></tr>
+          </tbody>
+        </table>
+        <div class="info-box" style="margin-top:12px">
+          💡 季報與年報的所有數字都從這張表自動計算，是整個系統的資料核心。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. 月報總覽 -->
+  <div class="section" id="dashboard">
+    <div class="section-header">
+      <div class="section-num">6</div>
+      <h2>月報總覽儀表板</h2>
+    </div>
+
+    <div class="module">
+      <div class="module-header"><h3>📊 顯示元件</h3></div>
+      <div class="module-body">
+        <table>
+          <thead><tr><th>元件</th><th>內容</th><th>資料來源</th></tr></thead>
+          <tbody>
+            <tr><td>月份選擇器</td><td>切換顯示月份</td><td>UI 控制</td></tr>
+            <tr><td>本月總收入</td><td>大數字卡片</td><td>12月份紀錄．月總收入</td></tr>
+            <tr><td>本月總支出</td><td>大數字卡片</td><td>12月份紀錄．月總支出</td></tr>
+            <tr><td>本月淨結餘</td><td>大數字卡片，正數綠色負數紅色</td><td>月總收入 − 月總支出</td></tr>
+            <tr><td>練習房貸達成率</td><td>圓形進度條</td><td>本月存入股票 ÷ 15,606</td></tr>
+            <tr><td>各類支出長條圖</td><td>橫向 bar chart</td><td>各帳本本月支出</td></tr>
+            <tr><td>目標達成狀態</td><td>6 個目標圖示 + 進度</td><td>買房計畫模組</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. 買房計畫 -->
+  <div class="section" id="house">
+    <div class="section-header">
+      <div class="section-num">7</div>
+      <h2>買房計畫模組</h2>
+    </div>
+
+    <div class="module">
+      <div class="module-header"><h3>🏠 追蹤欄位</h3></div>
+      <div class="module-body">
+        <div class="field-list">
+          <div class="field-row">
+            <div class="field-name">頭期款目標</div>
+            <div class="field-type">fixed</div>
+            <div class="field-desc">使用者設定，預設 500,000</div>
+          </div>
+          <div class="field-row">
+            <div class="field-name">頭期款累計</div>
+            <div class="field-type">auto</div>
+            <div class="field-desc">從「基金分配」存入買房頭期款加總</div>
+          </div>
+          <div class="field-row">
+            <div class="field-name">練習房貸目標</div>
+            <div class="field-type">fixed</div>
+            <div class="field-desc">15,606 / 月（與實際房貸金額相同）</div>
+          </div>
+          <div class="field-row">
+            <div class="field-name">本月存入股票</div>
+            <div class="field-type">number</div>
+            <div class="field-desc">手動輸入或從基金分配自動帶入</div>
+          </div>
+          <div class="field-row">
+            <div class="field-name">股票市值</div>
+            <div class="field-type">number</div>
+            <div class="field-desc">每月底手動更新</div>
+          </div>
+          <div class="field-row">
+            <div class="field-name">預備金</div>
+            <div class="field-type">auto</div>
+            <div class="field-desc">從「基金分配」存入預備金加總</div>
+          </div>
+        </div>
+
+        <div style="margin-top: 16px">
+          <div class="formula">
+            <span class="comment">// 基金分配比例（可調整）</span><br>
+            買房頭期款：40%<br>
+            練習房貸（存股票）：20%<br>
+            長期股票投資：15%<br>
+            預備金：10%<br>
+            旅遊基金：5%<br>
+            進修成長：5%<br>
+            紅包基金：5%
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8. 季報年報 -->
+  <div class="section" id="quarterly">
+    <div class="section-header">
+      <div class="section-num">8</div>
+      <h2>季報 & 年報</h2>
+    </div>
+
+    <div class="module">
+      <div class="module-header"><h3>📈 季報計算（資料來源：12月份紀錄）</h3></div>
+      <div class="module-body">
+        <table>
+          <thead><tr><th>季別</th><th>涵蓋月份</th></tr></thead>
+          <tbody>
+            <tr><td>Q1</td><td>8月、9月、10月</td></tr>
+            <tr><td>Q2</td><td>11月、12月、1月</td></tr>
+            <tr><td>Q3</td><td>2月、3月、4月</td></tr>
+            <tr><td>Q4</td><td>5月、6月、7月</td></tr>
+          </tbody>
+        </table>
+        <ul class="rule-list" style="margin-top:12px">
+          <li>季總收入 = 三個月月總收入加總</li>
+          <li>季總支出 = 三個月月總支出加總</li>
+          <li>季淨結餘 = 季總收入 − 季總支出</li>
+          <li>練習房貸達成率 = 三個月存入股票加總 ÷ (15,606 × 3)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="module">
+      <div class="module-header"><h3>🏆 年報計算</h3></div>
+      <div class="module-body">
+        <ul class="rule-list">
+          <li>年度總收入 = 12 個月月總收入加總</li>
+          <li>各類固定支出年度合計（房貸、車貸、房租、藏龍）</li>
+          <li>各類浮動支出年度合計（交通、水電、工會、紅包）</li>
+          <li>各支出佔年收入比例（%）</li>
+          <li>6 大目標達成率：頭期款、練習房貸、股票、預備金、旅遊、進修</li>
+          <li>年度淨結餘 = 年總收入 − 年總支出</li>
+          <li>年度反思文字區（自由輸入，可儲存）</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 9. 計算規則 -->
+  <div class="section" id="rules">
+    <div class="section-header">
+      <div class="section-num">9</div>
+      <h2>核心計算規則</h2>
+    </div>
+
+    <div class="module">
+      <div class="module-header"><h3>🔢 關鍵公式</h3></div>
+      <div class="module-body">
+        <div class="formula">
+          <span class="comment">// 累計餘額（流水帳）</span><br>
+          第 N 筆累計餘額 = SUM(第1筆金額 ... 第N筆金額)<br><br>
+          <span class="comment">// 本月存入（頂部卡片）</span><br>
+          本月存入 = SUMIF(當月紀錄, 金額 &gt; 0)<br><br>
+          <span class="comment">// 本月支出（頂部卡片）</span><br>
+          本月支出 = ABS(SUMIF(當月紀錄, 金額 &lt; 0))<br><br>
+          <span class="comment">// 對帳差額</span><br>
+          差額 = 帳戶實際餘額 − 帳本累計餘額<br><br>
+          <span class="comment">// 月淨結餘</span><br>
+          月淨結餘 = 月總收入 − 月總支出<br><br>
+          <span class="comment">// 練習房貸達成率</span><br>
+          達成率 = 本月存入股票 ÷ 15,606 × 100%
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 10. UX 需求 -->
+  <div class="section" id="ux">
+    <div class="section-header">
+      <div class="section-num">10</div>
+      <h2>UX 需求</h2>
+    </div>
+
+    <div class="module">
+      <div class="module-header"><h3>🖥️ 操作流程</h3></div>
+      <div class="module-body">
+        <div class="step-flow">
+          <div class="step-item">
+            <div class="step-circle">①</div>
+            <div class="step-label">月初存入<br>各帳本預算</div>
+          </div>
+          <div class="step-item">
+            <div class="step-circle">②</div>
+            <div class="step-label">平時隨手<br>記每筆支出</div>
+          </div>
+          <div class="step-item">
+            <div class="step-circle">③</div>
+            <div class="step-label">隨時填黃格<br>核對帳戶</div>
+          </div>
+          <div class="step-item">
+            <div class="step-circle">④</div>
+            <div class="step-label">月底更新<br>12月份紀錄</div>
+          </div>
+          <div class="step-item">
+            <div class="step-circle">⑤</div>
+            <div class="step-label">季末年底<br>看報表</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="module">
+      <div class="module-header"><h3>✅ 必要 UX 細節</h3></div>
+      <div class="module-body">
+        <table>
+          <thead><tr><th>需求</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td>月份篩選器</td><td>所有帳本頁面都要可切換月份查看歷史</td></tr>
+            <tr><td>對帳黃框</td><td>「帳戶實際餘額」輸入欄用黃色底色明顯標示</td></tr>
+            <tr><td>正負數顏色</td><td>正數金額綠色顯示，負數金額紅色顯示</td></tr>
+            <tr><td>快速記帳</td><td>手機版需有浮動「+ 新增」按鈕，快速開啟輸入表單</td></tr>
+            <tr><td>資料持久化</td><td>關閉視窗後資料不消失（localStorage 或後端）</td></tr>
+            <tr><td>月底提醒</td><td>每月底可選擇顯示「月底作業清單」提醒通知</td></tr>
+            <tr><td>匯出功能</td><td>各帳本可匯出當月或全年 CSV</td></tr>
+            <tr><td>數字格式</td><td>所有金額顯示千分位逗號，例：10,000</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
 </div>
 
-<div class="card">
-  <div class="card-hd"><span class="card-ttl">月份支出趨勢</span></div>
-  <div class="tw">
-    <table>
-      <thead><tr><th>月份</th>${CATEGORIES.map(c=>`<th style="text-align:right">${c}</th>`).join('')}<th style="text-align:right;color:var(--roseDk)">合計</th></tr></thead>
-      <tbody>
-        ${annualData.map((d,i) => `<tr style="${S.month===i+1?'background:var(--roseL)':''}">
-          <td style="font-weight:700;color:${S.month===i+1?'var(--roseDk)':'var(--brown)'};cursor:pointer" onclick="setMo(${i+1})">${d.month}</td>
-          ${CATEGORIES.map(c=>`<td style="text-align:right;font-size:14px;color:var(--mut)">${d.catTotals[c]?'$'+fmt(d.catTotals[c]):'—'}</td>`).join('')}
-          <td style="text-align:right;font-weight:700;color:var(--roseDk)">${d.total?'$'+fmt(d.total):'—'}</td>
-        </tr>`).join('')}
-        <tr style="background:var(--bg2)">
-          <td style="font-weight:700;font-family:'Noto Serif TC',serif;color:var(--brown)">年度合計</td>
-          ${CATEGORIES.map(c=>{const s=annualData.reduce((t,d)=>t+d.catTotals[c],0);return`<td style="text-align:right;font-weight:700;color:${CAT_COLORS[c]}">${s?'$'+fmt(s):'—'}</td>`;}).join('')}
-          <td style="text-align:right;font-weight:700;color:var(--roseDk)">$${fmt(grandTotal)}</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</div>
+<footer>
+  家庭財務月報系統｜功能規格說明 v1.0 ｜
+  <span>奶茶色系 · 買房夢想加油 🏠</span>
+</footer>
 
-<div class="card">
-  <div class="card-hd"><span class="card-ttl">各信用卡年度明細</span></div>
-  <div class="tw">
-    <table>
-      <thead><tr><th>月份</th>${CARDS.map(c=>`<th style="text-align:right;color:${CARD_HEX[c]}">${c}</th>`).join('')}<th style="text-align:right">合計</th></tr></thead>
-      <tbody>
-        ${annualData.map((d,i) => `<tr style="${S.month===i+1?'background:var(--roseL)':''}">
-          <td style="font-weight:700;color:${S.month===i+1?'var(--roseDk)':'var(--brown)'};cursor:pointer" onclick="setMo(${i+1})">${d.month}</td>
-          ${CARDS.map(c=>`<td style="text-align:right;font-size:14px">${d.cardTotals[c]?'$'+fmt(d.cardTotals[c]):'—'}</td>`).join('')}
-          <td style="text-align:right;font-weight:700;color:var(--roseDk)">${d.total?'$'+fmt(d.total):'—'}</td>
-        </tr>`).join('')}
-        <tr style="background:var(--bg2)">
-          <td style="font-weight:700;font-family:'Noto Serif TC',serif;color:var(--brown)">年度合計</td>
-          ${CARDS.map(c=>{const s=annualData.reduce((t,d)=>t+d.cardTotals[c],0);return`<td style="text-align:right;font-weight:700;color:${CARD_HEX[c]}">${s?'$'+fmt(s):'—'}</td>`;}).join('')}
-          <td style="text-align:right;font-weight:700;color:var(--roseDk)">$${fmt(grandTotal)}</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</div>`;
-}
-
-// ── ACTIONS ───────────────────────────────────────────────────────────────────
-window.setP = p => { S.page = p; render(); };
-window.setMo = m => { S.month = m; render(); };
-
-window.addTx = () => {
-  const date  = document.getElementById('qa_date')?.value || today();
-  const cat   = document.getElementById('qa_cat')?.value;
-  const note  = document.getElementById('qa_note')?.value.trim();
-  const amt   = document.getElementById('qa_amt')?.value;
-  const card  = document.getElementById('qa_card')?.value;
-  const remark= document.getElementById('qa_rem')?.value.trim();
-  if (!amt || !card) { toast('⚠️ 請填入金額與信用卡'); return; }
-  const txs = getTxs();
-  txs.push({ id: uid(), date, cat, note, amt: parseFloat(amt), card, remark });
-  setTxs(txs);
-  document.getElementById('qa_amt').value = '';
-  document.getElementById('qa_note').value = '';
-  document.getElementById('qa_rem').value = '';
-  render();
-  toast('✅ 已新增消費');
-};
-
-window.delTx = id => {
-  if (!confirm('確認刪除此筆消費？')) return;
-  setTxs(getTxs().filter(t => t.id !== id));
-  render();
-  toast('已刪除');
-};
-
-window.updateRecon = (card, val) => {
-  const r = getRecon();
-  r[card] = val;
-  setRecon(r);
-  // re-render just recon section without full render for UX
-  render();
-};
-
-window.saveBudget = (val) => {
-  const n = parseInt(String(val).replace(/[^0-9]/g,''));
-  if (!n) return;
-  S.budget[mk()] = n;
-  save();
-  render();
-  toast(`✅ 預算已更新為 $${fmt(n)}`);
-};
-
-window.exportCSV = () => {
-  const txs = getTxs();
-  if (!txs.length) { toast('本月無資料'); return; }
-  const rows = [['日期','類別','細項','金額','信用卡','備註'],
-    ...txs.map(t=>[t.date,t.cat,t.note,t.amt,t.card,t.remark])];
-  const csv = rows.map(r=>r.map(v=>'"'+(v||'').toString().replace(/"/g,'""')+'"').join(',')).join('\n');
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}));
-  a.download = `家庭財務_${MOS[S.month-1]}.csv`;
-  a.click();
-  toast('✅ CSV 已下載');
-};
-
-function bindEvents() {
-  // Enter on amount
-  const qa = document.getElementById('qa_amt');
-  if (qa) qa.addEventListener('keydown', e => { if(e.key==='Enter') addTx(); });
-}
-
-// ── INIT ─────────────────────────────────────────────────────────────────────
-load();
-render();
-</script>
 </body>
 </html>
