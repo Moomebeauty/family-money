@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>🌸 項沐蜜財務</title>
+<title>🌸 家庭財務</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700;900&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -245,10 +245,26 @@ function save() {
 }
 function load() {
   try {
-    const d = localStorage.getItem('mumei_cc_data');
-    const r = localStorage.getItem('mumei_cc_recon');
+    const d = localStorage.getItem('mumei_cc_data') || localStorage.getItem('ccdata');
+    const r = localStorage.getItem('mumei_cc_recon') || localStorage.getItem('ccrecon');
     const b = localStorage.getItem('mumei_cc_budget');
-    if (d) S.data = JSON.parse(d);
+    if (d) {
+      const parsed = JSON.parse(d);
+      // 舊格式：key 是 "0"~"11"（月份 index），新格式是 "2025-1"~"2025-12"
+      // 自動轉換舊格式
+      const isOldFormat = Object.keys(parsed).some(k => /^\d$|^\d{1,2}$/.test(k) && parseInt(k) < 12);
+      if (isOldFormat) {
+        const converted = {};
+        Object.entries(parsed).forEach(([k, v]) => {
+          const newKey = `${yr()}-${parseInt(k)+1}`;
+          converted[newKey] = v;
+        });
+        S.data = converted;
+        save(); // 存成新格式
+      } else {
+        S.data = parsed;
+      }
+    }
     if (r) S.recon = JSON.parse(r);
     if (b) S.budget = JSON.parse(b);
   } catch(e) {}
