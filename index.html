@@ -8,15 +8,21 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700;900&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --brown:#5C4033;--bl:#8D6E63;--acc:#C8956C;--acc2:#E8C4A0;
-  --bg:#FAF3EB;--bg2:#F2E8DC;--card:#FFFAF5;--bdr:#E0CDB8;
-  --grn:#2E7D32;--grnl:#E8F5E9;--red:#C62828;--redl:#FFEBEE;
-  --yel:#FFF8E1;--yelb:#FFB300;--blu:#1565C0;--blul:#E3F2FD;
-  --txt:#3E2723;--mut:#A1887F;--shd:0 2px 16px rgba(92,64,51,.10);--r:16px;
+  /* 奶茶色系 — 焦糖＋深咖啡＋奶白 */
+  --brown:#4A3428;--bl:#6B4E3A;--acc:#B08660;--acc2:#D4A574;--accL:#F0DCC4;
+  --bg:#FBF6EE;--bg2:#F3EADC;--bg3:#EBDDC8;--card:#FFFCF6;--bdr:#E0CDB8;
+  --grn:#5A8C6B;--grnl:#E8F2EC;--red:#B85A4F;--redl:#F8E8E5;
+  --yel:#FFF4D9;--yelb:#D4A04C;--blu:#5C7AAA;--blul:#E5ECF5;
+  --pur:#9B7AAE;--purl:#F0E8F5;--gold:#C4A46B;--goldL:#F7EFDA;
+  --txt:#2D1F18;--mut:#9C8473;
+  --shd:0 2px 14px rgba(74,52,40,.08);
+  --shd2:0 6px 28px rgba(74,52,40,.14);
+  --r:14px;--r-sm:10px;
 }
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;letter-spacing:0.03em;}
 html,body{height:100%;}
-body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;overflow-x:hidden;}
+body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;overflow-x:hidden;font-size:15px;line-height:1.65;}
+h1,h2,h3,.serif{font-family:'Noto Serif TC',serif;letter-spacing:0.06em;}
 
 /* LOGIN */
 .login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#3E2723,var(--brown),#8D6E63);padding:20px;}
@@ -53,12 +59,12 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt)
 
 /* LAYOUT */
 .layout{display:flex;flex:1;overflow:hidden;}
-.sidebar{width:200px;background:#fff;border-right:1px solid var(--bdr);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0;}
-.sb-sec-lbl{font-size:10px;font-weight:700;color:var(--mut);letter-spacing:1.5px;text-transform:uppercase;padding:12px 16px 4px;}
-.sb-item{display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;font-size:13px;color:var(--bl);font-weight:500;transition:all .15s;border-right:3px solid transparent;}
-.sb-item:hover{background:var(--bg);color:var(--brown);}
-.sb-item.active{background:var(--bg2);color:var(--brown);font-weight:700;border-right-color:var(--acc);}
-.sb-item .ico{font-size:16px;width:20px;text-align:center;}
+.sidebar{width:210px;background:linear-gradient(180deg,var(--brown) 0%,var(--bl) 100%);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0;padding:14px 0;}
+.sb-sec-lbl{font-size:10px;font-weight:700;color:rgba(255,255,255,0.45);letter-spacing:1.5px;text-transform:uppercase;padding:14px 18px 6px;}
+.sb-item{display:flex;align-items:center;gap:11px;padding:13px 18px;cursor:pointer;font-size:14px;color:rgba(255,255,255,0.78);font-weight:500;transition:all .2s;border-left:4px solid transparent;letter-spacing:0.06em;}
+.sb-item:hover{background:rgba(255,255,255,0.08);color:#fff;}
+.sb-item.active{background:rgba(255,255,255,0.16);color:#fff;font-weight:700;border-left-color:var(--acc2);}
+.sb-item .ico{font-size:18px;width:22px;text-align:center;}
 .content{flex:1;overflow-y:auto;padding:20px 20px 80px;}
 
 /* MOBILE NAV */
@@ -70,22 +76,25 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt)
 @media(min-width:769px)and(max-width:1024px){.sidebar{width:58px;}.sb-sec-lbl,.sb-item span{display:none;}.sb-item{justify-content:center;padding:12px;}.sb-item .ico{font-size:20px;width:auto;}}
 
 /* CARDS */
-.card{background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);box-shadow:var(--shd);overflow:hidden;margin-bottom:16px;}
-.card-hd{padding:13px 18px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;background:linear-gradient(90deg,var(--bg),var(--card));}
-.card-ttl{font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--brown);}
-.card-bd{padding:16px 18px;}
+.card{background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);box-shadow:var(--shd);overflow:hidden;margin-bottom:18px;transition:box-shadow .2s;}
+.card:hover{box-shadow:var(--shd2);}
+.card-hd{padding:15px 20px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;background:linear-gradient(90deg,var(--bg),var(--card));gap:10px;flex-wrap:wrap;}
+.card-ttl{font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);letter-spacing:0.08em;}
+.card-bd{padding:18px 20px;}
 
 /* STAT */
-.sg{display:grid;gap:12px;margin-bottom:16px;}
+.sg{display:grid;gap:14px;margin-bottom:18px;}
 .sg2{grid-template-columns:repeat(2,1fr);}.sg3{grid-template-columns:repeat(3,1fr);}.sg4{grid-template-columns:repeat(4,1fr);}
 @media(max-width:600px){.sg4,.sg3{grid-template-columns:repeat(2,1fr);}}
-.sc{background:var(--card);border:1px solid var(--bdr);border-radius:14px;padding:14px 16px;box-shadow:var(--shd);position:relative;overflow:hidden;}
-.sc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--acc);}
-.sc.grn::before{background:var(--grn);}.sc.red::before{background:var(--red);}.sc.blu::before{background:var(--blu);}.sc.yel::before{background:var(--yelb);}
-.sl{font-size:11px;color:var(--mut);font-weight:600;margin-bottom:5px;letter-spacing:.5px;}
-.sv{font-size:21px;font-weight:700;color:var(--brown);font-family:'Noto Serif TC',serif;line-height:1.2;}
-.sv.sm{font-size:16px;}.sv.grn{color:var(--grn);}.sv.red{color:var(--red);}.sv.blu{color:var(--blu);}
-.ss{font-size:11px;color:var(--mut);margin-top:3px;}
+.sc{background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);padding:16px 18px;box-shadow:var(--shd);position:relative;overflow:hidden;transition:transform .2s,box-shadow .2s;}
+.sc:hover{transform:translateY(-2px);box-shadow:var(--shd2);}
+.sc::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:var(--acc);}
+.sc.grn::before{background:var(--grn);}.sc.red::before{background:var(--red);}.sc.blu::before{background:var(--blu);}.sc.yel::before{background:var(--yelb);}.sc.gold::before{background:var(--gold);}.sc.pur::before{background:var(--pur);}.sc.rose::before{background:var(--acc2);}
+.sl{font-size:12px;color:var(--mut);font-weight:600;margin-bottom:6px;letter-spacing:0.06em;}
+.sv{font-size:24px;font-weight:900;color:var(--brown);font-family:'Noto Serif TC',serif;line-height:1.2;letter-spacing:0.04em;}
+.sv.sm{font-size:18px;}.sv.lg{font-size:30px;}
+.sv.grn{color:var(--grn);}.sv.red{color:var(--red);}.sv.blu{color:var(--blu);}.sv.gold{color:var(--gold);}.sv.pur{color:var(--pur);}
+.ss{font-size:12px;color:var(--mut);margin-top:4px;letter-spacing:0.04em;}
 
 /* TABLE */
 .tw{overflow-x:auto;}
@@ -147,11 +156,34 @@ input.yinp{background:var(--yel);border-color:var(--yelb);font-weight:700;}
 .spin{width:40px;height:40px;border:3px solid var(--bdr);border-top-color:var(--acc);border-radius:50%;animation:spin .8s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg)}}
 .load-scr{display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:14px;color:var(--mut);background:var(--bg);}
-.pg-ttl{font-family:'Noto Serif TC',serif;font-size:20px;font-weight:900;color:var(--brown);margin-bottom:4px;}
-.pg-sub{font-size:12px;color:var(--mut);margin-bottom:18px;}
-.sec-hd{display:flex;align-items:center;justify-content:space-between;margin:18px 0 12px;}
-.sec-ttl{font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);}
-.tm{color:var(--mut);font-size:12px;}
+.pg-ttl{font-family:'Noto Serif TC',serif;font-size:28px;font-weight:900;color:var(--brown);margin-bottom:6px;letter-spacing:0.1em;}
+.pg-sub{font-size:13px;color:var(--mut);margin-bottom:22px;letter-spacing:0.06em;}
+.sec-hd{display:flex;align-items:center;justify-content:space-between;margin:20px 0 14px;}
+.sec-ttl{font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--brown);letter-spacing:0.08em;}
+.tm{color:var(--mut);font-size:12px;letter-spacing:0.04em;}
+
+/* NOTICE 警示通知 */
+.notice{background:var(--yel);border-left:4px solid var(--yelb);padding:14px 18px;border-radius:var(--r-sm);margin-bottom:14px;font-size:14px;color:var(--brown);letter-spacing:0.05em;line-height:1.7;}
+.notice b{color:var(--brown);}
+.notice.alert{background:var(--redl);border-left-color:var(--red);color:var(--red);}
+.notice.alert b{color:var(--red);}
+.notice.ok{background:var(--grnl);border-left-color:var(--grn);color:var(--grn);}
+.notice.ok b{color:var(--grn);}
+.notice.info{background:var(--blul);border-left-color:var(--blu);color:var(--blu);}
+.notice.info b{color:var(--blu);}
+.notice.tip{background:var(--purl);border-left-color:var(--pur);color:var(--pur);}
+.notice.tip b{color:var(--pur);}
+.notice.gold{background:var(--goldL);border-left-color:var(--gold);color:#8C6B3A;}
+.notice.gold b{color:#8C6B3A;}
+
+/* 進度條升級 */
+.pb-lg{background:var(--bg2);border-radius:14px;overflow:hidden;height:14px;box-shadow:inset 0 1px 3px rgba(0,0,0,0.06);}
+.pb-lg .pf{height:14px;border-radius:14px;transition:width .8s cubic-bezier(.4,0,.2,1);background:linear-gradient(90deg,var(--acc),var(--acc2));}
+
+/* 強調卡片（沐蜜的真實財報式） */
+.card-feature{background:linear-gradient(135deg,var(--blul),var(--card));border:2px solid var(--blu);}
+.card-feature .card-hd{background:transparent;border:none;}
+.card-feature .card-ttl{color:var(--blu);}
 .fb{display:flex;align-items:center;}.fbb{display:flex;align-items:center;justify-content:space-between;}
 .g8{gap:8px;}.mb12{margin-bottom:12px;}.mb16{margin-bottom:16px;}
 .pill{display:inline-block;padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;}
@@ -208,6 +240,7 @@ const DEF_FIXED=[
 ];
 const PAGES=[
   {id:'overview',ico:'📊',lbl:'總覽'},
+  {id:'advisor', ico:'🧠',lbl:'財務建議'},
   {id:'networth',ico:'💎',lbl:'資產負債'},
   {id:'cashflow',ico:'💵',lbl:'收入現金流'},
   {id:'expenses',ico:'🧾',lbl:'支出記帳'},
@@ -230,7 +263,16 @@ let S={
     assets:[],debts:[],incomes:[],expenses:[],
     budgets:{},dreams:[],fixedItems:[...DEF_FIXED],
     cats:[...DEF_CATS],banks:[...DEF_BANKS],ledgerBudgets:{},yearNotes:{},reconcile:{},monthlyTable:{},
-    savingsPlans:[],savingsLogs:{}
+    savingsPlans:[],savingsLogs:{},
+    coolingList:[],quarterReviews:[],
+    allocConfig:{bigPurchaseLimit:10000,plans:[
+      {id:'house',lbl:'🏠 買房頭期專款',pct:40,color:'#9B7AAE',sub:'存到房貸頭期'},
+      {id:'invest',lbl:'📈 股票投資',pct:25,color:'#5C7AAA',sub:'0050／半導體 ETF'},
+      {id:'safety',lbl:'🛡️ 預備金',pct:15,color:'#5A8C6B',sub:'緊急狀況用'},
+      {id:'travel',lbl:'✈️ 旅遊基金',pct:10,color:'#D4A574',sub:'家庭旅遊'},
+      {id:'growth',lbl:'📚 進修成長',pct:10,color:'#C4A46B',sub:'課程／書籍'},
+    ]},
+    allocLogs:{}
   }
 };
 const getBanks=()=>S.data.banks&&S.data.banks.length?S.data.banks:[...DEF_BANKS];
@@ -255,6 +297,10 @@ function startSync(){
       S.data.monthlyTable=d.monthlyTable||{};
       S.data.savingsPlans=d.savingsPlans||[];
       S.data.savingsLogs=d.savingsLogs||{};
+      S.data.coolingList=d.coolingList||[];
+      S.data.quarterReviews=d.quarterReviews||[];
+      if(d.allocConfig)S.data.allocConfig=d.allocConfig;
+      S.data.allocLogs=d.allocLogs||{};
     }
     setSyncing('synced');
     if(S.auth) render();
@@ -359,6 +405,7 @@ function moSel(){return`<div class="mo-scroll">${MOS.map((m,i)=>`<div class="mo-
 function page(){
   switch(S.page){
     case'overview': return pgOverview();
+    case'advisor':  return pgAdvisor();
     case'networth': return pgNetworth();
     case'cashflow': return pgCashflow();
     case'expenses': return pgExpenses();
@@ -381,7 +428,8 @@ function pgOverview(){
   const tInc=inc.reduce((s,i)=>s+toN(i.amount),0);
   const tExp=exp.reduce((s,e)=>s+toN(e.amount),0);
   const fixedTotal=(S.data.fixedItems||[]).reduce((s,f)=>s+toN(f.amount),0);
-  const net=tInc-tExp-fixedTotal;
+  const totalSpend=tExp+fixedTotal;
+  const net=tInc-totalSpend;
   const tA=S.data.assets.reduce((s,a)=>s+toN(a.value),0);
   const tD=S.data.debts.reduce((s,d)=>s+toN(d.remainingAmount),0);
   const nw=tA-tD;
@@ -389,13 +437,12 @@ function pgOverview(){
   const myE=myExp.reduce((s,e)=>s+toN(e.amount),0);
   const bgt=(S.data.budgets||{})[mk()]||{};
   const bgtTotal=Object.values(bgt).reduce((s,v)=>s+toN(v),0);
-  // budget usage = expenses by category
   const cats=S.data.cats||DEF_CATS;
   const catExp={};
   exp.forEach(e=>{const c=e.category||'其他';catExp[c]=(catExp[c]||0)+toN(e.amount);});
   const bgtUsed=cats.reduce((s,c)=>s+(catExp[c]||0),0);
-  const bpct=bgtTotal>0?Math.min(100,Math.round(bgtUsed/bgtTotal*100)):0;
-  const bcol=bpct>90?'var(--red)':bpct>70?'var(--yelb)':'var(--grn)';
+  const bpct=bgtTotal>0?Math.min(999,Math.round(bgtUsed/bgtTotal*100)):0;
+  const bcol=bpct>=100?'var(--red)':bpct>90?'var(--red)':bpct>70?'var(--yelb)':'var(--grn)';
   const dreams=(S.data.dreams||[]).filter(d=>toN(d.savedAmount)<toN(d.targetAmount));
   const plans=S.data.savingsPlans||[];
   const totalMoTarget=plans.reduce((s,p)=>s+toN(p.monthlyTarget),0);
@@ -404,67 +451,315 @@ function pgOverview(){
   const curMk=`${yr()}-${String(S.month).padStart(2,'0')}`;
   const logs=S.data.savingsLogs||{};
   const moSaved=plans.reduce((s,p)=>s+toN(logs[`${p.id}_${curMk}`]||0),0);
+
+  // ── 季度檢視 ──
+  const curQ=Math.ceil(S.month/3);
+  const reviews=S.data.quarterReviews||[];
+  const thisQReviewed=reviews.find(r=>r.year===yr()&&r.quarter===curQ);
+
+  // ── 警示通知收集 ──
+  const alerts=[];
+  if(net<0)alerts.push({type:'alert',txt:`本月已超支 <b>$${fmt(Math.abs(net))}</b>，請立即檢查支出！`});
+  if(bpct>=100&&bgtTotal>0)alerts.push({type:'alert',txt:`預算已用滿 <b>${bpct}%</b>（$${fmt(bgtUsed)}/$${fmt(bgtTotal)}），停止非必要消費。`});
+  else if(bpct>=80&&bgtTotal>0)alerts.push({type:'',txt:`⚠️ 預算已用 <b>${bpct}%</b>，剩 $${fmt(bgtTotal-bgtUsed)}，要小心開銷。`});
+  if(tInc>0&&fixedTotal/tInc>0.7)alerts.push({type:'',txt:`📌 固定支出佔收入 <b>${Math.round(fixedTotal/tInc*100)}%</b>（健康應低於 50%），考慮增加收入或優化固定開銷。`});
+  if(tInc===0&&S.month===new Date().getMonth()+1)alerts.push({type:'tip',txt:`💡 本月尚未紀錄任何收入，記得到「收入現金流」頁面登記薪資與其他收入。`});
+
+  // ── 自動分流計算 ──
+  const allocPlans=(S.data.allocConfig?.plans)||[];
+
   return`
-  <div class="pg-ttl">📊 財務總覽</div>
-  <div class="pg-sub">${yr()}年 ${MOS[S.month-1]} — ${S.user}</div>
+  <div class="pg-ttl">📊 家庭財務總覽</div>
+  <div class="pg-sub">${yr()}年 ${MOS[S.month-1]}　第 ${curQ} 季　/　使用者：${S.user}</div>
   ${moSel()}
+
+  ${!thisQReviewed?`<div class="notice tip">
+    📅 第 ${curQ} 季尚未做季度檢視，建議檢視一下分流比例與買房進度
+    <button class="btn btn-p btn-sm" style="margin-left:10px;" onclick="setP('advisor')">前往檢視 →</button>
+  </div>`:`<div class="notice ok">
+    ✅ 第 ${curQ} 季已於 ${thisQReviewed.date} 完成檢視
+  </div>`}
+
+  ${alerts.map(a=>`<div class="notice${a.type?' '+a.type:''}">${a.txt}</div>`).join('')}
+
+  <!-- 核心指標 4 卡 -->
   <div class="sg sg4">
-    <div class="sc grn"><div class="sl">家庭收入（變動）</div><div class="sv grn">$${fmt(tInc)}</div><div class="ss">${S.user} 貢獻 $${fmt(myI)}</div></div>
-    <div class="sc red"><div class="sl">家庭變動支出</div><div class="sv red">$${fmt(tExp)}</div><div class="ss">${S.user} 支出 $${fmt(myE)}</div></div>
-    <div class="sc red"><div class="sl">固定支出合計</div><div class="sv red sm">$${fmt(fixedTotal)}</div><div class="ss">房貸＋車貸＋房租等</div></div>
-    <div class="sc ${net>=0?'grn':'red'}"><div class="sl">本月淨結餘</div><div class="sv ${net>=0?'grn':'red'}">$${fmt(net)}</div><div class="ss">${net>=0?'💚 結餘':'🔴 超支'}</div></div>
-  </div>
-  <div class="sg sg2">
-    <div class="sc blu"><div class="sl">家庭淨資產</div><div class="sv blu sm">$${fmt(nw)}</div><div class="ss">資產 $${fmt(tA)} ／ 負債 $${fmt(tD)}</div></div>
-    <div class="sc yel"><div class="sl">預算使用進度</div>
-      <div class="pb" style="height:18px;margin-top:6px;"><div class="pf" style="width:${bpct}%;height:18px;background:${bcol};"></div></div>
-      <div class="ss" style="margin-top:4px;text-align:right;font-weight:700;">${bpct}% 已用（$${fmt(bgtUsed)} / $${fmt(bgtTotal)}）</div>
+    <div class="sc grn">
+      <div class="sl">💰 本月家庭總收入</div>
+      <div class="sv grn">$${fmt(tInc)}</div>
+      <div class="ss">${S.user} 貢獻 $${fmt(myI)}</div>
+    </div>
+    <div class="sc red">
+      <div class="sl">💸 本月總支出</div>
+      <div class="sv red">$${fmt(totalSpend)}</div>
+      <div class="ss">變動 $${fmt(tExp)}　固定 $${fmt(fixedTotal)}</div>
+    </div>
+    <div class="sc ${net>=0?'grn':'red'}">
+      <div class="sl">📈 本月淨結餘</div>
+      <div class="sv ${net>=0?'grn':'red'}">$${fmt(net)}</div>
+      <div class="ss">${net>=0?`💚 結餘率 ${tInc>0?Math.round(net/tInc*100):0}%`:'🔴 超支中'}</div>
+    </div>
+    <div class="sc blu">
+      <div class="sl">💎 家庭淨資產</div>
+      <div class="sv blu sm">$${fmt(nw)}</div>
+      <div class="ss">資產 $${fmt(tA)} ／ 負債 $${fmt(tD)}</div>
     </div>
   </div>
+
+  <!-- 真實財報分析（沐蜜風）-->
+  <div class="card card-feature">
+    <div class="card-hd">
+      <span class="card-ttl">💎 本月財務體檢</span>
+      <span class="bdg" style="background:var(--blu);color:#fff;">最重要的數字</span>
+    </div>
+    <div class="card-bd">
+      <div style="background:var(--bg2);padding:16px 18px;border-radius:var(--r-sm);margin-bottom:14px;">
+        <div class="tm" style="font-size:13px;line-height:2;">
+          📐 <b>本月真實淨結餘計算</b><br>
+          家庭收入 <b style="color:var(--grn);">$${fmt(tInc)}</b><br>
+          － 變動支出 <b style="color:var(--red);">$${fmt(tExp)}</b>（記帳、信用卡、流水帳）<br>
+          － 固定支出 <b style="color:var(--red);">$${fmt(fixedTotal)}</b>（房貸、車貸、房租等）<br>
+          ─────────────<br>
+          ＝ 真實淨結餘 <b style="color:${net>=0?'var(--grn)':'var(--red)'};font-size:18px;">$${fmt(net)}</b>
+        </div>
+      </div>
+
+      <div class="sg sg3">
+        <div>
+          <div class="sl">💰 收入結構</div>
+          <div class="sv sm grn">$${fmt(tInc)}</div>
+          <div class="ss">${inc.length} 筆收入</div>
+        </div>
+        <div>
+          <div class="sl">📊 支出比率</div>
+          <div class="sv sm ${tInc>0&&totalSpend/tInc>0.8?'red':'gold'}">${tInc>0?Math.round(totalSpend/tInc*100):0}%</div>
+          <div class="ss">支出 / 收入</div>
+        </div>
+        <div>
+          <div class="sl">🏦 儲蓄率</div>
+          <div class="sv sm ${tInc>0&&net/tInc>=0.2?'grn':'red'}">${tInc>0?Math.round(net/tInc*100):0}%</div>
+          <div class="ss">健康應 ≥ 20%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 自動分流建議（沐蜜核心）-->
+  <div class="card">
+    <div class="card-hd">
+      <span class="card-ttl">💡 本月「淨結餘」自動分流建議</span>
+      <button class="btn btn-s btn-sm" onclick="openM('editAlloc')">調整比例</button>
+    </div>
+    <div class="card-bd">
+      ${net<=0?`<div class="empty" style="padding:24px;"><p style="font-size:14px;">本月淨結餘為負或為零，無法分流。<br><span class="tm">先檢查支出是否過高 ☕</span></p></div>`:`
+      <div style="background:linear-gradient(135deg,var(--accL),var(--card));padding:16px 18px;border-radius:var(--r-sm);margin-bottom:14px;border-left:4px solid var(--acc);">
+        <div class="sl">本月可分流淨結餘</div>
+        <div class="sv grn">$${fmt(net)}</div>
+        <div class="ss">扣除所有支出後，這是你能分配的錢</div>
+      </div>
+      ${allocPlans.map(p=>{
+        const amt=Math.round(net*p.pct/100);
+        return`<div style="margin-bottom:12px;padding:14px;border:1.5px solid var(--bdr);border-radius:var(--r-sm);background:var(--card);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <div><b style="font-size:15px;">${p.lbl}</b><span class="bdg" style="margin-left:8px;background:${p.color};color:#fff;">${p.pct}%</span></div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:900;color:${p.color};letter-spacing:0.04em;">$${fmt(amt)}</div>
+          </div>
+          <div class="tm">${p.sub}</div>
+          <div class="pb-lg" style="margin-top:8px;"><div class="pf" style="width:${p.pct}%;background:${p.color};"></div></div>
+        </div>`;
+      }).join('')}`}
+    </div>
+  </div>
+
+  <!-- 預算 & 淨資產 -->
   <div class="sg sg2">
+    <div class="card">
+      <div class="card-hd"><span class="card-ttl">📋 預算使用進度</span><button class="btn btn-s btn-sm" onclick="setP('budget')">管理</button></div>
+      <div class="card-bd">
+        ${bgtTotal===0?'<div class="empty" style="padding:14px;"><p>尚未設定本月預算</p></div>':`
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+          <span style="font-size:13px;color:var(--mut);">已用 / 總預算</span>
+          <span style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:900;color:${bcol};">${bpct}%</span>
+        </div>
+        <div class="pb-lg"><div class="pf" style="width:${Math.min(100,bpct)}%;background:${bcol};"></div></div>
+        <div class="tm" style="margin-top:8px;text-align:right;">$${fmt(bgtUsed)} / $${fmt(bgtTotal)}　剩 $${fmt(Math.max(0,bgtTotal-bgtUsed))}</div>`}
+      </div>
+    </div>
     <div class="card">
       <div class="card-hd"><span class="card-ttl">📌 本月固定支出</span><button class="btn btn-s btn-sm" onclick="setP('fixed')">管理</button></div>
       <div class="tw"><table>
-        <thead><tr><th>項目</th><th>金額</th><th>備註</th></tr></thead>
-        <tbody>${(S.data.fixedItems||[]).map(f=>`<tr><td><b>${f.name}</b></td><td class="an">$${fmt(f.amount)}</td><td class="tm">${f.note||''}</td></tr>`).join('')}
-        <tr style="background:var(--bg2);"><td><b>合計</b></td><td class="an"><b>$${fmt(fixedTotal)}</b></td><td></td></tr>
+        <thead><tr><th>項目</th><th>金額</th></tr></thead>
+        <tbody>${(S.data.fixedItems||[]).slice(0,5).map(f=>`<tr><td><b>${f.name}</b></td><td class="an">$${fmt(f.amount)}</td></tr>`).join('')}
+        <tr style="background:var(--bg2);"><td><b>合計</b></td><td class="an"><b style="color:var(--red);">$${fmt(fixedTotal)}</b></td></tr>
         </tbody>
       </table></div>
     </div>
+  </div>
+
+  <!-- 夢想進度 & 儲蓄 -->
+  <div class="sg sg2">
     <div class="card">
-      <div class="card-hd"><span class="card-ttl">🌟 夢想進度</span><button class="btn btn-s btn-sm" onclick="setP('dreams')">查看</button></div>
+      <div class="card-hd"><span class="card-ttl">🌟 夢想計畫進度</span><button class="btn btn-s btn-sm" onclick="setP('dreams')">查看</button></div>
       <div class="card-bd">
-        ${dreams.length===0?'<div class="empty" style="padding:12px 0;"><p>尚無進行中夢想</p></div>':
-          dreams.slice(0,3).map(dr=>{
-            const pct=toN(dr.targetAmount)>0?Math.min(100,Math.round(toN(dr.savedAmount)/toN(dr.targetAmount)*100)):0;
-            return`<div class="mb12"><div class="fbb mb12" style="margin-bottom:5px;"><span style="font-weight:700;font-size:13px;">${dr.icon||'🎯'} ${dr.name}</span><span class="tm">${pct}%</span></div>
-              <div class="pb" style="height:10px;"><div class="pf" style="width:${pct}%;height:10px;background:var(--acc);"></div></div>
+        ${dreams.length===0?'<div class="empty" style="padding:14px;"><p>尚無進行中夢想</p></div>':
+          dreams.slice(0,4).map(dr=>{
+            const sa=toN(dr.savedAmount),ta=toN(dr.targetAmount);
+            const pct=ta>0?Math.min(100,Math.round(sa/ta*100)):0;
+            const col=pct>=80?'var(--grn)':pct>=50?'var(--gold)':'var(--acc)';
+            return`<div style="margin-bottom:14px;">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
+                <span style="font-weight:700;font-size:14px;">${dr.icon||'🎯'} ${dr.name}</span>
+                <span style="font-family:'Noto Serif TC',serif;font-weight:700;color:${col};">${pct}%</span>
+              </div>
+              <div class="pb-lg"><div class="pf" style="width:${pct}%;background:${col};"></div></div>
+              <div class="tm" style="margin-top:4px;text-align:right;">$${fmt(sa)} / $${fmt(ta)}</div>
+            </div>`;
+          }).join('')}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hd"><span class="card-ttl">🏦 儲蓄計畫概況</span><button class="btn btn-s btn-sm" onclick="setP('savings')">管理</button></div>
+      <div class="card-bd">
+        ${plans.length===0?`<div class="empty" style="padding:14px;"><p>尚未設定儲蓄目標</p><button class="btn btn-p btn-sm" style="margin-top:8px;" onclick="setP('savings')">立即設定</button></div>`:`
+        <div class="sg sg2" style="margin-bottom:14px;">
+          <div><div class="sl">月存目標</div><div class="sv sm grn">$${fmt(totalMoTarget)}</div><div class="ss">本月實際 $${fmt(moSaved)}</div></div>
+          <div><div class="sl">累計儲蓄＋投資</div><div class="sv sm pur">$${fmt(totalSaved)}</div></div>
+        </div>
+        ${totalYearTarget>0?`<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;"><span style="font-size:13px;color:var(--mut);">年度目標進度</span><span style="font-weight:700;color:var(--grn);">${Math.min(100,Math.round(totalSaved/totalYearTarget*100))}%</span></div>
+        <div class="pb-lg"><div class="pf" style="width:${Math.min(100,Math.round(totalSaved/totalYearTarget*100))}%;background:var(--grn);"></div></div>`:''}
+        `}
+      </div>
+    </div>
+  </div>
+
+  <!-- 最近支出 -->
+  <div class="card">
+    <div class="card-hd"><span class="card-ttl">📝 本月最新支出</span><button class="btn btn-p btn-sm" onclick="openM('addExp')">＋ 記帳</button></div>
+    <div class="tw">${expTbl(getExp(true).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,8))}</div>
+  </div>`;
+}
+
+// ── ADVISOR 財務建議（沐蜜核心：冷靜期 + 季度檢視）──────────
+function pgAdvisor(){
+  const al=S.data.allocConfig||{bigPurchaseLimit:10000,plans:[]};
+  const cooling=(S.data.coolingList||[]).sort((a,b)=>(b.createDate||'').localeCompare(a.createDate||''));
+  const reviews=(S.data.quarterReviews||[]).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const curQ=Math.ceil(S.month/3);
+  const thisQReviewed=reviews.find(r=>r.year===yr()&&r.quarter===curQ);
+
+  // 統計待決策的冷靜期項目
+  const pendingCooling=cooling.filter(c=>!c.decision);
+  const today=new Date();
+  const readyCount=pendingCooling.filter(c=>{
+    const days=Math.floor((today-new Date(c.createDate))/86400000);
+    return days>=3;
+  }).length;
+
+  // 計算本月淨結餘以提供分流預估
+  const tInc=getInc(true).reduce((s,i)=>s+toN(i.amount),0);
+  const tExp=getExp(true).reduce((s,e)=>s+toN(e.amount),0);
+  const fixedTotal=(S.data.fixedItems||[]).reduce((s,f)=>s+toN(f.amount),0);
+  const net=tInc-tExp-fixedTotal;
+
+  return`
+  <div class="pg-ttl">🧠 財務建議</div>
+  <div class="pg-sub">大額消費冷靜期 ＋ 自動分流 ＋ 季度檢視，幫你做更好的決定</div>
+  ${moSel()}
+
+  <div class="notice tip">
+    💡 <b>大額採購冷靜期規則：</b>單筆超過 $${fmt(al.bigPurchaseLimit)} 的支出，建議經過 <b>3 天冷靜期</b> 並通過自我提問才執行。
+  </div>
+
+  ${!thisQReviewed?`<div class="notice gold">
+    📅 第 ${curQ} 季尚未做季度檢視。每季檢視一次分流比例，可以讓財務規劃跟上家庭狀況的變化。
+  </div>`:''}
+
+  ${readyCount>0?`<div class="notice ok">
+    ✅ 你有 <b>${readyCount}</b> 筆採購已過冷靜期，可以做最終決定了
+  </div>`:''}
+
+  <!-- 兩欄：冷靜期 ＋ 買房專款 -->
+  <div class="sg sg2">
+    <!-- 大額採購冷靜期 -->
+    <div class="card">
+      <div class="card-hd">
+        <span class="card-ttl">🧊 大額採購冷靜期</span>
+        <button class="btn btn-p btn-sm" onclick="openM('addCooling')">＋ 新增評估</button>
+      </div>
+      <div class="card-bd">
+        ${cooling.length===0?'<div class="empty" style="padding:24px;"><p>尚無採購評估記錄</p><p class="tm" style="margin-top:6px;">想買貴的東西時，先記錄下來等 3 天</p></div>':
+          cooling.slice(0,8).map(c=>{
+            const created=new Date(c.createDate);
+            const td=new Date();
+            const days=Math.floor((td-created)/86400000);
+            const ready=days>=3;
+            const status=c.decision==='buy'?'✅ 已購買':c.decision==='reject'?'❌ 放棄':ready?'⏰ 冷靜期已滿':`⏳ 冷靜中（剩 ${3-days} 天）`;
+            const bg=c.decision==='buy'?'var(--grnl)':c.decision==='reject'?'var(--bg2)':ready?'var(--goldL)':'var(--card)';
+            return`<div style="border:1.5px solid var(--bdr);border-radius:var(--r-sm);padding:14px;margin-bottom:10px;background:${bg};">
+              <div class="fbb">
+                <div><b style="font-size:15px;">${c.item}</b><span class="bdg" style="margin-left:8px;background:var(--gold);color:#fff;">$${fmt(c.amount)}</span></div>
+                <button class="bdel" onclick="delCooling('${c.id}')">×</button>
+              </div>
+              <div class="tm" style="margin-top:6px;">📅 評估日 ${c.createDate}　${status}</div>
+              <div class="tm" style="margin-top:4px;">理由：${c.reason||'-'}</div>
+              ${c.decision?`<div class="tm" style="margin-top:4px;">📝 決策備註：${c.decisionNote||'(無)'}</div>`:`
+              ${ready?`<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+                <button class="btn btn-g btn-sm" onclick="decideCooling('${c.id}','buy')">✅ 確定購買</button>
+                <button class="btn btn-s btn-sm" onclick="decideCooling('${c.id}','reject')">❌ 放棄購買</button>
+              </div>`:''}`}
+            </div>`;
+          }).join('')}
+      </div>
+    </div>
+
+    <!-- 自動分流預覽 -->
+    <div class="card">
+      <div class="card-hd">
+        <span class="card-ttl">💰 本月分流預覽</span>
+        <button class="btn btn-s btn-sm" onclick="openM('editAlloc')">調整比例</button>
+      </div>
+      <div class="card-bd">
+        <div style="background:linear-gradient(135deg,var(--accL),var(--card));padding:18px;border-radius:var(--r-sm);text-align:center;margin-bottom:14px;">
+          <div class="sl">本月可分流淨結餘</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:30px;font-weight:900;color:${net>=0?'var(--grn)':'var(--red)'};letter-spacing:0.06em;">$${fmt(net)}</div>
+          <div class="ss">收入 $${fmt(tInc)} − 支出 $${fmt(tExp+fixedTotal)}</div>
+        </div>
+        ${net<=0?'<div class="empty" style="padding:18px;"><p>本月淨結餘為負，無法分流</p></div>':
+          (al.plans||[]).map(p=>{
+            const amt=Math.round(net*p.pct/100);
+            return`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--bdr);">
+              <div><b>${p.lbl}</b><span class="bdg" style="margin-left:8px;background:${p.color};color:#fff;">${p.pct}%</span></div>
+              <div style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:${p.color};">$${fmt(amt)}</div>
             </div>`;
           }).join('')}
       </div>
     </div>
   </div>
-  <div class="sg sg2">
-    <div class="card">
-      <div class="card-hd"><span class="card-ttl">🏦 儲蓄計畫概況</span><button class="btn btn-s btn-sm" onclick="setP('savings')">管理</button></div>
-      <div class="card-bd">
-        ${plans.length===0?`<div class="empty" style="padding:12px 0;"><p>尚未設定儲蓄目標</p><button class="btn btn-p btn-sm" style="margin-top:8px;" onclick="setP('savings')">立即設定</button></div>`:`
-        <div class="sg sg2" style="margin-bottom:12px;">
-          <div><div class="sl">月存目標</div><div class="sv sm grn">$${fmt(totalMoTarget)}</div><div class="ss">本月實際 $${fmt(moSaved)}</div></div>
-          <div><div class="sl">累計儲蓄＋投資</div><div class="sv sm" style="color:#7B1FA2;">$${fmt(totalSaved)}</div></div>
-        </div>
-        ${totalYearTarget>0?`<div class="plbl"><span>年度目標進度</span><span>${totalYearTarget>0?Math.min(100,Math.round(totalSaved/totalYearTarget*100)):0}%</span></div>
-        <div class="pb" style="height:12px;"><div class="pf" style="width:${Math.min(100,Math.round(totalSaved/totalYearTarget*100))}%;height:12px;background:var(--grn);"></div></div>`:''}
-        <div style="margin-top:10px;">${plans.slice(0,3).map(p=>`
-          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--bdr);font-size:12px;">
-            <span>${p.name}</span>
-            <span style="color:var(--grn);font-weight:700;">$${fmt(toN(p.savedAmount)+(p.includeInvest?toN(p.investAmount):0))}</span>
-          </div>`).join('')}</div>`}
-      </div>
-    </div>
+
+  <!-- 季度檢視紀錄 -->
   <div class="card">
-    <div class="card-hd"><span class="card-ttl">📝 本月最新支出</span><button class="btn btn-p btn-sm" onclick="openM('addExp')">＋ 記帳</button></div>
-    <div class="tw">${expTbl(getExp(true).sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,8))}</div>
+    <div class="card-hd">
+      <span class="card-ttl">📅 季度檢視紀錄（每季一次）</span>
+      ${!thisQReviewed?`<button class="btn btn-p btn-sm" onclick="openM('addReview')">✓ 完成第 ${curQ} 季檢視</button>`:'<span class="bdg" style="background:var(--grn);color:#fff;">本季已檢視</span>'}
+    </div>
+    <div class="card-bd">
+      <div class="notice info">
+        💡 每季檢視一次分流比例。如果這一季淨結餘變多，可以調高「買房／投資」的比例；如果緊繃，就先增加「預備金」比例。
+      </div>
+      <div class="tw"><table>
+        <thead><tr><th>檢視日期</th><th>年度／季度</th><th>當季淨結餘</th><th>調整內容</th><th>備註</th><th></th></tr></thead>
+        <tbody>${reviews.length===0?`<tr><td colspan="6"><div class="empty" style="padding:24px;"><p>尚無檢視紀錄</p></div></td></tr>`:
+          reviews.map(r=>`<tr style="background:${r.year===yr()&&r.quarter===curQ?'var(--grnl)':''};">
+            <td><b>${r.date}</b></td>
+            <td>${r.year} 第 ${r.quarter} 季 ✅</td>
+            <td class="an">$${fmt(r.profit||0)}</td>
+            <td class="tm">${r.alloc||'未調整'}</td>
+            <td class="tm">${r.note||''}</td>
+            <td><button class="bdel" onclick="delReview('${r.id}')">×</button></td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>
+    </div>
   </div>`;
 }
 
@@ -1599,6 +1894,47 @@ function modal(){
     <div class="fgrp"><label>類別名稱</label><input type="text" id="m0" placeholder="如：寵物、保健食品"></div>
     <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="saveCat()">✓ 新增</button></div>`;}
 
+  if(m.t==='addCooling'){c=`<div class="mttl">🧊 新增大額採購評估</div>
+    <div class="notice tip" style="font-size:13px;">寫下你想買的東西、預估金額、購買理由。3 天後可以做最終決定。</div>
+    <div class="fg fg2">
+      <div class="fgrp"><label>商品／服務名稱</label><input type="text" id="m0" placeholder="如：iPhone 16 Pro"></div>
+      <div class="fgrp"><label>預估金額（元）</label><input type="number" id="m1" placeholder="0"></div>
+    </div>
+    <div class="fgrp"><label>為什麼想買？</label><textarea id="m2" rows="3" placeholder="現在的手機卡頓、新手機相機更好…"></textarea></div>
+    <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="saveCooling()">✓ 開始 3 天冷靜期</button></div>`;}
+
+  if(m.t==='decideCooling'){const c0=(S.data.coolingList||[]).find(x=>x.id===m.x)||{};c=`<div class="mttl">${m.dec==='buy'?'✅ 確定購買':'❌ 放棄購買'}：${c0.item}</div>
+    <div class="notice ${m.dec==='buy'?'ok':'tip'}" style="font-size:13px;">在做最終決定前，問問自己這幾題：</div>
+    <div class="fgrp"><label>1. 不買的話最壞會發生什麼？</label><textarea id="m0" rows="2" placeholder=""></textarea></div>
+    <div class="fgrp"><label>2. 三個月後我還會記得需要它嗎？</label><textarea id="m1" rows="2" placeholder=""></textarea></div>
+    <div class="fgrp"><label>3. 這筆錢若投入買房／投資專款會多多少？</label><textarea id="m2" rows="2" placeholder=""></textarea></div>
+    <div class="fgrp"><label>📝 最終決策備註</label><textarea id="m3" rows="2" placeholder="${m.dec==='buy'?'仍然決定購買的理由':'放棄的理由'}"></textarea></div>
+    <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn ${m.dec==='buy'?'btn-g':'btn-p'}" onclick="confirmDecideCooling('${m.x}','${m.dec}')">確認 ${m.dec==='buy'?'購買':'放棄'}</button></div>`;}
+
+  if(m.t==='addReview'){const curQ=Math.ceil(S.month/3);const tInc=getInc(true).reduce((s,i)=>s+toN(i.amount),0);const tExp=getExp(true).reduce((s,e)=>s+toN(e.amount),0);const fixedTotal=(S.data.fixedItems||[]).reduce((s,f)=>s+toN(f.amount),0);const net=tInc-tExp-fixedTotal;c=`<div class="mttl">📅 完成第 ${curQ} 季檢視</div>
+    <div class="notice info" style="font-size:13px;">記錄這一季的財務狀況，以及你決定如何調整下一季的分流比例。</div>
+    <div class="fg fg2">
+      <div class="fgrp"><label>檢視日期</label><input type="date" id="m0" value="${today()}"></div>
+      <div class="fgrp"><label>當季淨結餘（元）</label><input type="number" id="m1" value="${net}" placeholder="0"></div>
+    </div>
+    <div class="fgrp"><label>📝 調整內容（可填新比例或主要決定）</label><input type="text" id="m2" placeholder="如：買房 40％ → 45％，旅遊 15％ → 10％"></div>
+    <div class="fgrp"><label>備註</label><textarea id="m3" rows="3" placeholder="這季的反思、下季的計畫…"></textarea></div>
+    <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="saveReview(${curQ})">✓ 完成檢視</button></div>`;}
+
+  if(m.t==='editAlloc'){const al=S.data.allocConfig||{bigPurchaseLimit:10000,plans:[]};c=`<div class="mttl">⚙️ 調整自動分流比例</div>
+    <div class="notice info" style="font-size:13px;">設定本月淨結餘要分配給哪些目標、各佔多少％。總和最好等於 100％。</div>
+    <div class="fgrp"><label>大額採購冷靜期門檻（元）</label><input type="number" id="bpl" value="${al.bigPurchaseLimit||10000}"></div>
+    <div style="margin:14px 0 8px;font-weight:700;color:var(--brown);">📊 分流計畫項目</div>
+    <div id="alloc-list">${(al.plans||[]).map((p,i)=>`
+      <div style="display:grid;grid-template-columns:1fr 1fr 90px 40px;gap:8px;margin-bottom:8px;align-items:center;">
+        <input type="text" data-ai="${i}" data-af="lbl" value="${p.lbl}" placeholder="項目名稱">
+        <input type="text" data-ai="${i}" data-af="sub" value="${p.sub||''}" placeholder="備註">
+        <input type="number" data-ai="${i}" data-af="pct" value="${p.pct}" placeholder="％" min="0" max="100">
+        <button class="bdel" onclick="this.parentElement.remove()">×</button>
+      </div>`).join('')}</div>
+    <button class="btn btn-s btn-sm" onclick="addAllocRow()" style="margin-bottom:10px;">＋ 新增項目</button>
+    <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="saveAlloc()">✓ 儲存</button></div>`;}
+
   return`<div class="mbk" onclick="bkClose(event)"><div class="mbox">${c}</div></div>`;
 }
 
@@ -1754,6 +2090,108 @@ window.delExp=async id=>{if(!confirm('確認刪除？'))return;await delSub('exp
 window.delLE=async id=>{if(!confirm('確認刪除？'))return;await delSub('ledgerEntries',id);toast('已刪除');};
 window.delFixed=async id=>{if(!confirm('確認刪除此固定支出？'))return;await saveMain({fixedItems:(S.data.fixedItems||[]).filter(f=>f.id!==id)});toast('已刪除');};
 window.delDream=async id=>{if(!confirm('確認刪除此夢想？'))return;await saveMain({dreams:(S.data.dreams||[]).filter(d=>d.id!==id)});toast('已刪除');};
+
+// ─── 大額採購冷靜期 ────────────────────────────────
+window.saveCooling=async()=>{
+  const item=g('m0')?.trim();
+  const amount=toN(g('m1'));
+  const reason=g('m2')?.trim()||'';
+  if(!item){alert('請填寫商品名稱');return;}
+  if(amount<=0){alert('請填寫金額');return;}
+  const newItem={id:'cool_'+Date.now(),item,amount,reason,createDate:today(),decision:null,decisionNote:''};
+  const coolingList=[...(S.data.coolingList||[]),newItem];
+  await saveMain({coolingList});
+  toast(`✅ 已開始 3 天冷靜期：${item}`);
+  closeMod();
+};
+
+window.decideCooling=(id,dec)=>{S.modal={t:'decideCooling',x:id,dec};render();};
+
+window.confirmDecideCooling=async(id,dec)=>{
+  const q1=g('m0')?.trim()||'';
+  const q2=g('m1')?.trim()||'';
+  const q3=g('m2')?.trim()||'';
+  const note=g('m3')?.trim()||'';
+  const decisionNote=`Q1:${q1}｜Q2:${q2}｜Q3:${q3}｜${note}`;
+  const coolingList=(S.data.coolingList||[]).map(c=>c.id===id?{...c,decision:dec,decisionNote,decideDate:today()}:c);
+  await saveMain({coolingList});
+  toast(dec==='buy'?'✅ 已記錄購買決定':'✅ 已放棄此採購，省下一筆錢！');
+  closeMod();
+};
+
+window.delCooling=async id=>{
+  if(!confirm('確認刪除此採購評估？'))return;
+  await saveMain({coolingList:(S.data.coolingList||[]).filter(c=>c.id!==id)});
+  toast('已刪除');
+};
+
+// ─── 季度檢視 ─────────────────────────────────────
+window.saveReview=async(quarter)=>{
+  const date=g('m0')||today();
+  const profit=toN(g('m1'));
+  const alloc=g('m2')?.trim()||'';
+  const note=g('m3')?.trim()||'';
+  const newReview={id:'rev_'+Date.now(),date,year:yr(),quarter,profit,alloc,note};
+  const quarterReviews=[...(S.data.quarterReviews||[]),newReview];
+  await saveMain({quarterReviews});
+  toast(`✅ 第 ${quarter} 季檢視完成！`);
+  closeMod();
+};
+
+window.delReview=async id=>{
+  if(!confirm('確認刪除此檢視紀錄？'))return;
+  await saveMain({quarterReviews:(S.data.quarterReviews||[]).filter(r=>r.id!==id)});
+  toast('已刪除');
+};
+
+// ─── 自動分流設定 ─────────────────────────────────
+window.addAllocRow=()=>{
+  const list=document.getElementById('alloc-list');
+  if(!list)return;
+  const idx=list.querySelectorAll('[data-ai]').length/3;
+  const colors=['#9B7AAE','#5C7AAA','#5A8C6B','#D4A574','#C4A46B','#B85A4F'];
+  const color=colors[idx%colors.length];
+  const div=document.createElement('div');
+  div.style.cssText='display:grid;grid-template-columns:1fr 1fr 90px 40px;gap:8px;margin-bottom:8px;align-items:center;';
+  div.innerHTML=`<input type="text" data-ai="${idx}" data-af="lbl" data-color="${color}" placeholder="項目名稱（如：🏠 買房）">
+    <input type="text" data-ai="${idx}" data-af="sub" placeholder="備註">
+    <input type="number" data-ai="${idx}" data-af="pct" placeholder="％" min="0" max="100">
+    <button class="bdel" onclick="this.parentElement.remove()">×</button>`;
+  list.appendChild(div);
+};
+
+window.saveAlloc=async()=>{
+  const bigPurchaseLimit=toN(document.getElementById('bpl')?.value)||10000;
+  const list=document.getElementById('alloc-list');
+  const rows=list.querySelectorAll('[data-af="lbl"]');
+  const oldPlans=(S.data.allocConfig?.plans)||[];
+  const colors=['#9B7AAE','#5C7AAA','#5A8C6B','#D4A574','#C4A46B','#B85A4F','#8C6B3A'];
+  const plans=[];
+  let totalPct=0;
+  rows.forEach((lblEl,i)=>{
+    const ai=lblEl.dataset.ai;
+    const lbl=lblEl.value.trim();
+    const subEl=list.querySelector(`[data-ai="${ai}"][data-af="sub"]`);
+    const pctEl=list.querySelector(`[data-ai="${ai}"][data-af="pct"]`);
+    const sub=subEl?.value.trim()||'';
+    const pct=toN(pctEl?.value);
+    if(!lbl||pct<=0)return;
+    totalPct+=pct;
+    const oldPlan=oldPlans[i]||{};
+    plans.push({
+      id:oldPlan.id||('plan_'+Date.now()+'_'+i),
+      lbl,sub,pct,
+      color:oldPlan.color||colors[i%colors.length]
+    });
+  });
+  if(plans.length===0){alert('至少要有一個分流項目');return;}
+  if(totalPct!==100){
+    if(!confirm(`目前比例總和為 ${totalPct}％（不等於 100％），仍要儲存嗎？`))return;
+  }
+  await saveMain({allocConfig:{bigPurchaseLimit,plans}});
+  toast('✅ 分流比例已更新');
+  closeMod();
+};
 
 // ─── EXPORT XLSX ─────────────────────────────────────────────
 window.exportCSV=()=>{
