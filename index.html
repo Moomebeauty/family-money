@@ -8,15 +8,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700;900&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  /* 奶茶色系 — 焦糖＋深咖啡＋奶白 */
-  --brown:#4A3428;--bl:#6B4E3A;--acc:#B08660;--acc2:#D4A574;--accL:#F0DCC4;
-  --bg:#FBF6EE;--bg2:#F3EADC;--bg3:#EBDDC8;--card:#FFFCF6;--bdr:#E0CDB8;
-  --grn:#5A8C6B;--grnl:#E8F2EC;--red:#B85A4F;--redl:#F8E8E5;
-  --yel:#FFF4D9;--yelb:#D4A04C;--blu:#5C7AAA;--blul:#E5ECF5;
-  --pur:#9B7AAE;--purl:#F0E8F5;--gold:#C4A46B;--goldL:#F7EFDA;
-  --txt:#2D1F18;--mut:#9C8473;
-  --shd:0 2px 14px rgba(74,52,40,.08);
-  --shd2:0 6px 28px rgba(74,52,40,.14);
+  /* 精緻奶茶 — 杏桃玫瑰金 ＋ 香檳金 ＋ 薰衣草點綴 */
+  --brown:#3D2D24;--bl:#6B544A;--acc:#B8896B;--acc2:#D4B095;--accL:#F2E2CE;
+  --bg:#FAF7F2;--bg2:#F0E9DE;--bg3:#E6DCC9;--card:#FFFDF9;--bdr:#E5D7C2;
+  --grn:#7A9E84;--grnl:#E9F0EA;--red:#C58578;--redl:#F8E6DF;
+  --yel:#FBF3DD;--yelb:#CFA764;--blu:#7891B0;--blul:#E6ECF2;
+  --pur:#A795B3;--purl:#EFE9F2;--gold:#A88553;--goldL:#F5EBD6;
+  --rose:#C5A3A8;--roseL:#F5E6E5;
+  --txt:#3D2F26;--mut:#9D8876;
+  --shd:0 1px 3px rgba(61,45,36,.04),0 2px 8px rgba(61,45,36,.06);
+  --shd2:0 4px 12px rgba(61,45,36,.08),0 8px 24px rgba(61,45,36,.06);
   --r:14px;--r-sm:10px;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;letter-spacing:0.03em;}
@@ -40,31 +41,29 @@ h1,h2,h3,.serif{font-family:'Noto Serif TC',serif;letter-spacing:0.06em;}
 
 /* APP */
 .app{display:flex;flex-direction:column;height:100vh;}
-.topbar{background:linear-gradient(135deg,var(--brown),#3E2723);color:#fff;padding:0 16px;display:flex;align-items:center;justify-content:space-between;height:56px;flex-shrink:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.25);}
-.tb-brand{font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;letter-spacing:1px;}
-.tb-brand span{color:var(--acc2);}
-.tb-right{display:flex;align-items:center;gap:10px;}
-.sync-dot{width:8px;height:8px;border-radius:50%;background:#aaa;transition:all .3s;flex-shrink:0;}
-.sync-dot.synced{background:#4CAF50;box-shadow:0 0 6px rgba(76,175,80,.6);}
-.sync-dot.syncing{background:var(--acc2);animation:pulse 1s infinite;}
-.sync-dot.error{background:#ef5350;}
+.topbar{background:linear-gradient(135deg,#3D2D24 0%,#5C4439 100%);color:#fff;padding:0 22px;display:flex;align-items:center;justify-content:space-between;height:60px;flex-shrink:0;z-index:100;box-shadow:0 2px 16px rgba(61,45,36,.18);}
+.tb-brand{font-family:'Noto Serif TC',serif;font-size:18px;font-weight:600;letter-spacing:3px;color:#F2E2CE;}
+.tb-brand span{color:#D4B095;font-weight:300;}
+.tb-right{display:flex;align-items:center;gap:14px;}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:#aaa;transition:all .3s;flex-shrink:0;}
+.sync-dot.synced{background:#9DB8A4;box-shadow:0 0 8px rgba(157,184,164,.7);}
+.sync-dot.syncing{background:#D4B095;animation:pulse 1s infinite;}
+.sync-dot.error{background:#D8A89E;}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-.sync-lbl{font-size:11px;color:rgba(255,255,255,.6);}
-.user-tabs{display:flex;background:rgba(255,255,255,.12);border-radius:20px;padding:3px;gap:0;}
-.u-tab{padding:4px 11px;border-radius:16px;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;color:rgba(255,255,255,.65);border:none;background:none;font-family:'Noto Sans TC',sans-serif;}
-.u-tab.active{color:#fff;font-weight:700;}
-.u-伯涵.active{background:#1565C0;}.u-珞熙.active{background:#AD1457;}.u-楷宸.active{background:#2E7D32;}
-.btn-out{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);border-radius:8px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;}
-.btn-out:hover{background:rgba(255,255,255,.2);color:#fff;}
+.sync-lbl{font-size:11px;color:rgba(242,226,206,.7);letter-spacing:0.08em;}
+.btn-out{background:rgba(242,226,206,.08);border:1px solid rgba(242,226,206,.18);color:rgba(242,226,206,.85);border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;letter-spacing:0.08em;transition:all .25s;}
+.btn-out:hover{background:rgba(242,226,206,.18);color:#fff;border-color:rgba(242,226,206,.3);}
+
 
 /* LAYOUT */
 .layout{display:flex;flex:1;overflow:hidden;}
-.sidebar{width:210px;background:linear-gradient(180deg,var(--brown) 0%,var(--bl) 100%);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0;padding:14px 0;}
-.sb-sec-lbl{font-size:10px;font-weight:700;color:rgba(255,255,255,0.45);letter-spacing:1.5px;text-transform:uppercase;padding:14px 18px 6px;}
-.sb-item{display:flex;align-items:center;gap:11px;padding:13px 18px;cursor:pointer;font-size:14px;color:rgba(255,255,255,0.78);font-weight:500;transition:all .2s;border-left:4px solid transparent;letter-spacing:0.06em;}
-.sb-item:hover{background:rgba(255,255,255,0.08);color:#fff;}
-.sb-item.active{background:rgba(255,255,255,0.16);color:#fff;font-weight:700;border-left-color:var(--acc2);}
-.sb-item .ico{font-size:18px;width:22px;text-align:center;}
+.sidebar{width:218px;background:linear-gradient(180deg,#3D2D24 0%,#4F3A30 60%,#5C4439 100%);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0;padding:18px 0;box-shadow:inset -2px 0 12px rgba(0,0,0,0.08);}
+.sb-sec-lbl{font-size:10px;font-weight:600;color:rgba(212,176,149,0.7);letter-spacing:2px;text-transform:uppercase;padding:16px 20px 8px;font-family:'Noto Serif TC',serif;}
+.sb-item{display:flex;align-items:center;gap:12px;padding:13px 20px;cursor:pointer;font-size:14px;color:rgba(255,255,255,0.72);font-weight:400;transition:all .25s cubic-bezier(.4,0,.2,1);border-left:3px solid transparent;letter-spacing:0.08em;position:relative;}
+.sb-item:hover{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.95);padding-left:24px;}
+.sb-item.active{background:linear-gradient(90deg,rgba(184,137,107,0.18),transparent);color:#F2E2CE;font-weight:500;border-left-color:#D4B095;}
+.sb-item.active::after{content:'';position:absolute;right:14px;top:50%;transform:translateY(-50%);width:5px;height:5px;border-radius:50%;background:#D4B095;box-shadow:0 0 8px rgba(212,176,149,0.6);}
+.sb-item .ico{font-size:17px;width:22px;text-align:center;opacity:0.92;}
 .content{flex:1;overflow-y:auto;padding:20px 20px 80px;}
 
 /* MOBILE NAV */
@@ -76,25 +75,25 @@ h1,h2,h3,.serif{font-family:'Noto Serif TC',serif;letter-spacing:0.06em;}
 @media(min-width:769px)and(max-width:1024px){.sidebar{width:58px;}.sb-sec-lbl,.sb-item span{display:none;}.sb-item{justify-content:center;padding:12px;}.sb-item .ico{font-size:20px;width:auto;}}
 
 /* CARDS */
-.card{background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);box-shadow:var(--shd);overflow:hidden;margin-bottom:18px;transition:box-shadow .2s;}
+.card{background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);box-shadow:var(--shd);overflow:hidden;margin-bottom:18px;transition:box-shadow .3s,transform .3s;}
 .card:hover{box-shadow:var(--shd2);}
-.card-hd{padding:15px 20px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;background:linear-gradient(90deg,var(--bg),var(--card));gap:10px;flex-wrap:wrap;}
-.card-ttl{font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);letter-spacing:0.08em;}
-.card-bd{padding:18px 20px;}
+.card-hd{padding:16px 22px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;background:linear-gradient(90deg,rgba(245,235,214,0.4),transparent);gap:10px;flex-wrap:wrap;}
+.card-ttl{font-family:'Noto Serif TC',serif;font-size:16px;font-weight:600;color:var(--brown);letter-spacing:0.1em;}
+.card-bd{padding:20px 22px;}
 
 /* STAT */
-.sg{display:grid;gap:14px;margin-bottom:18px;}
+.sg{display:grid;gap:16px;margin-bottom:20px;}
 .sg2{grid-template-columns:repeat(2,1fr);}.sg3{grid-template-columns:repeat(3,1fr);}.sg4{grid-template-columns:repeat(4,1fr);}
 @media(max-width:600px){.sg4,.sg3{grid-template-columns:repeat(2,1fr);}}
-.sc{background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);padding:16px 18px;box-shadow:var(--shd);position:relative;overflow:hidden;transition:transform .2s,box-shadow .2s;}
-.sc:hover{transform:translateY(-2px);box-shadow:var(--shd2);}
-.sc::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:var(--acc);}
-.sc.grn::before{background:var(--grn);}.sc.red::before{background:var(--red);}.sc.blu::before{background:var(--blu);}.sc.yel::before{background:var(--yelb);}.sc.gold::before{background:var(--gold);}.sc.pur::before{background:var(--pur);}.sc.rose::before{background:var(--acc2);}
-.sl{font-size:12px;color:var(--mut);font-weight:600;margin-bottom:6px;letter-spacing:0.06em;}
-.sv{font-size:24px;font-weight:900;color:var(--brown);font-family:'Noto Serif TC',serif;line-height:1.2;letter-spacing:0.04em;}
-.sv.sm{font-size:18px;}.sv.lg{font-size:30px;}
+.sc{background:var(--card);border:1px solid var(--bdr);border-radius:var(--r);padding:18px 20px;box-shadow:var(--shd);position:relative;overflow:hidden;transition:transform .3s cubic-bezier(.4,0,.2,1),box-shadow .3s;}
+.sc:hover{transform:translateY(-3px);box-shadow:var(--shd2);}
+.sc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--acc),var(--acc2));}
+.sc.grn::before{background:linear-gradient(90deg,var(--grn),#9DB8A4);}.sc.red::before{background:linear-gradient(90deg,var(--red),#D8A89E);}.sc.blu::before{background:linear-gradient(90deg,var(--blu),#A0B4CC);}.sc.yel::before{background:linear-gradient(90deg,var(--yelb),#E2BE85);}.sc.gold::before{background:linear-gradient(90deg,var(--gold),#C5A47C);}.sc.pur::before{background:linear-gradient(90deg,var(--pur),#C2B4CC);}.sc.rose::before{background:linear-gradient(90deg,var(--rose),#D8BEC1);}
+.sl{font-size:11px;color:var(--mut);font-weight:500;margin-bottom:8px;letter-spacing:0.12em;text-transform:uppercase;font-family:'Noto Sans TC',sans-serif;}
+.sv{font-size:26px;font-weight:700;color:var(--brown);font-family:'Noto Serif TC',serif;line-height:1.15;letter-spacing:0.02em;}
+.sv.sm{font-size:19px;}.sv.lg{font-size:32px;}
 .sv.grn{color:var(--grn);}.sv.red{color:var(--red);}.sv.blu{color:var(--blu);}.sv.gold{color:var(--gold);}.sv.pur{color:var(--pur);}
-.ss{font-size:12px;color:var(--mut);margin-top:4px;letter-spacing:0.04em;}
+.ss{font-size:12px;color:var(--mut);margin-top:6px;letter-spacing:0.04em;font-weight:400;}
 
 /* TABLE */
 .tw{overflow-x:auto;}
@@ -156,33 +155,34 @@ input.yinp{background:var(--yel);border-color:var(--yelb);font-weight:700;}
 .spin{width:40px;height:40px;border:3px solid var(--bdr);border-top-color:var(--acc);border-radius:50%;animation:spin .8s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg)}}
 .load-scr{display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:14px;color:var(--mut);background:var(--bg);}
-.pg-ttl{font-family:'Noto Serif TC',serif;font-size:28px;font-weight:900;color:var(--brown);margin-bottom:6px;letter-spacing:0.1em;}
-.pg-sub{font-size:13px;color:var(--mut);margin-bottom:22px;letter-spacing:0.06em;}
-.sec-hd{display:flex;align-items:center;justify-content:space-between;margin:20px 0 14px;}
-.sec-ttl{font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--brown);letter-spacing:0.08em;}
-.tm{color:var(--mut);font-size:12px;letter-spacing:0.04em;}
+.pg-ttl{font-family:'Noto Serif TC',serif;font-size:30px;font-weight:600;color:var(--brown);margin-bottom:8px;letter-spacing:0.15em;line-height:1.3;}
+.pg-sub{font-size:13px;color:var(--mut);margin-bottom:24px;letter-spacing:0.1em;font-weight:300;}
+.sec-hd{display:flex;align-items:center;justify-content:space-between;margin:22px 0 16px;}
+.sec-ttl{font-family:'Noto Serif TC',serif;font-size:18px;font-weight:600;color:var(--brown);letter-spacing:0.1em;}
+.tm{color:var(--mut);font-size:12px;letter-spacing:0.05em;}
 
 /* NOTICE 警示通知 */
-.notice{background:var(--yel);border-left:4px solid var(--yelb);padding:14px 18px;border-radius:var(--r-sm);margin-bottom:14px;font-size:14px;color:var(--brown);letter-spacing:0.05em;line-height:1.7;}
-.notice b{color:var(--brown);}
-.notice.alert{background:var(--redl);border-left-color:var(--red);color:var(--red);}
+.notice{background:linear-gradient(90deg,var(--yel),rgba(251,243,221,0.4));border-left:3px solid var(--yelb);padding:14px 20px;border-radius:var(--r-sm);margin-bottom:14px;font-size:13.5px;color:var(--brown);letter-spacing:0.06em;line-height:1.75;box-shadow:0 1px 3px rgba(61,45,36,.03);}
+.notice b{color:var(--brown);font-weight:600;}
+.notice.alert{background:linear-gradient(90deg,var(--redl),rgba(248,230,223,0.4));border-left-color:var(--red);color:#8B5042;}
 .notice.alert b{color:var(--red);}
-.notice.ok{background:var(--grnl);border-left-color:var(--grn);color:var(--grn);}
+.notice.ok{background:linear-gradient(90deg,var(--grnl),rgba(233,240,234,0.4));border-left-color:var(--grn);color:#4F6B57;}
 .notice.ok b{color:var(--grn);}
-.notice.info{background:var(--blul);border-left-color:var(--blu);color:var(--blu);}
+.notice.info{background:linear-gradient(90deg,var(--blul),rgba(230,236,242,0.4));border-left-color:var(--blu);color:#4F6582;}
 .notice.info b{color:var(--blu);}
-.notice.tip{background:var(--purl);border-left-color:var(--pur);color:var(--pur);}
+.notice.tip{background:linear-gradient(90deg,var(--purl),rgba(239,233,242,0.4));border-left-color:var(--pur);color:#6B5C7A;}
 .notice.tip b{color:var(--pur);}
-.notice.gold{background:var(--goldL);border-left-color:var(--gold);color:#8C6B3A;}
-.notice.gold b{color:#8C6B3A;}
+.notice.gold{background:linear-gradient(90deg,var(--goldL),rgba(245,235,214,0.4));border-left-color:var(--gold);color:#7A5F38;}
+.notice.gold b{color:var(--gold);}
 
 /* 進度條升級 */
-.pb-lg{background:var(--bg2);border-radius:14px;overflow:hidden;height:14px;box-shadow:inset 0 1px 3px rgba(0,0,0,0.06);}
-.pb-lg .pf{height:14px;border-radius:14px;transition:width .8s cubic-bezier(.4,0,.2,1);background:linear-gradient(90deg,var(--acc),var(--acc2));}
+.pb-lg{background:var(--bg2);border-radius:14px;overflow:hidden;height:12px;box-shadow:inset 0 1px 3px rgba(61,45,36,0.06);}
+.pb-lg .pf{height:12px;border-radius:14px;transition:width 1s cubic-bezier(.4,0,.2,1);background:linear-gradient(90deg,var(--acc),var(--acc2));position:relative;overflow:hidden;}
+.pb-lg .pf::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,0.25),transparent);}
 
 /* 強調卡片（沐蜜的真實財報式） */
-.card-feature{background:linear-gradient(135deg,var(--blul),var(--card));border:2px solid var(--blu);}
-.card-feature .card-hd{background:transparent;border:none;}
+.card-feature{background:linear-gradient(135deg,rgba(230,236,242,0.5),var(--card) 60%);border:1px solid rgba(120,145,176,0.3);box-shadow:0 2px 12px rgba(120,145,176,0.1);}
+.card-feature .card-hd{background:transparent;border-bottom-color:rgba(120,145,176,0.2);}
 .card-feature .card-ttl{color:var(--blu);}
 .fb{display:flex;align-items:center;}.fbb{display:flex;align-items:center;justify-content:space-between;}
 .g8{gap:8px;}.mb12{margin-bottom:12px;}.mb16{margin-bottom:16px;}
@@ -348,8 +348,8 @@ function setSyncing(s){
   if(lbl)lbl.textContent=s==='synced'?'已同步':s==='syncing'?'同步中…':'離線';
 }
 function toast(msg){const el=document.createElement('div');el.className='toast';el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),2500);}
-function getInc(all){return(S.data.incomes||[]).filter(i=>i.month===S.month&&i.year===yr()&&(all||i.user===S.user));}
-function getExp(all){return(S.data.expenses||[]).filter(e=>e.month===S.month&&e.year===yr()&&(all||e.user===S.user));}
+function getInc(all){return(S.data.incomes||[]).filter(i=>i.month===S.month&&i.year===yr());}
+function getExp(all){return(S.data.expenses||[]).filter(e=>e.month===S.month&&e.year===yr());}
 function getLedger(lid,mo){return(S.data.ledgerEntries||[]).filter(e=>e.lid===lid&&e.month===(mo||S.month)&&e.year===yr());}
 function getLedgerAll(lid){return(S.data.ledgerEntries||[]).filter(e=>e.lid===lid);}
 
@@ -386,7 +386,6 @@ function renderLogin(){
 function topBar(){return`<div class="topbar">
   <div class="tb-brand">🏡 <span>家庭</span>財務</div>
   <div class="tb-right">
-    <div class="user-tabs">${USERS.map(u=>`<button class="u-tab u-${u}${S.user===u?' active':''}" onclick="setU('${u}')">${u}</button>`).join('')}</div>
     <div class="fb g8"><div class="sync-dot ${S.sync}"></div><span class="sync-lbl">${S.sync==='synced'?'已同步':S.sync==='syncing'?'同步中…':'離線'}</span></div>
     <button class="btn-out" onclick="exportCSV()">⬇ 匯出</button>
     <button class="btn-out" onclick="doOut()">登出</button>
@@ -470,7 +469,7 @@ function pgOverview(){
 
   return`
   <div class="pg-ttl">📊 家庭財務總覽</div>
-  <div class="pg-sub">${yr()}年 ${MOS[S.month-1]}　第 ${curQ} 季　/　使用者：${S.user}</div>
+  <div class="pg-sub">${yr()}年 ${MOS[S.month-1]}　第 ${curQ} 季</div>
   ${moSel()}
 
   ${!thisQReviewed?`<div class="notice tip">
@@ -487,7 +486,7 @@ function pgOverview(){
     <div class="sc grn">
       <div class="sl">💰 本月家庭總收入</div>
       <div class="sv grn">$${fmt(tInc)}</div>
-      <div class="ss">${S.user} 貢獻 $${fmt(myI)}</div>
+      <div class="ss">${USERS.map(u=>{const ui=inc.filter(i=>i.user===u).reduce((s,i)=>s+toN(i.amount),0);return ui>0?`${u} $${fmt(ui)}`:'';}).filter(Boolean).join('　')||'尚無收入記錄'}</div>
     </div>
     <div class="sc red">
       <div class="sl">💸 本月總支出</div>
@@ -818,28 +817,28 @@ function pgNetworth(){
 
 // ── CASH FLOW ─────────────────────────────────────────────────
 function pgCashflow(){
-  const all=getInc(true),mine=getInc(false);
-  const list=S.subTab===0?all:mine;
+  const all=getInc(true);
+  const list=all;
   const tAll=all.reduce((s,i)=>s+toN(i.amount),0);
-  const tMine=mine.reduce((s,i)=>s+toN(i.amount),0);
   const passive=all.filter(i=>i.isPassive).reduce((s,i)=>s+toN(i.amount),0);
+  const userTotals=USERS.map(u=>({u,amt:all.filter(i=>i.user===u).reduce((s,i)=>s+toN(i.amount),0)}));
   return`
   <div class="pg-ttl">💵 收入現金流</div>
-  <div class="pg-sub">主動收入 ＋ 被動收入</div>
+  <div class="pg-sub">主動收入 ＋ 被動收入　依成員分項</div>
   ${moSel()}
   <div class="sg sg4">
     <div class="sc grn"><div class="sl">家庭總收入</div><div class="sv grn">$${fmt(tAll)}</div></div>
     <div class="sc grn"><div class="sl">主動收入</div><div class="sv grn sm">$${fmt(tAll-passive)}</div></div>
     <div class="sc blu"><div class="sl">被動收入</div><div class="sv blu sm">$${fmt(passive)}</div></div>
-    <div class="sc"><div class="sl">${S.user} 收入</div><div class="sv sm">$${fmt(tMine)}</div></div>
+    <div class="sc gold"><div class="sl">收入來源數</div><div class="sv gold sm">${all.length} 筆</div></div>
+  </div>
+  <div class="sg sg3">
+    ${userTotals.map(ut=>`<div class="sc rose"><div class="sl">${ut.u} 的收入</div><div class="sv sm">$${fmt(ut.amt)}</div><div class="ss">${tAll>0?Math.round(ut.amt/tAll*100):0}% 佔比</div></div>`).join('')}
   </div>
   <div class="card">
     <div class="card-hd">
-      <span class="card-ttl">💰 收入明細</span>
-      <div class="fb g8">
-        <div class="tab-bar" style="margin:0;">${['全家',S.user].map((t,i)=>`<button class="tab-p${S.subTab===i?' active':''}" onclick="setT(${i})">${t}</button>`).join('')}</div>
-        <button class="btn btn-p btn-sm" onclick="openM('addInc')">＋ 新增</button>
-      </div>
+      <span class="card-ttl">💰 收入明細（全家）</span>
+      <button class="btn btn-p btn-sm" onclick="openM('addInc')">＋ 新增</button>
     </div>
     <div class="tw"><table>
       <thead><tr><th>日期</th><th>金額</th><th>類別</th><th>類型</th><th>記錄人</th><th>備註</th><th></th></tr></thead>
@@ -863,29 +862,29 @@ function pgCashflow(){
 
 // ── EXPENSES ──────────────────────────────────────────────────
 function pgExpenses(){
-  const all=getExp(true),mine=getExp(false);
-  const list=S.subTab===0?all:mine;
+  const all=getExp(true);
+  const list=all;
   const tAll=all.reduce((s,e)=>s+toN(e.amount),0);
-  const tMine=mine.reduce((s,e)=>s+toN(e.amount),0);
   const cardT=all.filter(e=>e.payMethod==='信用卡').reduce((s,e)=>s+toN(e.amount),0);
   const cashT=all.filter(e=>e.payMethod==='現金').reduce((s,e)=>s+toN(e.amount),0)+all.filter(e=>e.payMethod==='轉帳').reduce((s,e)=>s+toN(e.amount),0);
+  const userTotals=USERS.map(u=>({u,amt:all.filter(e=>e.user===u).reduce((s,e)=>s+toN(e.amount),0)}));
   return`
   <div class="pg-ttl">🧾 支出記帳</div>
-  <div class="pg-sub">每一筆花費，含類別對應預算</div>
+  <div class="pg-sub">每一筆花費，含類別對應預算　依成員分項</div>
   ${moSel()}
   <div class="sg sg4">
     <div class="sc red"><div class="sl">家庭變動支出</div><div class="sv red">$${fmt(tAll)}</div></div>
-    <div class="sc"><div class="sl">${S.user} 支出</div><div class="sv sm">$${fmt(tMine)}</div></div>
     <div class="sc blu"><div class="sl">💳 信用卡</div><div class="sv blu sm">$${fmt(cardT)}</div></div>
-    <div class="sc"><div class="sl">💵 現金＋轉帳</div><div class="sv sm">$${fmt(cashT)}</div></div>
+    <div class="sc gold"><div class="sl">💵 現金＋轉帳</div><div class="sv gold sm">$${fmt(cashT)}</div></div>
+    <div class="sc rose"><div class="sl">支出筆數</div><div class="sv sm">${all.length} 筆</div></div>
+  </div>
+  <div class="sg sg3">
+    ${userTotals.map(ut=>`<div class="sc pur"><div class="sl">${ut.u} 的支出</div><div class="sv sm">$${fmt(ut.amt)}</div><div class="ss">${tAll>0?Math.round(ut.amt/tAll*100):0}% 佔比</div></div>`).join('')}
   </div>
   <div class="card">
     <div class="card-hd">
-      <span class="card-ttl">📝 支出明細</span>
-      <div class="fb g8">
-        <div class="tab-bar" style="margin:0;">${['全家',S.user].map((t,i)=>`<button class="tab-p${S.subTab===i?' active':''}" onclick="setT(${i})">${t}</button>`).join('')}</div>
-        <button class="btn btn-p btn-sm" onclick="openM('addExp')">＋ 記帳</button>
-      </div>
+      <span class="card-ttl">📝 支出明細（全家）</span>
+      <button class="btn btn-p btn-sm" onclick="openM('addExp')">＋ 記帳</button>
     </div>
     <div class="tw">${expTbl(list.sort((a,b)=>(b.date||'').localeCompare(a.date||'')))}</div>
   </div>
@@ -983,11 +982,11 @@ function pgBudget(){
 function pgCC(){
   const banks=getBanks();
   const allCard=getExp(true).filter(e=>e.payMethod==='信用卡');
-  const myCard=getExp(false).filter(e=>e.payMethod==='信用卡');
-  const list=S.subTab===0?allCard:myCard;
+  const list=allCard;
   const byBank={};allCard.forEach(e=>{const b=e.cardBank||'其他';byBank[b]=(byBank[b]||0)+toN(e.amount);});
   const byCat={};allCard.forEach(e=>{const c=e.category||'其他';byCat[c]=(byCat[c]||0)+toN(e.amount);});
   const total=allCard.reduce((s,e)=>s+toN(e.amount),0);
+  const userTotals=USERS.map(u=>({u,amt:allCard.filter(e=>e.user===u).reduce((s,e)=>s+toN(e.amount),0)}));
   const cats=S.data.cats||DEF_CATS;
   const recBase='cc_'+mk()+'_';
   const rec=S.data.reconcile||{};
@@ -1029,9 +1028,9 @@ function pgCC(){
   <div class="pg-ttl">💳 信用卡管理</div>
   <div class="pg-sub">輸入消費後自動同步到各類別預算</div>
   ${moSel()}
-  <div class="sg sg2">
+  <div class="sg sg4">
     <div class="sc blu"><div class="sl">本月信用卡總額</div><div class="sv blu">$${fmt(total)}</div><div class="ss">${allCard.length} 筆刷卡</div></div>
-    <div class="sc"><div class="sl">${S.user} 刷卡</div><div class="sv sm">$${fmt(myCard.reduce((s,e)=>s+toN(e.amount),0))}</div></div>
+    ${userTotals.map(ut=>`<div class="sc rose"><div class="sl">${ut.u} 刷卡</div><div class="sv sm">$${fmt(ut.amt)}</div><div class="ss">${total>0?Math.round(ut.amt/total*100):0}% 佔比</div></div>`).join('')}
   </div>
 
   <!-- 帳務核對 -->
@@ -1058,11 +1057,8 @@ function pgCC(){
   <!-- 刷卡明細 -->
   <div class="card">
     <div class="card-hd">
-      <span class="card-ttl">📋 刷卡明細</span>
-      <div class="fb g8">
-        <div class="tab-bar" style="margin:0;">${['全家',S.user].map((t,i)=>`<button class="tab-p${S.subTab===i?' active':''}" onclick="setT(${i})">${t}</button>`).join('')}</div>
-        <button class="btn btn-p btn-sm" onclick="openM('addExp','信用卡')">＋ 刷卡記帳</button>
-      </div>
+      <span class="card-ttl">📋 刷卡明細（全家）</span>
+      <button class="btn btn-p btn-sm" onclick="openM('addExp','信用卡')">＋ 刷卡記帳</button>
     </div>
     <div class="tw"><table>
       <thead><tr><th>日期</th><th>金額</th><th>銀行</th><th>類別</th><th>記錄人</th><th>備註</th><th></th></tr></thead>
