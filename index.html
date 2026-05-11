@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>🏡 家庭財務系統</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700;900&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -295,21 +294,22 @@ async function learnMerchant(merchant,category){
   await saveMain({merchantCats});
 }
 
-// ─── 文字批次解析器 ──────────────────────────────────
-// 從一段多行文字中提取「日期 / 商家 / 金額」
+// ─── 大段文字批次解析器 ────────────────────────────
+// 從整段文字（含換行、亂格式）中提取「日期 / 商家 / 金額」
 function parseTransactionText(text){
   if(!text)return [];
   const lines=text.split(/\r?\n/).map(l=>l.trim()).filter(l=>l.length>0);
   const result=[];
 
-  // 日期格式正則
+  // 日期格式正則（支援多種格式）
   const dateRegex=/(\d{4})[\/\-年.](\d{1,2})[\/\-月.](\d{1,2})|(\d{1,2})[\/\-月.](\d{1,2})[日]?|(\d{2})[\/\-](\d{2})/;
-  // 金額格式正則（NT$ 1,234 / $1,234 / 1,234 元 / 1234.5）
+  // 金額格式
   const amountRegex=/[$＄]?\s*([\d,]+(?:\.\d+)?)\s*(?:元|TWD|NTD)?/g;
 
   for(const line of lines){
-    // 嘗試找日期
     let date='',amount=0,merchant='';
+
+    // 日期解析
     const dateMatch=line.match(dateRegex);
     if(dateMatch){
       let y,m,d;
@@ -321,112 +321,29 @@ function parseTransactionText(text){
       }
     }
 
-    // 找金額（取行內最後一個數字當金額，通常是消費金額）
+    // 金額：取行內最大且 < 100 萬的數字（通常是消費金額）
     const allAmounts=[...line.matchAll(amountRegex)].map(m=>parseFloat(m[1].replace(/,/g,'')));
     const validAmounts=allAmounts.filter(a=>a>=1&&a<1000000);
     if(validAmounts.length>0){
-      amount=validAmounts[validAmounts.length-1];
+      // 排除 4 位數的年份
+      const filtered=validAmounts.filter(a=>!(a>=1900&&a<=2100&&Number.isInteger(a)));
+      amount=filtered.length>0?filtered[filtered.length-1]:validAmounts[validAmounts.length-1];
     }
 
-    // 商家：移除日期、金額、常見前後綴文字後剩下的
+    // 商家：移除日期與金額後剩下的
     merchant=line
       .replace(dateRegex,'')
       .replace(/[$＄]?\s*[\d,]+(?:\.\d+)?\s*(?:元|TWD|NTD)?/g,'')
-      .replace(/^[\s\-\|·•◦*]+|[\s\-\|·•◦*]+$/g,'')
+      .replace(/^[\s\-\|·•◦*\t]+|[\s\-\|·•◦*\t]+$/g,'')
       .replace(/\s{2,}/g,' ')
       .trim();
 
-    // 只有當金額有效且商家有內容時，才加入結果
     if(amount>0&&merchant.length>0&&merchant.length<60){
       result.push({
-        id:'imp_'+Date.now()+'_'+result.length,
-        date:date||today(),
-        merchant:merchant,
-        amount,
-        category:guessCategory(merchant),
-        cardBank:'',
-        keep:true
-      });
-    }
-  }
-  return result;
-}
-
-// ─── CSV 解析器 ──────────────────────────────────────
-// 偵測常見格式：日期、商家、金額（不同銀行欄位順序不同）
-function parseCSV(csvText){
-  if(!csvText)return [];
-  const lines=csvText.split(/\r?\n/).filter(l=>l.trim());
-  if(lines.length===0)return [];
-
-  // 用 Papaparse 風格簡易拆欄
-  const splitRow=(row)=>{
-    const result=[];let cur='',inQuote=false;
-    for(let i=0;i<row.length;i++){
-      const ch=row[i];
-      if(ch==='"'){inQuote=!inQuote;continue;}
-      if(ch===','&&!inQuote){result.push(cur);cur='';continue;}
-      cur+=ch;
-    }
-    result.push(cur);
-    return result.map(c=>c.trim());
-  };
-
-  // 試著找表頭
-  const headerRow=splitRow(lines[0]);
-  const lowerHeader=headerRow.map(h=>h.toLowerCase());
-  // 對應欄位
-  const findCol=(...keywords)=>{
-    for(const kw of keywords){
-      const idx=lowerHeader.findIndex(h=>h.includes(kw.toLowerCase()));
-      if(idx>=0)return idx;
-    }
-    return -1;
-  };
-  const dateCol=findCol('日期','date','交易日','消費日');
-  const merchantCol=findCol('商家','店家','名稱','說明','摘要','description','merchant','備註','明細');
-  const amountCol=findCol('金額','amount','消費金額','刷卡金額','台幣');
-
-  const result=[];
-  // 如果有表頭，從第 2 行開始；否則從第 1 行
-  const startIdx=(dateCol>=0||merchantCol>=0||amountCol>=0)?1:0;
-  for(let i=startIdx;i<lines.length;i++){
-    const cols=splitRow(lines[i]);
-    if(cols.length<2)continue;
-
-    let date='',merchant='',amount=0;
-
-    // 抓日期
-    if(dateCol>=0&&cols[dateCol]){
-      const d=cols[dateCol].replace(/[年月]/g,'/').replace(/[日]/g,'').trim();
-      const parts=d.split(/[\/\-.]/);
-      if(parts.length===3){
-        const y=parts[0].length===4?parts[0]:(parseInt(parts[0])<50?'20'+parts[0].padStart(2,'0'):parts[0]);
-        date=`${y}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
-      }
-    }
-    // 抓商家
-    if(merchantCol>=0)merchant=cols[merchantCol]||'';
-    else merchant=cols.find(c=>/[\u4e00-\u9fa5a-zA-Z]/.test(c))||'';
-    // 抓金額
-    if(amountCol>=0){
-      const a=parseFloat((cols[amountCol]||'0').replace(/[,\s$＄元]/g,''));
-      amount=Math.abs(a);
-    }else{
-      // 自動找最大的數字當金額
-      const nums=cols.map(c=>parseFloat(c.replace(/[,\s$＄元]/g,''))).filter(n=>!isNaN(n)&&n>0&&n<1000000);
-      if(nums.length>0)amount=nums[nums.length-1];
-    }
-
-    if(amount>0&&merchant){
-      result.push({
-        id:'imp_'+Date.now()+'_'+result.length,
         date:date||today(),
         merchant,
         amount,
-        category:guessCategory(merchant),
-        cardBank:'',
-        keep:true
+        category:guessCategory(merchant)
       });
     }
   }
@@ -486,7 +403,7 @@ let S={
     ]},
     allocLogs:{},
     members:[],goals:[],insurances:[],
-    merchantCats:{},importStaging:[]
+    merchantCats:{},cardPayments:{},cardRewards:{},importStaging:[]
   }
 };
 const getBanks=()=>S.data.banks&&S.data.banks.length?S.data.banks:[...DEF_BANKS];
@@ -519,6 +436,8 @@ function startSync(){
       S.data.goals=d.goals||[];
       S.data.insurances=d.insurances||[];
       S.data.merchantCats=d.merchantCats||{};
+      S.data.cardPayments=d.cardPayments||{};
+      S.data.cardRewards=d.cardRewards||{};
     }
     setSyncing('synced');
     if(S.auth) render();
@@ -1622,35 +1541,21 @@ function pgCC(){
 
   return`
   <div class="pg-ttl">💳 信用卡管理</div>
-  <div class="pg-sub">輸入消費後自動同步到各類別預算　＋ 三種快速匯入方式</div>
+  <div class="pg-sub">批次輸入消費明細　＋ 繳費紀錄追蹤　＋ 按銀行分頁查看</div>
   ${moSel()}
 
-  <!-- ⚡ 快速匯入入口（核心新功能）-->
+  <!-- ⚡ 批次輸入入口 -->
   <div class="card card-feature">
     <div class="card-hd">
-      <span class="card-ttl">⚡ 快速匯入信用卡明細（不再手動一筆一筆輸入）</span>
+      <span class="card-ttl">⚡ 批次輸入信用卡明細（一次新增多筆）</span>
       <span class="bdg" style="background:var(--pur);color:#fff;">智能猜類別</span>
     </div>
     <div class="card-bd">
       <div class="notice info" style="margin-bottom:14px;">
-        💡 三種匯入方式：<b>截圖辨識</b>（拍／截銀行 APP）、<b>批次貼上</b>（複製多筆文字）、<b>CSV 匯入</b>（網銀下載檔案）。系統會自動辨識日期、金額、商家，並猜類別。
+        💡 用表格一次輸入多筆消費，系統會自動<b>智能猜類別</b>（如「全家」→ 飲食、「中油」→ 交通）。
       </div>
-      <div class="sg sg3">
-        <div onclick="openM('importOCR')" style="cursor:pointer;padding:22px 18px;text-align:center;border:2px dashed var(--acc);border-radius:var(--r-sm);background:linear-gradient(135deg,var(--accL),var(--card));transition:all .25s;">
-          <div style="font-size:42px;margin-bottom:8px;">📸</div>
-          <div style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:var(--brown);letter-spacing:0.1em;">截圖辨識</div>
-          <div class="tm" style="margin-top:6px;">拍／截銀行 APP 畫面</div>
-        </div>
-        <div onclick="openM('importPaste')" style="cursor:pointer;padding:22px 18px;text-align:center;border:2px dashed var(--pur);border-radius:var(--r-sm);background:linear-gradient(135deg,var(--purl),var(--card));transition:all .25s;">
-          <div style="font-size:42px;margin-bottom:8px;">📋</div>
-          <div style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:var(--brown);letter-spacing:0.1em;">批次貼上</div>
-          <div class="tm" style="margin-top:6px;">複製多行文字 → 一鍵解析</div>
-        </div>
-        <div onclick="openM('importCSV')" style="cursor:pointer;padding:22px 18px;text-align:center;border:2px dashed var(--blu);border-radius:var(--r-sm);background:linear-gradient(135deg,var(--blul),var(--card));transition:all .25s;">
-          <div style="font-size:42px;margin-bottom:8px;">📊</div>
-          <div style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:var(--brown);letter-spacing:0.1em;">CSV 匯入</div>
-          <div class="tm" style="margin-top:6px;">網銀下載的對帳單檔案</div>
-        </div>
+      <div style="text-align:center;">
+        <button class="btn btn-p" style="font-size:16px;padding:14px 28px;" onclick="openM('batchEntry')">📝 開始批次輸入</button>
       </div>
     </div>
   </div>
@@ -1681,25 +1586,206 @@ function pgCC(){
     <div class="card-bd">${catRows}</div>
   </div>
 
-  <!-- 刷卡明細 -->
+  <!-- 💳 信用卡繳費紀錄 -->
   <div class="card">
     <div class="card-hd">
-      <span class="card-ttl">📋 刷卡明細（全家）</span>
-      <button class="btn btn-p btn-sm" onclick="openM('addExp','信用卡')">＋ 刷卡記帳</button>
+      <span class="card-ttl">💳 本月信用卡繳費紀錄</span>
+      <button class="btn btn-p btn-sm" onclick="openM('cardPay')">📝 管理繳費</button>
     </div>
-    <div class="tw"><table>
-      <thead><tr><th>日期</th><th>金額</th><th>銀行</th><th>類別</th><th>記錄人</th><th>備註</th><th></th></tr></thead>
-      <tbody>${list.length===0?`<tr><td colspan="7"><div class="empty"><div class="empty-ico">💳</div><p>本月尚無刷卡</p></div></td></tr>`:
-        list.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(e=>`<tr>
-          <td>${e.date||''}</td><td class="an">-$${fmt(e.amount)}</td>
-          <td><b class="c-${e.cardBank||'其他'}">${e.cardBank||'其他'}</b></td>
-          <td><span class="bdg">${e.category||'—'}</span></td>
-          <td><span class="bdg bdg-${e.user}">${e.user||''}</span></td>
-          <td class="tm">${e.note||''}</td>
-          <td style="white-space:nowrap;"><button class="bdel" style="color:#aaa;font-size:13px;" onclick="openM('editExp','${e.id}')">✏️</button><button class="bdel" onclick="delExp('${e.id}')">×</button></td>
-        </tr>`).join('')}
-      </tbody>
-    </table></div>
+    <div class="card-bd">
+      ${(()=>{
+        const mk0=mk();
+        const pays=(S.data.cardPayments||{})[mk0]||{};
+        return`<div class="sg sg3">${banks.map(b=>{
+          const p=pays[b]||{};
+          const dueDate=p.dueDate||'';
+          const today0=new Date();today0.setHours(0,0,0,0);
+          let status='⏳ 待繳費',col='var(--yelb)',bg='var(--yel)';
+          if(p.paid){status='✅ 已繳費';col='var(--grn)';bg='var(--grnl)';}
+          else if(dueDate){
+            const due=new Date(dueDate);
+            const days=Math.ceil((due-today0)/86400000);
+            if(days<0){status=`🔴 已逾期 ${-days} 天`;col='var(--red)';bg='var(--redl)';}
+            else if(days<=3){status=`⚠️ ${days} 天內到期`;col='var(--red)';bg='var(--redl)';}
+            else if(days<=7){status=`⏰ 還剩 ${days} 天`;col='var(--yelb)';bg='var(--yel)';}
+            else status=`📅 還剩 ${days} 天`;
+          }
+          return`<div style="border:1.5px solid var(--bdr);border-left:4px solid ${col};border-radius:var(--r-sm);padding:14px 16px;background:${bg};">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <b style="font-size:15px;color:var(--brown);font-family:'Noto Serif TC',serif;letter-spacing:0.08em;">${b}</b>
+              <span class="bdg" style="background:${col};color:#fff;font-size:11px;">${status}</span>
+            </div>
+            <div class="tm" style="font-size:12.5px;line-height:1.7;">
+              ${dueDate?`📅 截止：<b>${dueDate}</b><br>`:'<span style="color:var(--mut);">📅 尚未設定截止日</span><br>'}
+              ${p.amount?`💰 應繳：<b>$${fmt(p.amount)}</b>`:`💰 應繳：<span style="color:var(--mut);">未填</span>`}
+              ${p.paid&&p.paidDate?`<br>✅ 已於 ${p.paidDate} 繳費`:''}
+            </div>
+          </div>`;
+        }).join('')}</div>`;
+      })()}
+    </div>
+  </div>
+
+  <!-- 💎 聰明消費分析（每張卡優惠 vs 實際消費）-->
+  <div class="card card-feature">
+    <div class="card-hd">
+      <span class="card-ttl">💎 聰明消費分析　告訴你「下次該刷哪張卡」</span>
+      <button class="btn btn-p btn-sm" onclick="openM('editRewards')">⚙️ 設定卡片優惠</button>
+    </div>
+    <div class="card-bd">
+      ${(()=>{
+        const rewards=S.data.cardRewards||{};
+        const hasAnyReward=banks.some(b=>rewards[b]&&Object.keys(rewards[b]).length>0);
+        if(!hasAnyReward){
+          return`<div class="notice tip" style="margin-bottom:0;">
+            💡 <b>還沒設定任何信用卡優惠？</b><br>
+            點上方「⚙️ 設定卡片優惠」設定每張卡在各類別的回饋％（例如：富邦 J 卡 餐飲 5%、Costco 加油 3%）。<br>
+            設定後系統會自動分析你的每筆消費，告訴你「下次該刷哪張卡」。
+          </div>`;
+        }
+        // 取得每張卡每類別的回饋率
+        const getRate=(bank,cat)=>{
+          const r=rewards[bank]||{};
+          if(r[cat]!==undefined)return r[cat];
+          if(r.__default!==undefined)return r.__default;
+          return 1;
+        };
+        // 對每筆刷卡明細分析
+        let actualReward=0,bestReward=0,lostReward=0;
+        const lossPerCat={};const bestCardByCat={};const wrongChoices=[];
+        list.forEach(e=>{
+          const amt=toN(e.amount);
+          const cat=e.category||'其他';
+          const usedBank=e.cardBank||'其他';
+          // 實際回饋（用了的卡）
+          const actualRate=getRate(usedBank,cat);
+          const actual=amt*actualRate/100;
+          actualReward+=actual;
+          // 最佳回饋（所有卡中最佳）
+          let bestRate=actualRate,bestBank=usedBank;
+          banks.forEach(b=>{
+            const r=getRate(b,cat);
+            if(r>bestRate){bestRate=r;bestBank=b;}
+          });
+          const best=amt*bestRate/100;
+          bestReward+=best;
+          const loss=best-actual;
+          lostReward+=loss;
+          if(loss>0){
+            lossPerCat[cat]=(lossPerCat[cat]||0)+loss;
+            bestCardByCat[cat]=bestBank;
+            wrongChoices.push({date:e.date,merchant:e.item,cat,amt,usedBank,bestBank,actualRate,bestRate,loss});
+          }
+        });
+        const optimizationRate=bestReward>0?Math.round(actualReward/bestReward*100):100;
+        // 排序 lossPerCat 找出最大損失類別
+        const topLossCats=Object.entries(lossPerCat).sort((a,b)=>b[1]-a[1]).slice(0,3);
+        const topWrong=wrongChoices.sort((a,b)=>b.loss-a.loss).slice(0,5);
+
+        return`<div class="sg sg3" style="margin-bottom:16px;">
+          <div class="sc grn">
+            <div class="sl">💰 本月實際回饋</div>
+            <div class="sv grn">$${fmt(Math.round(actualReward))}</div>
+            <div class="ss">用你選的卡賺到</div>
+          </div>
+          <div class="sc blu">
+            <div class="sl">🎯 最佳可能回饋</div>
+            <div class="sv blu">$${fmt(Math.round(bestReward))}</div>
+            <div class="ss">如果每筆都選對卡</div>
+          </div>
+          <div class="sc ${lostReward>=100?'red':lostReward>=20?'gold':'grn'}">
+            <div class="sl">⚠️ 少賺的回饋</div>
+            <div class="sv ${lostReward>=100?'red':lostReward>=20?'gold':'grn'}">$${fmt(Math.round(lostReward))}</div>
+            <div class="ss">優化率 ${optimizationRate}%</div>
+          </div>
+        </div>
+
+        ${optimizationRate>=95?`<div class="notice ok" style="margin-bottom:0;">🎉 <b>太棒了！</b>你已經很會選卡，本月優化率達 <b>${optimizationRate}%</b>，幾乎沒有錯過任何回饋。</div>`:`
+        ${topLossCats.length>0?`<div style="background:var(--bg2);padding:16px 18px;border-radius:var(--r-sm);margin-bottom:14px;">
+          <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--brown);letter-spacing:0.08em;margin-bottom:10px;">📊 最該優化的類別 TOP ${topLossCats.length}</div>
+          ${topLossCats.map((tc,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;${i<topLossCats.length-1?'border-bottom:1px dashed var(--bdr);':''}">
+            <div>
+              <span class="bdg" style="background:var(--acc);color:#fff;margin-right:8px;">${tc[0]}</span>
+              <span class="tm">下次請改用 <b style="color:var(--blu);">${bestCardByCat[tc[0]]}</b></span>
+            </div>
+            <div style="font-family:'Noto Serif TC',serif;font-weight:700;color:var(--red);">少賺 $${fmt(Math.round(tc[1]))}</div>
+          </div>`).join('')}
+        </div>`:''}
+
+        ${topWrong.length>0?`<div style="background:var(--redl);padding:16px 18px;border-radius:var(--r-sm);">
+          <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--red);letter-spacing:0.08em;margin-bottom:10px;">🔍 本月「最該換卡」的消費</div>
+          <div class="tw"><table style="background:#fff;border-radius:8px;">
+            <thead><tr><th>日期</th><th>商家</th><th>類別</th><th>金額</th><th>實際刷</th><th>應該刷</th><th>少賺</th></tr></thead>
+            <tbody>${topWrong.map(w=>`<tr>
+              <td>${w.date||''}</td>
+              <td><b>${w.merchant||'-'}</b></td>
+              <td><span class="bdg">${w.cat}</span></td>
+              <td class="an">$${fmt(w.amt)}</td>
+              <td><span class="bdg" style="background:var(--bg2);">${w.usedBank} (${w.actualRate}%)</span></td>
+              <td><span class="bdg" style="background:var(--grn);color:#fff;">${w.bestBank} (${w.bestRate}%)</span></td>
+              <td class="an" style="color:var(--red);font-weight:700;">$${fmt(Math.round(w.loss))}</td>
+            </tr>`).join('')}</tbody>
+          </table></div>
+        </div>`:''}`}`;
+      })()}
+    </div>
+  </div>
+
+  <!-- 📋 刷卡明細（按銀行分頁）-->
+  <div class="card">
+    <div class="card-hd">
+      <span class="card-ttl">📋 本月刷卡明細</span>
+      <button class="btn btn-p btn-sm" onclick="openM('batchEntry')">📝 批次輸入</button>
+    </div>
+    <div class="card-bd">
+      <!-- 銀行分頁 tabs -->
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--bdr);">
+        ${(()=>{
+          const tabs=[{key:'__all',lbl:`🌐 全部`,n:list.length}];
+          banks.forEach(b=>{
+            const n=list.filter(e=>(e.cardBank||'')===b).length;
+            tabs.push({key:b,lbl:b,n});
+          });
+          const otherN=list.filter(e=>!banks.includes(e.cardBank||'')).length;
+          if(otherN>0)tabs.push({key:'__other',lbl:'其他',n:otherN});
+          const activeKey=S.subTab===0?'__all':(banks[S.subTab-1]||'__all');
+          return tabs.map((t,i)=>{
+            const idx=t.key==='__all'?0:t.key==='__other'?banks.length+1:banks.indexOf(t.key)+1;
+            const active=t.key===activeKey;
+            return`<button onclick="setT(${idx})" style="padding:10px 18px;border-radius:22px;border:1.5px solid ${active?'var(--acc)':'var(--bdr)'};background:${active?'var(--acc)':'#fff'};color:${active?'#fff':'var(--brown)'};font-weight:${active?'700':'500'};font-size:14px;cursor:pointer;letter-spacing:0.06em;transition:all .2s;">${t.lbl} <span style="opacity:.8;font-size:12px;margin-left:4px;">${t.n}</span></button>`;
+          }).join('');
+        })()}
+      </div>
+
+      ${(()=>{
+        // 根據 S.subTab 過濾
+        let filtered=list;
+        if(S.subTab>0&&S.subTab<=banks.length){
+          const targetBank=banks[S.subTab-1];
+          filtered=list.filter(e=>(e.cardBank||'')===targetBank);
+        }else if(S.subTab===banks.length+1){
+          filtered=list.filter(e=>!banks.includes(e.cardBank||''));
+        }
+        const subTotal=filtered.reduce((s,e)=>s+toN(e.amount),0);
+        return`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding:10px 14px;background:var(--bg2);border-radius:var(--r-sm);">
+          <span style="font-size:14px;color:var(--brown);font-weight:600;">顯示 ${filtered.length} 筆</span>
+          <span style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:var(--red);">小計 $${fmt(subTotal)}</span>
+        </div>
+        <div class="tw"><table>
+          <thead><tr><th>日期</th><th>商家／品項</th><th>類別</th><th style="text-align:right;">金額</th><th>銀行</th><th></th></tr></thead>
+          <tbody>${filtered.length===0?`<tr><td colspan="6"><div class="empty"><div class="empty-ico">💳</div><p>此銀行本月尚無刷卡</p></div></td></tr>`:
+            filtered.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(e=>`<tr>
+              <td>${e.date||''}</td>
+              <td><b>${e.item||'-'}</b>${e.note?`<br><span class="tm" style="font-size:11.5px;">${e.note}</span>`:''}</td>
+              <td><span class="bdg">${e.category||'—'}</span></td>
+              <td class="an" style="font-weight:700;color:var(--red);">-$${fmt(e.amount)}</td>
+              <td><span class="bdg" style="background:var(--accL);color:var(--brown);">${e.cardBank||'其他'}</span></td>
+              <td style="white-space:nowrap;"><button class="bdel" style="color:#aaa;font-size:14px;" onclick="openM('editExp','${e.id}')">✏️</button><button class="bdel" onclick="delExp('${e.id}')">×</button></td>
+            </tr>`).join('')}
+          </tbody>
+        </table></div>`;
+      })()}
+    </div>
   </div>`;
 }
 
@@ -2654,53 +2740,153 @@ function modal(){
     <div class="fgrp"><label>備註</label><textarea id="m7" rows="2">${ins.note||''}</textarea></div>
     <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="updateInsurance('${m.x}')">✓ 儲存</button></div>`;}
 
-  // ─── 📸 截圖 OCR 匯入 modal ───
-  if(m.t==='importOCR'){const banks=getBanks();c=`<div class="mttl">📸 截圖辨識匯入</div>
-    <div class="notice info" style="font-size:13.5px;">上傳銀行 APP / 帳單截圖（jpg/png），系統會自動辨識文字。<br>📌 辨識率取決於圖片清晰度，辨識完可在預覽頁修正。</div>
-    <div class="fgrp"><label>使用信用卡</label><select id="m_bank">${banks.map(b=>`<option>${b}</option>`).join('')}</select></div>
-    <div class="fgrp"><label>上傳截圖（可多張）</label>
-      <input type="file" id="m_ocr_files" accept="image/*" multiple style="padding:10px;width:100%;border:2px dashed var(--bdr);border-radius:10px;cursor:pointer;">
+  // ─── 📝 批次手動輸入 modal ───
+  if(m.t==='batchEntry'){const banks=getBanks();const cats=S.data.cats||DEF_CATS;
+    // 初始：5 行空白；若已有暫存則用暫存
+    if(!S.importStaging||S.importStaging.length===0){
+      S.importStaging=Array.from({length:5},(_,i)=>({
+        id:'bat_'+Date.now()+'_'+i,
+        date:today(),
+        merchant:'',
+        amount:0,
+        category:'其他',
+        cardBank:banks[0]||'',
+        keep:true
+      }));
+    }
+    const staged=S.importStaging;
+    const keptCount=staged.filter(s=>s.keep&&s.merchant&&toN(s.amount)>0).length;
+    const totalAmt=staged.filter(s=>s.keep&&s.merchant&&toN(s.amount)>0).reduce((s,it)=>s+toN(it.amount),0);
+    c=`<div class="mttl" style="display:flex;justify-content:space-between;align-items:center;">
+      <span>📝 批次輸入信用卡明細</span>
+      <span class="bdg" style="background:var(--pur);color:#fff;">${keptCount} 筆 ／ $${fmt(totalAmt)}</span>
     </div>
-    <div id="ocr-progress" style="display:none;background:var(--bg2);padding:18px;border-radius:var(--r-sm);margin-bottom:14px;">
-      <div style="font-size:14px;color:var(--brown);margin-bottom:8px;"><span id="ocr-status">準備中…</span></div>
-      <div class="pb-lg"><div class="pf" id="ocr-bar" style="width:0%;background:var(--acc);"></div></div>
+    <div class="notice info" style="font-size:13.5px;margin-bottom:14px;">
+      💡 一次輸入多筆。<b>輸入商家後</b>按 Tab 或點別處，系統會自動猜類別。<br>📌 不夠用？按下方「＋ 再加 5 行」。
     </div>
-    <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="runOCR()" id="btn-ocr">🔍 開始辨識</button></div>`;}
+    <div style="max-height:55vh;overflow-y:auto;border:1px solid var(--bdr);border-radius:var(--r-sm);">
+      <table style="width:100%;font-size:13px;">
+        <thead style="position:sticky;top:0;z-index:5;background:var(--bg2);">
+          <tr>
+            <th style="width:120px;">日期</th>
+            <th>商家／品項</th>
+            <th style="width:130px;">類別</th>
+            <th style="width:110px;text-align:right;">金額</th>
+            <th style="width:120px;">信用卡</th>
+            <th style="width:40px;"></th>
+          </tr>
+        </thead>
+        <tbody id="batch-body">${staged.map((s,i)=>`<tr id="batch-row-${i}">
+          <td><input type="date" value="${s.date}" onchange="updateStage(${i},'date',this.value)" style="font-size:12.5px;padding:6px;width:100%;border:1px solid var(--bdr);border-radius:6px;"></td>
+          <td><input type="text" value="${(s.merchant||'').replace(/"/g,'&quot;')}" placeholder="如：全家便利商店" onblur="batchAutoCat(${i},this.value)" oninput="updateStage(${i},'merchant',this.value)" style="font-size:13px;padding:6px;width:100%;border:1px solid var(--bdr);border-radius:6px;"></td>
+          <td><select id="batch-cat-${i}" onchange="updateStage(${i},'category',this.value)" style="font-size:12.5px;padding:6px;width:100%;border:1px solid var(--bdr);border-radius:6px;">${cats.map(c2=>`<option value="${c2}" ${c2===s.category?'selected':''}>${c2}</option>`).join('')}</select></td>
+          <td><input type="number" value="${s.amount||''}" placeholder="0" oninput="updateStage(${i},'amount',this.value)" style="font-size:13px;padding:6px;width:100%;text-align:right;border:1px solid var(--bdr);border-radius:6px;"></td>
+          <td><select onchange="updateStage(${i},'cardBank',this.value)" style="font-size:12.5px;padding:6px;width:100%;border:1px solid var(--bdr);border-radius:6px;">${banks.map(b=>`<option value="${b}" ${b===s.cardBank?'selected':''}>${b}</option>`).join('')}</select></td>
+          <td><button class="bdel" onclick="removeStage(${i})" style="font-size:18px;">×</button></td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:12px;align-items:center;flex-wrap:wrap;">
+      <button class="btn btn-s btn-sm" onclick="openTextParser()">📋 從文字解析（貼一大段）</button>
+      <button class="btn btn-s btn-sm" onclick="addBatchRows(5)">＋ 再加 5 行</button>
+      <button class="btn btn-s btn-sm" onclick="addBatchRows(10)">＋ 再加 10 行</button>
+      <button class="btn btn-s btn-sm" onclick="openM('addCat')">＋ 新增類別</button>
+      <span class="tm" style="margin-left:auto;">空白行（無商家或金額為 0）不會儲存</span>
+    </div>
+    <div class="mbtns" style="margin-top:18px;">
+      <button class="btn btn-s" onclick="cancelBatch()">取消</button>
+      ${keptCount>0?`<button class="btn btn-p" onclick="confirmImport()">✅ 儲存這 ${keptCount} 筆</button>`:'<button class="btn btn-s" disabled>請至少填一筆</button>'}
+    </div>`;}
 
-  // ─── 📋 批次貼上 modal ───
-  if(m.t==='importPaste'){const banks=getBanks();c=`<div class="mttl">📋 批次貼上匯入</div>
-    <div class="notice info" style="font-size:13.5px;">把銀行 APP 或 Email 通知裡的多筆消費複製貼上（一行一筆），系統會自動辨識日期、商家、金額。</div>
-    <div class="fgrp"><label>使用信用卡</label><select id="m_bank">${banks.map(b=>`<option>${b}</option>`).join('')}</select></div>
-    <div class="fgrp"><label>貼上消費明細（每行一筆）</label>
-      <textarea id="m_paste" rows="10" placeholder="範例：
-05/10  全家便利商店  $135
-05/11  中油石油  $1,580
-2026/05/12 Costco 好市多 NT$3,250
-5月13日 星巴克 $185" style="width:100%;font-family:monospace;font-size:13px;line-height:1.7;"></textarea>
+  // ─── 📋 大段文字解析 modal ───
+  if(m.t==='textParser'){const banks=getBanks();c=`<div class="mttl">📋 從文字解析消費明細</div>
+    <div class="notice info" style="font-size:13.5px;margin-bottom:14px;">
+      💡 把銀行 APP、Email 通知、信用卡帳單的文字整段貼進來。<br>
+      📌 解析出來的明細會<b>填入下方的批次輸入表格</b>，可以再編輯後一次儲存。<br>
+      🪄 系統會自動辨識日期、金額、商家，並智能猜類別。
     </div>
-    <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="parsePaste()">🔍 解析預覽</button></div>`;}
-
-  // ─── 📊 CSV 匯入 modal ───
-  if(m.t==='importCSV'){const banks=getBanks();c=`<div class="mttl">📊 CSV 檔案匯入</div>
-    <div class="notice info" style="font-size:13.5px;">從網銀下載的 CSV 對帳單（含日期、商家、金額欄位）。系統會自動偵測欄位。</div>
-    <div class="fgrp"><label>使用信用卡</label><select id="m_bank">${banks.map(b=>`<option>${b}</option>`).join('')}</select></div>
-    <div class="fgrp"><label>上傳 CSV 檔案</label>
-      <input type="file" id="m_csv_file" accept=".csv,.txt" style="padding:10px;width:100%;border:2px dashed var(--bdr);border-radius:10px;cursor:pointer;">
+    <div class="fgrp"><label>預設使用信用卡（套用到所有解析出的明細）</label>
+      <select id="m_bank">${banks.map(b=>`<option>${b}</option>`).join('')}</select>
     </div>
-    <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="parseCSVFile()">🔍 解析預覽</button></div>`;}
+    <div class="fgrp"><label>貼上整段文字（不限格式，可含換行、空白）</label>
+      <textarea id="m_text" rows="14" placeholder="範例：可以貼任何格式的文字，系統會嘗試解析
 
-  // ─── 🔍 匯入預覽 modal（共用：OCR/批次貼上/CSV 解析後的預覽編輯） ───
+05/10 全家便利商店 $135
+2026/05/11 中油石油 NT$1,580
+5月12日 Costco 好市多 3,250元
+05/13 星巴克咖啡 $185 信用卡
+
+或是銀行 APP 複製的整頁文字也可以
+富邦數位帳戶
+2026/05/14 麥當勞松山店 -245 元
+2026/05/15 7-11 信義店 -89 元" style="width:100%;font-family:monospace;font-size:13px;line-height:1.7;"></textarea>
+    </div>
+    <div class="mbtns">
+      <button class="btn btn-s" onclick="closeMod()">取消</button>
+      <button class="btn btn-p" onclick="runTextParser()">🔍 解析並加入表格</button>
+    </div>`;}
+
+  // ─── 💎 信用卡優惠設定 modal ───
+  if(m.t==='editRewards'){const banks=getBanks();const cats=S.data.cats||DEF_CATS;const rewards=S.data.cardRewards||{};c=`<div class="mttl">💎 信用卡優惠設定</div>
+    <div class="notice info" style="font-size:13.5px;margin-bottom:14px;">
+      💡 設定每張卡在各類別的回饋％。系統會用這份表幫你分析<b>「每筆消費該刷哪張卡最划算」</b>。<br>
+      📌 沒設定的類別預設為 1%（一般回饋）。
+    </div>
+    <div style="max-height:55vh;overflow-y:auto;border:1px solid var(--bdr);border-radius:var(--r-sm);padding:14px;background:var(--bg);">
+      ${banks.map(b=>{const r=rewards[b]||{};return`<div style="background:var(--card);padding:14px 16px;border-radius:var(--r-sm);margin-bottom:12px;border-left:4px solid var(--acc);">
+        <b style="font-size:16px;color:var(--brown);font-family:'Noto Serif TC',serif;letter-spacing:0.08em;">${b}</b>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-top:12px;">
+          <div>
+            <label style="font-size:12px;color:var(--mut);display:block;margin-bottom:4px;">📌 一般回饋 %</label>
+            <input type="number" step="0.1" value="${r.__default!==undefined?r.__default:1}" onchange="saveReward('${b}','__default',this.value)" style="width:100%;padding:7px;border:1px solid var(--bdr);border-radius:6px;font-size:13px;">
+          </div>
+          ${cats.map(c2=>`<div>
+            <label style="font-size:12px;color:var(--mut);display:block;margin-bottom:4px;">${c2}</label>
+            <input type="number" step="0.1" value="${r[c2]!==undefined?r[c2]:''}" placeholder="-" onchange="saveReward('${b}','${c2}',this.value)" style="width:100%;padding:7px;border:1px solid var(--bdr);border-radius:6px;font-size:13px;">
+          </div>`).join('')}
+        </div>
+      </div>`;}).join('')}
+    </div>
+    <div class="mbtns"><button class="btn btn-p" onclick="closeMod()">完成</button></div>`;}
+
+  if(m.t==='cardPay'){const banks=getBanks();const mk0=mk();const pays=(S.data.cardPayments||{})[mk0]||{};c=`<div class="mttl">💳 ${yr()} 年 ${S.month} 月　信用卡繳費紀錄</div>
+    <div class="notice info" style="font-size:13.5px;">記錄每張卡的繳費截止日與是否已繳。系統會在快到期前提醒。</div>
+    <div style="max-height:55vh;overflow-y:auto;">
+    ${banks.map(b=>{const p=pays[b]||{};return`<div style="border:1.5px solid var(--bdr);border-radius:var(--r-sm);padding:16px 20px;margin-bottom:12px;background:var(--card);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <b style="font-size:17px;color:var(--brown);font-family:'Noto Serif TC',serif;">${b}</b>
+        <span class="bdg" style="background:${p.paid?'var(--grn)':'var(--yelb)'};color:#fff;font-size:13px;padding:5px 12px;">${p.paid?'✅ 已繳費':'⏳ 待繳費'}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+        <div>
+          <label style="font-size:12px;color:var(--mut);display:block;margin-bottom:5px;">繳費截止日</label>
+          <input type="date" value="${p.dueDate||''}" onchange="saveCardPay('${b}','dueDate',this.value)" style="width:100%;padding:8px;border:1px solid var(--bdr);border-radius:8px;font-size:13px;">
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--mut);display:block;margin-bottom:5px;">應繳金額</label>
+          <input type="number" value="${p.amount||''}" placeholder="0" onchange="saveCardPay('${b}','amount',this.value)" style="width:100%;padding:8px;border:1px solid var(--bdr);border-radius:8px;font-size:13px;">
+        </div>
+        <div>
+          <label style="font-size:12px;color:var(--mut);display:block;margin-bottom:5px;">實際繳費日</label>
+          <input type="date" value="${p.paidDate||''}" onchange="saveCardPay('${b}','paidDate',this.value)" style="width:100%;padding:8px;border:1px solid var(--bdr);border-radius:8px;font-size:13px;">
+        </div>
+      </div>
+      <div style="margin-top:12px;display:flex;align-items:center;gap:10px;">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;">
+          <input type="checkbox" ${p.paid?'checked':''} onchange="saveCardPay('${b}','paid',this.checked)"> 已完成繳費
+        </label>
+      </div>
+    </div>`;}).join('')}
+    </div>
+    <div class="mbtns"><button class="btn btn-p" onclick="closeMod()">完成</button></div>`;}
+
+  // ─── 🔍 匯入預覽 modal（仍保留給未來其他批次操作）───
   if(m.t==='importPreview'){
     const staged=S.importStaging||[];
     const cats=S.data.cats||DEF_CATS;
     const keptCount=staged.filter(s=>s.keep).length;
     const totalAmt=staged.filter(s=>s.keep).reduce((s,it)=>s+toN(it.amount),0);
-    c=`<div class="mttl" style="display:flex;justify-content:space-between;align-items:center;">
-      <span>🔍 匯入預覽 — 解析出 ${staged.length} 筆（勾選 ${keptCount} 筆，合計 $${fmt(totalAmt)}）</span>
-    </div>
-    <div class="notice ${staged.length===0?'alert':'info'}" style="font-size:13.5px;margin-bottom:14px;">
-      ${staged.length===0?'❌ 沒有解析出任何資料，請回去檢查格式':'✅ 請檢查解析結果，可調整日期、商家、類別、金額，取消勾選的不會匯入。<br>📌 修改類別後，下次同商家會自動帶入新類別。'}
-    </div>
+    c=`<div class="mttl">🔍 匯入預覽 — 解析出 ${staged.length} 筆（勾選 ${keptCount} 筆，合計 $${fmt(totalAmt)}）</div>
     <div style="max-height:50vh;overflow-y:auto;border:1px solid var(--bdr);border-radius:var(--r-sm);">
       <table style="width:100%;font-size:13px;">
         <thead style="position:sticky;top:0;z-index:5;"><tr>
@@ -2710,7 +2896,7 @@ function modal(){
         <tbody>${staged.map((s,i)=>`<tr style="${s.keep?'':'opacity:.4;'}">
           <td style="text-align:center;"><input type="checkbox" ${s.keep?'checked':''} onchange="toggleStage(${i},this.checked)"></td>
           <td><input type="date" value="${s.date}" onchange="updateStage(${i},'date',this.value)" style="font-size:12px;padding:4px;width:100%;border:1px solid var(--bdr);border-radius:6px;"></td>
-          <td><input type="text" value="${s.merchant.replace(/"/g,'&quot;')}" onchange="updateStage(${i},'merchant',this.value)" style="font-size:13px;padding:4px;width:100%;border:1px solid var(--bdr);border-radius:6px;"></td>
+          <td><input type="text" value="${(s.merchant||'').replace(/"/g,'&quot;')}" onchange="updateStage(${i},'merchant',this.value)" style="font-size:13px;padding:4px;width:100%;border:1px solid var(--bdr);border-radius:6px;"></td>
           <td><select onchange="updateStage(${i},'category',this.value)" style="font-size:12px;padding:4px;width:100%;border:1px solid var(--bdr);border-radius:6px;">${cats.map(c2=>`<option value="${c2}" ${c2===s.category?'selected':''}>${c2}</option>`).join('')}</select></td>
           <td><input type="number" value="${s.amount}" onchange="updateStage(${i},'amount',this.value)" style="font-size:13px;padding:4px;width:100%;text-align:right;border:1px solid var(--bdr);border-radius:6px;"></td>
           <td><button class="bdel" onclick="removeStage(${i})" style="font-size:18px;">×</button></td>
@@ -2719,12 +2905,12 @@ function modal(){
       </table>
     </div>
     <div class="mbtns" style="margin-top:18px;">
-      <button class="btn btn-s" onclick="closeMod()">取消</button>
+      <button class="btn btn-s" onclick="cancelBatch()">取消</button>
       ${staged.length>0?`<button class="btn btn-p" onclick="confirmImport()">✅ 匯入勾選的 ${keptCount} 筆</button>`:''}
     </div>`;
   }
 
-  return`<div class="mbk" onclick="bkClose(event)"><div class="mbox" style="max-width:${m.t==='importPreview'?'920px':'560px'};">${c}</div></div>`;
+  return`<div class="mbk" onclick="bkClose(event)"><div class="mbox" style="max-width:${m.t==='batchEntry'||m.t==='importPreview'||m.t==='cardPay'||m.t==='editRewards'||m.t==='textParser'?'960px':'560px'};">${c}</div></div>`;
 }
 
 // ═══ ACTIONS ══════════════════════════════════════════════════
@@ -3112,88 +3298,87 @@ window.delInsurance=async(id)=>{
   toast('已刪除');
 };
 
-// ─── 📋 批次貼上解析 ───────────────────────────────
-window.parsePaste=()=>{
-  const text=document.getElementById('m_paste')?.value||'';
-  const bank=document.getElementById('m_bank')?.value||'';
-  if(!text.trim()){alert('請先貼上消費明細');return;}
-  const parsed=parseTransactionText(text);
-  if(parsed.length===0){alert('無法解析任何資料，請檢查格式');return;}
-  parsed.forEach(p=>p.cardBank=bank);
-  S.importStaging=parsed;
-  S.modal={t:'importPreview'};
+// ─── 📝 批次輸入操作 ─────────────────────────────
+window.addBatchRows=(n)=>{
+  const banks=getBanks();
+  const newRows=Array.from({length:n},(_,i)=>({
+    id:'bat_'+Date.now()+'_'+(S.importStaging.length+i),
+    date:today(),
+    merchant:'',
+    amount:0,
+    category:'其他',
+    cardBank:banks[0]||'',
+    keep:true
+  }));
+  S.importStaging=[...(S.importStaging||[]),...newRows];
   render();
 };
 
-// ─── 📊 CSV 解析 ───────────────────────────────────
-window.parseCSVFile=()=>{
-  const file=document.getElementById('m_csv_file')?.files?.[0];
-  const bank=document.getElementById('m_bank')?.value||'';
-  if(!file){alert('請選擇 CSV 檔案');return;}
-  const reader=new FileReader();
-  reader.onload=(e)=>{
-    let text=e.target.result;
-    // 嘗試處理 BOM
-    if(text.charCodeAt(0)===0xFEFF)text=text.slice(1);
-    const parsed=parseCSV(text);
-    if(parsed.length===0){alert('CSV 檔案中無法解析任何資料，請檢查欄位是否包含日期、商家、金額');return;}
-    parsed.forEach(p=>p.cardBank=bank);
-    S.importStaging=parsed;
-    S.modal={t:'importPreview'};
-    render();
-  };
-  // 嘗試用 Big5 或 UTF-8 讀取（台灣銀行 CSV 常見 Big5）
-  reader.readAsText(file,'UTF-8');
+window.batchAutoCat=(i,merchant)=>{
+  if(!S.importStaging[i])return;
+  S.importStaging[i].merchant=merchant;
+  // 智能猜類別（只有當還是預設「其他」時才覆寫，避免覆蓋使用者手動選擇）
+  if(merchant&&(S.importStaging[i].category==='其他'||!S.importStaging[i].category)){
+    const guessed=guessCategory(merchant);
+    if(guessed&&guessed!=='其他'){
+      S.importStaging[i].category=guessed;
+      // 只更新該行的類別下拉選單，避免整頁 re-render 影響使用者輸入體驗
+      const catSelect=document.getElementById(`batch-cat-${i}`);
+      if(catSelect)catSelect.value=guessed;
+    }
+  }
 };
 
-// ─── 📸 OCR 截圖辨識 ───────────────────────────────
-window.runOCR=async()=>{
-  const files=document.getElementById('m_ocr_files')?.files;
+window.cancelBatch=()=>{
+  S.importStaging=[];
+  closeMod();
+};
+
+// ─── 📋 從文字解析（暫存 batch 跳到 textParser）───
+window.openTextParser=()=>{
+  S.modal={t:'textParser'};
+  render();
+};
+
+window.runTextParser=()=>{
+  const text=document.getElementById('m_text')?.value||'';
   const bank=document.getElementById('m_bank')?.value||'';
-  if(!files||files.length===0){alert('請選擇圖片');return;}
-  if(typeof Tesseract==='undefined'){alert('OCR 函式庫尚未載入完成，請稍候再試');return;}
-
-  const progressDiv=document.getElementById('ocr-progress');
-  const statusEl=document.getElementById('ocr-status');
-  const barEl=document.getElementById('ocr-bar');
-  const btnEl=document.getElementById('btn-ocr');
-  if(progressDiv)progressDiv.style.display='block';
-  if(btnEl){btnEl.disabled=true;btnEl.textContent='⏳ 辨識中…';}
-
-  let allText='';
-  try{
-    for(let i=0;i<files.length;i++){
-      const f=files[i];
-      if(statusEl)statusEl.textContent=`第 ${i+1}/${files.length} 張：載入辨識引擎…`;
-      const result=await Tesseract.recognize(f,'chi_tra+eng',{
-        logger:(info)=>{
-          if(info.status==='recognizing text'&&statusEl){
-            const pct=Math.round(info.progress*100);
-            statusEl.textContent=`第 ${i+1}/${files.length} 張：辨識中 ${pct}%`;
-            if(barEl)barEl.style.width=`${((i+info.progress)/files.length)*100}%`;
-          }
-        }
-      });
-      allText+='\n'+(result.data.text||'');
-    }
-    if(statusEl)statusEl.textContent='✅ 辨識完成！正在解析…';
-    if(barEl)barEl.style.width='100%';
-
-    const parsed=parseTransactionText(allText);
-    if(parsed.length===0){
-      alert('OCR 辨識完成，但未能解析出消費記錄。\n\n辨識到的文字：\n'+allText.slice(0,500)+'\n\n建議改用「批次貼上」手動編輯文字。');
-      if(btnEl){btnEl.disabled=false;btnEl.textContent='🔍 重新辨識';}
-      return;
-    }
-    parsed.forEach(p=>p.cardBank=bank);
-    S.importStaging=parsed;
-    S.modal={t:'importPreview'};
-    render();
-  }catch(err){
-    console.error(err);
-    alert('OCR 辨識失敗：'+err.message);
-    if(btnEl){btnEl.disabled=false;btnEl.textContent='🔍 重新辨識';}
+  if(!text.trim()){alert('請先貼上文字');return;}
+  const parsed=parseTransactionText(text);
+  if(parsed.length===0){
+    alert('沒有解析出任何消費記錄。\n\n建議格式：每行包含「日期」「商家」「金額」三個元素，例如：\n05/10 全家便利商店 $135');
+    return;
   }
+  // 把解析結果填入 importStaging（合併到現有空白行 + 補充新行）
+  const banks=getBanks();
+  const newRows=parsed.map((p,i)=>({
+    id:'bat_'+Date.now()+'_'+i,
+    date:p.date,
+    merchant:p.merchant,
+    amount:p.amount,
+    category:p.category,
+    cardBank:bank||banks[0]||'',
+    keep:true
+  }));
+  // 移除原 staging 內所有空白行（merchant 為空的），再 append 新解析出的
+  const cleaned=(S.importStaging||[]).filter(s=>s.merchant&&s.merchant.trim());
+  S.importStaging=[...cleaned,...newRows];
+  S.modal={t:'batchEntry'};
+  render();
+  setTimeout(()=>toast(`✅ 解析出 ${parsed.length} 筆，已加入表格`),100);
+};
+
+// ─── 💎 信用卡回饋設定 ───────────────────────────────
+window.saveReward=async(bank,cat,val)=>{
+  const v=parseFloat(val);
+  const cardRewards={...(S.data.cardRewards||{})};
+  if(!cardRewards[bank])cardRewards[bank]={};
+  if(isNaN(v)||val===''||val===null){
+    delete cardRewards[bank][cat];
+  }else{
+    cardRewards[bank][cat]=v;
+  }
+  await saveMain({cardRewards});
 };
 
 // ─── 🔍 預覽編輯操作 ───────────────────────────────
@@ -3210,21 +3395,21 @@ window.updateStage=(i,field,val)=>{
   if(!S.importStaging[i])return;
   if(field==='amount')val=toN(val);
   S.importStaging[i][field]=val;
-  // 不要 render 因為會打斷 input 焦點，只更新資料
+  // 不要 render 因為會打斷 input 焦點
 };
 window.removeStage=(i)=>{
   S.importStaging.splice(i,1);
   render();
 };
 window.confirmImport=async()=>{
-  const items=(S.importStaging||[]).filter(s=>s.keep&&toN(s.amount)>0&&s.merchant);
-  if(items.length===0){alert('沒有可匯入的項目');return;}
-  if(!confirm(`確認匯入 ${items.length} 筆刷卡記錄到本月？`))return;
+  // 過濾：有商家、金額大於 0、勾選保留
+  const items=(S.importStaging||[]).filter(s=>s.keep&&toN(s.amount)>0&&s.merchant&&s.merchant.trim());
+  if(items.length===0){alert('沒有可儲存的項目（商家不可空、金額需大於 0）');return;}
+  if(!confirm(`確認儲存 ${items.length} 筆刷卡記錄？`))return;
 
   setSyncing('syncing');
   try{
     for(const it of items){
-      // 解析日期取得年月
       let y=yr(),mo=S.month;
       if(it.date){
         const dt=new Date(it.date);
@@ -3235,7 +3420,7 @@ window.confirmImport=async()=>{
         amount:toN(it.amount),
         category:it.category||'其他',
         item:it.merchant,
-        note:'批次匯入',
+        note:'',
         payMethod:'信用卡',
         cardBank:it.cardBank||'',
         user:S.user,
@@ -3249,12 +3434,32 @@ window.confirmImport=async()=>{
     setSyncing('synced');
     S.importStaging=[];
     closeMod();
-    toast(`✅ 已匯入 ${items.length} 筆刷卡記錄`);
+    toast(`✅ 已儲存 ${items.length} 筆刷卡記錄`);
   }catch(err){
     console.error(err);
     setSyncing('error');
-    alert('匯入失敗：'+err.message);
+    alert('儲存失敗：'+err.message);
   }
+};
+
+// ─── 💳 信用卡繳費紀錄 ───────────────────────────────
+window.saveCardPay=async(bank,field,val)=>{
+  const mk0=mk();
+  const cardPayments={...(S.data.cardPayments||{})};
+  if(!cardPayments[mk0])cardPayments[mk0]={};
+  if(!cardPayments[mk0][bank])cardPayments[mk0][bank]={};
+  if(field==='paid'){
+    cardPayments[mk0][bank].paid=val;
+    if(val&&!cardPayments[mk0][bank].paidDate){
+      cardPayments[mk0][bank].paidDate=today();
+    }
+  }else if(field==='amount'){
+    cardPayments[mk0][bank][field]=toN(val);
+  }else{
+    cardPayments[mk0][bank][field]=val;
+  }
+  await saveMain({cardPayments});
+  if(field==='paid')toast(val?'✅ 已標記為已繳費':'已取消繳費標記');
 };
 
 // ─── EXPORT XLSX ─────────────────────────────────────────────
