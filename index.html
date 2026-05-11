@@ -241,6 +241,9 @@ const DEF_FIXED=[
 const PAGES=[
   {id:'overview',ico:'📊',lbl:'總覽'},
   {id:'advisor', ico:'🧠',lbl:'財務建議'},
+  {id:'family',  ico:'👨‍👩‍👧',lbl:'家庭成員'},
+  {id:'goals',   ico:'🎯',lbl:'人生目標'},
+  {id:'insurance',ico:'🛡️',lbl:'保險規劃'},
   {id:'networth',ico:'💎',lbl:'資產負債'},
   {id:'cashflow',ico:'💵',lbl:'收入現金流'},
   {id:'expenses',ico:'🧾',lbl:'支出記帳'},
@@ -272,7 +275,8 @@ let S={
       {id:'travel',lbl:'✈️ 旅遊基金',pct:10,color:'#D4A574',sub:'家庭旅遊'},
       {id:'growth',lbl:'📚 進修成長',pct:10,color:'#C4A46B',sub:'課程／書籍'},
     ]},
-    allocLogs:{}
+    allocLogs:{},
+    members:[],goals:[],insurances:[]
   }
 };
 const getBanks=()=>S.data.banks&&S.data.banks.length?S.data.banks:[...DEF_BANKS];
@@ -301,6 +305,9 @@ function startSync(){
       S.data.quarterReviews=d.quarterReviews||[];
       if(d.allocConfig)S.data.allocConfig=d.allocConfig;
       S.data.allocLogs=d.allocLogs||{};
+      S.data.members=d.members||[];
+      S.data.goals=d.goals||[];
+      S.data.insurances=d.insurances||[];
     }
     setSyncing('synced');
     if(S.auth) render();
@@ -405,6 +412,9 @@ function page(){
   switch(S.page){
     case'overview': return pgOverview();
     case'advisor':  return pgAdvisor();
+    case'family':   return pgFamily();
+    case'goals':    return pgGoals();
+    case'insurance':return pgInsurance();
     case'networth': return pgNetworth();
     case'cashflow': return pgCashflow();
     case'expenses': return pgExpenses();
@@ -435,7 +445,8 @@ function pgOverview(){
   const myI=myInc.reduce((s,i)=>s+toN(i.amount),0);
   const myE=myExp.reduce((s,e)=>s+toN(e.amount),0);
   const bgt=(S.data.budgets||{})[mk()]||{};
-  const bgtTotal=Object.values(bgt).reduce((s,v)=>s+toN(v),0);
+  const mandatorySaving=toN(bgt.__mandatory||0);
+  const bgtTotal=Object.values(bgt).reduce((s,v)=>s+toN(v),0)-mandatorySaving;
   const cats=S.data.cats||DEF_CATS;
   const catExp={};
   exp.forEach(e=>{const c=e.category||'其他';catExp[c]=(catExp[c]||0)+toN(e.amount);});
@@ -450,6 +461,24 @@ function pgOverview(){
   const curMk=`${yr()}-${String(S.month).padStart(2,'0')}`;
   const logs=S.data.savingsLogs||{};
   const moSaved=plans.reduce((s,p)=>s+toN(logs[`${p.id}_${curMk}`]||0),0);
+
+  // ── 香檳塔計算（收入 − 強制儲蓄 = 可花的錢）──
+  const champagneSpendable=tInc-mandatorySaving;
+  const champagneRemaining=champagneSpendable-totalSpend;
+  const savingPct=tInc>0?Math.round(mandatorySaving/tInc*100):0;
+
+  // ── 四大健康指標 ──
+  // 1. 儲蓄率 = (收入 − 支出) / 收入　建議 ≥ 20%
+  const savingsRate=tInc>0?Math.round(net/tInc*100):0;
+  // 2. 負債比 = 總負債 / 總資產　建議 < 50%
+  const debtRatio=tA>0?Math.round(tD/tA*100):0;
+  // 3. 生活周轉金 = 流動資產 / 月支出　建議 ≥ 6 個月
+  const liquidAssets=S.data.assets.filter(a=>['現金存款','定存','活存','現金'].some(k=>(a.type||'').includes(k))).reduce((s,a)=>s+toN(a.value),0);
+  const monthlyExpense=totalSpend>0?totalSpend:fixedTotal;
+  const monthsCovered=monthlyExpense>0?(liquidAssets/monthlyExpense).toFixed(1):0;
+  // 4. 財務自由度 = 被動收入 / 月支出　建議 ≥ 100%
+  const passiveIncome=inc.filter(i=>i.isPassive).reduce((s,i)=>s+toN(i.amount),0);
+  const freedomRate=monthlyExpense>0?Math.round(passiveIncome/monthlyExpense*100):0;
 
   // ── 季度檢視 ──
   const curQ=Math.ceil(S.month/3);
@@ -505,14 +534,75 @@ function pgOverview(){
     </div>
   </div>
 
+  <!-- 🍾 香檳塔：收入 − 強制儲蓄 = 可花的錢 -->
+  ${mandatorySaving>0?`<div class="card card-feature">
+    <div class="card-hd">
+      <span class="card-ttl">🍾 香檳塔計算　「收入 − 儲蓄 ＝ 支出」</span>
+      <span class="bdg" style="background:var(--pur);color:#fff;">先存後花</span>
+    </div>
+    <div class="card-bd">
+      <div style="background:linear-gradient(135deg,var(--accL),var(--card));padding:22px 26px;border-radius:var(--r-sm);margin-bottom:18px;">
+        <div style="font-size:15px;line-height:2.2;color:var(--txt);letter-spacing:0.05em;">
+          🥂 <b style="font-size:16px;color:var(--brown);">本月可花的錢計算</b><br>
+          家庭收入 <b style="color:var(--grn);font-size:17px;">$${fmt(tInc)}</b><br>
+          － 強制儲蓄 <b style="color:var(--pur);font-size:17px;">$${fmt(mandatorySaving)}</b>（${savingPct}% of 收入，先存進買房/退休/預備金）<br>
+          ─────────────<br>
+          ＝ 本月可花上限 <b style="color:var(--blu);font-size:24px;font-family:'Noto Serif TC',serif;">$${fmt(champagneSpendable)}</b><br>
+          － 已花費 <b style="color:var(--red);font-size:17px;">$${fmt(totalSpend)}</b><br>
+          ─────────────<br>
+          ＝ 還能花 <b style="color:${champagneRemaining>=0?'var(--grn)':'var(--red)'};font-size:26px;font-family:'Noto Serif TC',serif;">$${fmt(champagneRemaining)}</b>
+        </div>
+      </div>
+      ${champagneRemaining<0?`<div class="notice alert" style="margin-bottom:0;">⚠️ 已超出本月可花上限 <b>$${fmt(Math.abs(champagneRemaining))}</b>，但別動已存的錢！下個月要更節制。</div>`:champagneRemaining<champagneSpendable*0.2?`<div class="notice" style="margin-bottom:0;">⏰ 本月可花預算只剩 <b>${Math.round(champagneRemaining/champagneSpendable*100)}%</b>，注意控制非必要支出。</div>`:`<div class="notice ok" style="margin-bottom:0;">✅ 預算控制良好，繼續保持！</div>`}
+    </div>
+  </div>`:`<div class="notice tip">
+    💡 <b>還沒設定本月強制儲蓄？</b> 建議到「預算」頁設定每月固定要存的金額，實踐「收入 − 儲蓄 ＝ 支出」原則。
+    <button class="btn btn-p btn-sm" style="margin-left:10px;" onclick="setP('budget')">前往設定 →</button>
+  </div>`}
+
+  <!-- 四大財務健康指標 -->
+  <div class="card card-feature">
+    <div class="card-hd">
+      <span class="card-ttl">💎 四大財務健康指標</span>
+      <span class="bdg" style="background:var(--blu);color:#fff;">家庭財務體檢</span>
+    </div>
+    <div class="card-bd">
+      <div class="sg sg4">
+        <div class="sc ${savingsRate>=20?'grn':savingsRate>=10?'gold':'red'}" style="margin-bottom:0;">
+          <div class="sl">🏦 儲蓄率</div>
+          <div class="sv ${savingsRate>=20?'grn':savingsRate>=10?'gold':'red'}">${savingsRate}<span style="font-size:20px;">%</span></div>
+          <div class="ss">健康應 ≥ 20%<br>${savingsRate>=20?'✅ 健康':savingsRate>=10?'⚠️ 偏低':'🔴 過低'}</div>
+        </div>
+        <div class="sc ${debtRatio<50?'grn':debtRatio<70?'gold':'red'}" style="margin-bottom:0;">
+          <div class="sl">⚖️ 負債比</div>
+          <div class="sv ${debtRatio<50?'grn':debtRatio<70?'gold':'red'}">${debtRatio}<span style="font-size:20px;">%</span></div>
+          <div class="ss">健康應 < 50%<br>${debtRatio<50?'✅ 健康':debtRatio<70?'⚠️ 偏高':'🔴 過高'}</div>
+        </div>
+        <div class="sc ${monthsCovered>=6?'grn':monthsCovered>=3?'gold':'red'}" style="margin-bottom:0;">
+          <div class="sl">💰 生活周轉金</div>
+          <div class="sv ${monthsCovered>=6?'grn':monthsCovered>=3?'gold':'red'}">${monthsCovered}<span style="font-size:20px;">月</span></div>
+          <div class="ss">建議 ≥ 6 個月<br>${monthsCovered>=6?'✅ 充足':monthsCovered>=3?'⚠️ 需補強':'🔴 不足'}</div>
+        </div>
+        <div class="sc ${freedomRate>=100?'grn':freedomRate>=30?'gold':'red'}" style="margin-bottom:0;">
+          <div class="sl">🦅 財務自由度</div>
+          <div class="sv ${freedomRate>=100?'grn':freedomRate>=30?'gold':'red'}">${freedomRate}<span style="font-size:20px;">%</span></div>
+          <div class="ss">被動收入 / 月支出<br>${freedomRate>=100?'🎉 已財務自由':freedomRate>=30?'💪 持續累積':'🌱 剛起步'}</div>
+        </div>
+      </div>
+      <div class="notice info" style="margin-top:18px;margin-bottom:0;">
+        💡 <b>指標說明：</b>儲蓄率告訴你「賺錢效率」，負債比測試「財務承擔力」，生活周轉金看「應急能力」，財務自由度衡量「被動收入是否能養活你」。
+      </div>
+    </div>
+  </div>
+
   <!-- 真實財報分析（沐蜜風）-->
   <div class="card card-feature">
     <div class="card-hd">
-      <span class="card-ttl">💎 本月財務體檢</span>
+      <span class="card-ttl">💎 本月真實淨結餘</span>
       <span class="bdg" style="background:var(--blu);color:#fff;">最重要的數字</span>
     </div>
     <div class="card-bd">
-      <div style="background:var(--bg2);padding:20px 24px;border-radius:var(--r-sm);margin-bottom:18px;">
+      <div style="background:var(--bg2);padding:20px 24px;border-radius:var(--r-sm);margin-bottom:0;">
         <div style="font-size:15px;line-height:2.1;color:var(--txt);letter-spacing:0.05em;">
           📐 <b style="font-size:16px;color:var(--brown);">本月真實淨結餘計算</b><br>
           家庭收入 <b style="color:var(--grn);">$${fmt(tInc)}</b><br>
@@ -520,24 +610,6 @@ function pgOverview(){
           － 固定支出 <b style="color:var(--red);">$${fmt(fixedTotal)}</b>（房貸、車貸、房租等）<br>
           ─────────────<br>
           ＝ 真實淨結餘 <b style="color:${net>=0?'var(--grn)':'var(--red)'};font-size:22px;font-family:'Noto Serif TC',serif;">$${fmt(net)}</b>
-        </div>
-      </div>
-
-      <div class="sg sg3">
-        <div>
-          <div class="sl">💰 收入結構</div>
-          <div class="sv sm grn">$${fmt(tInc)}</div>
-          <div class="ss">${inc.length} 筆收入</div>
-        </div>
-        <div>
-          <div class="sl">📊 支出比率</div>
-          <div class="sv sm ${tInc>0&&totalSpend/tInc>0.8?'red':'gold'}">${tInc>0?Math.round(totalSpend/tInc*100):0}%</div>
-          <div class="ss">支出 / 收入</div>
-        </div>
-        <div>
-          <div class="sl">🏦 儲蓄率</div>
-          <div class="sv sm ${tInc>0&&net/tInc>=0.2?'grn':'red'}">${tInc>0?Math.round(net/tInc*100):0}%</div>
-          <div class="ss">健康應 ≥ 20%</div>
         </div>
       </div>
     </div>
@@ -660,10 +732,85 @@ function pgAdvisor(){
   const fixedTotal=(S.data.fixedItems||[]).reduce((s,f)=>s+toN(f.amount),0);
   const net=tInc-tExp-fixedTotal;
 
+  // ── 自動化財務規劃建議書 ──
+  const members=S.data.members||[];
+  const goals=S.data.goals||[];
+  const ins=S.data.insurances||[];
+  const tA=S.data.assets.reduce((s,a)=>s+toN(a.value),0);
+  const tD=S.data.debts.reduce((s,d)=>s+toN(d.remainingAmount),0);
+  const liquidAssets=S.data.assets.filter(a=>['現金存款','定存','活存','現金'].some(k=>(a.type||'').includes(k))).reduce((s,a)=>s+toN(a.value),0);
+  const passiveInc=getInc(true).filter(i=>i.isPassive).reduce((s,i)=>s+toN(i.amount),0);
+  const monthlySpend=tExp+fixedTotal>0?tExp+fixedTotal:fixedTotal;
+
+  const savingsRate=tInc>0?Math.round(net/tInc*100):0;
+  const debtRatio=tA>0?Math.round(tD/tA*100):0;
+  const monthsCovered=monthlySpend>0?(liquidAssets/monthlySpend).toFixed(1):0;
+  const freedomRate=monthlySpend>0?Math.round(passiveInc/monthlySpend*100):0;
+
+  const lifeCoverage=ins.filter(i=>i.type==='壽險').reduce((s,i)=>s+toN(i.coverage),0);
+  const suggestedLife=fixedTotal*12*10;
+  const lifeGap=suggestedLife-lifeCoverage;
+
+  // 規劃建議書動態文字
+  const suggestions=[];
+  if(savingsRate<20)suggestions.push({type:'alert',ico:'🏦',ttl:'儲蓄率過低',txt:`目前儲蓄率僅 <b>${savingsRate}%</b>，建議至少達到 20%。立刻到「預算」頁設定本月強制儲蓄至少 <b>$${fmt(Math.round(tInc*0.2))}</b>。`});
+  else suggestions.push({type:'ok',ico:'🏦',ttl:'儲蓄率健康',txt:`儲蓄率 <b>${savingsRate}%</b>（目標 20%）✅`});
+
+  if(debtRatio>=50)suggestions.push({type:'alert',ico:'⚖️',ttl:'負債比偏高',txt:`負債比 <b>${debtRatio}%</b>，超過建議的 50%。優先償還高利率負債，避免財務槓桿過大。`});
+  else if(tA>0)suggestions.push({type:'ok',ico:'⚖️',ttl:'負債比健康',txt:`負債比 <b>${debtRatio}%</b>（低於 50%）✅`});
+
+  if(monthsCovered<6)suggestions.push({type:'',ico:'💰',ttl:'生活周轉金不足',txt:`目前流動資產僅可支撐 <b>${monthsCovered} 個月</b>，建議備足至少 6 個月支出（約 <b>$${fmt(Math.round(monthlySpend*6))}</b>）作為緊急預備金。`});
+  else suggestions.push({type:'ok',ico:'💰',ttl:'生活周轉金充足',txt:`可支撐 <b>${monthsCovered} 個月</b>，緊急預備金充足 ✅`});
+
+  if(lifeGap>0&&fixedTotal>0)suggestions.push({type:'',ico:'🛡️',ttl:'壽險保障不足',txt:`建議壽險保額 <b>$${fmt(suggestedLife)}</b>，目前僅 <b>$${fmt(lifeCoverage)}</b>，缺口 <b>$${fmt(lifeGap)}</b>。考慮增加定期壽險或調整保額。`});
+  else if(fixedTotal>0)suggestions.push({type:'ok',ico:'🛡️',ttl:'壽險保障充足',txt:`目前壽險保額 <b>$${fmt(lifeCoverage)}</b>，保障充足 ✅`});
+
+  if(goals.length===0)suggestions.push({type:'tip',ico:'🎯',ttl:'未設定人生目標',txt:`建議到「人生目標」頁設定短中長期目標，財務規劃需要明確的目的地。`});
+  else{const longGoals=goals.filter(g=>g.term==='long');if(longGoals.length===0)suggestions.push({type:'tip',ico:'🎯',ttl:'缺少長期目標',txt:`已有短中期目標，但缺少 20 年以上的長期目標（如退休金），建議補上。`});}
+
+  if(members.length===0)suggestions.push({type:'tip',ico:'👨‍👩‍👧',ttl:'未建立家庭成員',txt:`財務規劃的第一步是了解家庭現況，請到「家庭成員」頁建立基本資料。`});
+
+  if(freedomRate<30&&passiveInc>0)suggestions.push({type:'tip',ico:'🦅',ttl:'被動收入正在累積',txt:`目前被動收入可覆蓋 <b>${freedomRate}%</b> 的月支出。持續投資股票、ETF 等被動收入工具，邁向財務自由。`});
+
   return`
   <div class="pg-ttl">🧠 財務建議</div>
-  <div class="pg-sub">大額消費冷靜期 ＋ 自動分流 ＋ 季度檢視，幫你做更好的決定</div>
+  <div class="pg-sub">自動化規劃建議書 ＋ 大額消費冷靜期 ＋ 季度檢視</div>
   ${moSel()}
+
+  <!-- 自動化財務規劃建議書 -->
+  <div class="card card-feature">
+    <div class="card-hd">
+      <span class="card-ttl">📜 您的家庭財務規劃建議書</span>
+      <span class="bdg" style="background:var(--blu);color:#fff;">系統自動生成</span>
+    </div>
+    <div class="card-bd">
+      <div style="background:linear-gradient(135deg,var(--accL),var(--card));padding:22px 26px;border-radius:var(--r-sm);margin-bottom:18px;">
+        <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:600;color:var(--brown);letter-spacing:0.12em;margin-bottom:10px;">📋 ${yr()} 年第 ${curQ} 季　財務健檢摘要</div>
+        <div style="font-size:14px;color:var(--mut);line-height:1.8;letter-spacing:0.05em;">
+          家庭成員 <b style="color:var(--brown);">${members.length}</b> 人　／　
+          已設定目標 <b style="color:var(--brown);">${goals.length}</b> 項　／　
+          保單 <b style="color:var(--brown);">${ins.length}</b> 張<br>
+          儲蓄率 <b style="color:${savingsRate>=20?'var(--grn)':'var(--red)'};">${savingsRate}%</b>　／　
+          負債比 <b style="color:${debtRatio<50?'var(--grn)':'var(--red)'};">${debtRatio}%</b>　／　
+          生活周轉金 <b style="color:${monthsCovered>=6?'var(--grn)':'var(--red)'};">${monthsCovered} 個月</b>　／　
+          財務自由度 <b style="color:${freedomRate>=100?'var(--grn)':'var(--gold)'};">${freedomRate}%</b>
+        </div>
+      </div>
+
+      <div style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:600;color:var(--brown);letter-spacing:0.1em;margin-bottom:14px;">🎯 系統建議您採取以下行動：</div>
+      ${suggestions.map((s,i)=>`<div style="display:flex;gap:14px;padding:14px 18px;background:${s.type==='alert'?'var(--redl)':s.type==='ok'?'var(--grnl)':s.type==='tip'?'var(--purl)':'var(--bg2)'};border-radius:var(--r-sm);margin-bottom:10px;border-left:3px solid ${s.type==='alert'?'var(--red)':s.type==='ok'?'var(--grn)':s.type==='tip'?'var(--pur)':'var(--gold)'};">
+        <div style="font-size:24px;flex-shrink:0;">${s.ico}</div>
+        <div style="flex:1;">
+          <div style="font-weight:700;font-size:15px;color:var(--brown);margin-bottom:4px;letter-spacing:0.06em;"><span style="color:var(--mut);font-weight:500;font-size:13px;margin-right:8px;">建議 ${String(i+1).padStart(2,'0')}</span>${s.ttl}</div>
+          <div style="font-size:14px;line-height:1.8;color:var(--txt);letter-spacing:0.04em;">${s.txt}</div>
+        </div>
+      </div>`).join('')}
+
+      <div class="notice gold" style="margin-top:18px;margin-bottom:0;">
+        📅 <b>定期追蹤檢討：</b>建議每季檢視一次規劃進度，依照家庭狀況調整。下方季度檢視紀錄會自動提醒。
+      </div>
+    </div>
+  </div>
 
   <div class="notice tip">
     💡 <b>大額採購冷靜期規則：</b>單筆超過 $${fmt(al.bigPurchaseLimit)} 的支出，建議經過 <b>3 天冷靜期</b> 並通過自我提問才執行。
@@ -758,6 +905,205 @@ function pgAdvisor(){
           </tr>`).join('')}
         </tbody>
       </table></div>
+    </div>
+  </div>`;
+}
+
+// ── FAMILY 家庭成員 ──────────────────────────────────────────
+function pgFamily(){
+  const members=S.data.members||[];
+  const totalIncome=members.reduce((s,m)=>s+toN(m.monthlyIncome),0);
+  return`
+  <div class="pg-ttl">👨‍👩‍👧 家庭成員</div>
+  <div class="pg-sub">建立家庭現況基本資料，作為財務規劃的起點</div>
+
+  <div class="notice info">
+    💡 <b>為什麼要建立家庭成員資料？</b><br>
+    財務規劃的第一步是了解家庭現況——每個成員的年齡、職業、健康狀況都會影響保險需求、退休規劃與緊急預備金的金額。
+  </div>
+
+  <div class="sg sg3">
+    <div class="sc gold"><div class="sl">家庭人口數</div><div class="sv gold">${members.length}<span style="font-size:18px;"> 人</span></div></div>
+    <div class="sc grn"><div class="sl">家庭月收入合計</div><div class="sv grn">$${fmt(totalIncome)}</div></div>
+    <div class="sc rose"><div class="sl">扶養人數</div><div class="sv rose sm">${members.filter(m=>m.dependent).length} 人</div><div class="ss">未成年／無收入</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-hd">
+      <span class="card-ttl">👨‍👩‍👧 成員清單</span>
+      <button class="btn btn-p btn-sm" onclick="openM('addMember')">＋ 新增成員</button>
+    </div>
+    <div class="card-bd">
+      ${members.length===0?`<div class="empty"><div class="empty-ico">👨‍👩‍👧</div><p>尚未建立成員資料</p><button class="btn btn-p btn-sm" style="margin-top:14px;" onclick="openM('addMember')">立即建立</button></div>`:
+        members.map(m=>`<div style="border:1.5px solid var(--bdr);border-radius:var(--r-sm);padding:18px 22px;margin-bottom:14px;background:var(--card);">
+          <div class="fbb" style="margin-bottom:12px;">
+            <div>
+              <span style="font-size:22px;margin-right:10px;">${m.icon||'👤'}</span>
+              <b style="font-size:18px;color:var(--brown);font-family:'Noto Serif TC',serif;">${m.name}</b>
+              <span class="bdg" style="margin-left:10px;background:var(--acc);color:#fff;">${m.relation||'本人'}</span>
+              ${m.dependent?'<span class="bdg" style="margin-left:6px;background:var(--rose);color:#fff;">扶養</span>':''}
+            </div>
+            <div class="fb g8">
+              <button class="btn btn-s btn-sm" onclick="openM('editMember','${m.id}')">✏️ 編輯</button>
+              <button class="bdel" onclick="delMember('${m.id}')">×</button>
+            </div>
+          </div>
+          <div class="sg sg4">
+            <div><div class="sl">年齡</div><div style="font-size:18px;font-weight:700;color:var(--brown);font-family:'Noto Serif TC',serif;">${m.age||'-'} 歲</div></div>
+            <div><div class="sl">職業</div><div style="font-size:15px;font-weight:600;color:var(--brown);">${m.job||'-'}</div></div>
+            <div><div class="sl">月收入</div><div style="font-size:17px;font-weight:700;color:var(--grn);font-family:'Noto Serif TC',serif;">$${fmt(m.monthlyIncome||0)}</div></div>
+            <div><div class="sl">健康狀況</div><div style="font-size:15px;font-weight:600;color:var(--brown);">${m.health||'-'}</div></div>
+          </div>
+          ${m.note?`<div class="tm" style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--bdr);">📝 ${m.note}</div>`:''}
+        </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+// ── GOALS 人生目標（短中長期）──────────────────────────────
+function pgGoals(){
+  const goals=S.data.goals||[];
+  const short=goals.filter(g=>g.term==='short');
+  const mid=goals.filter(g=>g.term==='mid');
+  const long=goals.filter(g=>g.term==='long');
+  const totalTarget=goals.reduce((s,g)=>s+toN(g.targetAmount),0);
+  const totalSaved=goals.reduce((s,g)=>s+toN(g.savedAmount),0);
+  const overallPct=totalTarget>0?Math.round(totalSaved/totalTarget*100):0;
+
+  const renderGoal=(g)=>{
+    const t=toN(g.targetAmount),sa=toN(g.savedAmount);
+    const pct=t>0?Math.min(100,Math.round(sa/t*100)):0;
+    const left=Math.max(0,t-sa);
+    const col=pct>=100?'var(--grn)':pct>=50?'var(--acc)':'var(--blu)';
+    let dl='';if(g.targetYear){const yrsLeft=g.targetYear-yr();dl=yrsLeft>0?`還有 ${yrsLeft} 年達成`:yrsLeft===0?'今年到期':`已逾期 ${-yrsLeft} 年`;}
+    const monthlyNeed=g.targetYear&&g.targetYear>yr()?Math.ceil(left/((g.targetYear-yr())*12)):0;
+    return`<div style="border:1.5px solid var(--bdr);border-radius:var(--r-sm);padding:18px 22px;margin-bottom:14px;background:var(--card);border-left:4px solid ${col};">
+      <div class="fbb" style="margin-bottom:12px;">
+        <div>
+          <b style="font-size:17px;color:var(--brown);font-family:'Noto Serif TC',serif;">${g.icon||'🎯'} ${g.name}</b>
+          ${pct>=100?'<span class="bdg" style="margin-left:8px;background:var(--grn);color:#fff;">🎉 達成</span>':''}
+        </div>
+        <div class="fb g8">
+          <button class="btn btn-s btn-sm" onclick="openM('editGoal','${g.id}')">✏️</button>
+          <button class="bdel" onclick="delGoal('${g.id}')">×</button>
+        </div>
+      </div>
+      <div class="sg sg4" style="margin-bottom:12px;">
+        <div><div class="sl">目標金額</div><div style="font-size:17px;font-weight:700;color:var(--brown);font-family:'Noto Serif TC',serif;">$${fmt(t)}</div></div>
+        <div><div class="sl">已累積</div><div style="font-size:17px;font-weight:700;color:var(--grn);font-family:'Noto Serif TC',serif;">$${fmt(sa)}</div></div>
+        <div><div class="sl">還需</div><div style="font-size:17px;font-weight:700;color:var(--red);font-family:'Noto Serif TC',serif;">$${fmt(left)}</div></div>
+        <div><div class="sl">每月需存</div><div style="font-size:17px;font-weight:700;color:var(--acc);font-family:'Noto Serif TC',serif;">$${fmt(monthlyNeed)}</div></div>
+      </div>
+      <div class="pb-lg"><div class="pf" style="width:${pct}%;background:${col};"></div></div>
+      <div class="fbb" style="margin-top:8px;"><span class="tm">${g.targetYear?`📅 ${g.targetYear} 年達成　${dl}`:''}</span><span style="font-weight:700;color:${col};font-family:'Noto Serif TC',serif;">${pct}%</span></div>
+      ${g.note?`<div class="tm" style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--bdr);">📝 ${g.note}</div>`:''}
+    </div>`;
+  };
+
+  return`
+  <div class="pg-ttl">🎯 人生目標</div>
+  <div class="pg-sub">短中長期目標分層　＋ 自動計算每月需存金額</div>
+
+  <div class="notice info">
+    💡 <b>三層目標規劃法：</b>
+    <span style="color:var(--grn);">短期 0-5 年</span>（旅遊、買車、家電）　
+    <span style="color:var(--acc);">中期 5-10 年</span>（買房頭期、子女教育）　
+    <span style="color:var(--pur);">長期 20+ 年</span>（退休金、財務自由）
+  </div>
+
+  <div class="sg sg4">
+    <div class="sc gold"><div class="sl">總目標金額</div><div class="sv gold">$${fmt(totalTarget)}</div></div>
+    <div class="sc grn"><div class="sl">已累積</div><div class="sv grn">$${fmt(totalSaved)}</div></div>
+    <div class="sc red"><div class="sl">尚需</div><div class="sv red">$${fmt(totalTarget-totalSaved)}</div></div>
+    <div class="sc rose"><div class="sl">整體達成率</div><div class="sv rose">${overallPct}<span style="font-size:20px;">%</span></div></div>
+  </div>
+
+  <div class="sec-hd"><span class="sec-ttl">⚡ 短期目標（0-5 年）</span><button class="btn btn-p btn-sm" onclick="openM('addGoal','short')">＋ 新增短期</button></div>
+  ${short.length===0?'<div class="card"><div class="card-bd"><div class="empty"><p>尚無短期目標</p></div></div></div>':short.map(renderGoal).join('')}
+
+  <div class="sec-hd"><span class="sec-ttl">🏔️ 中期目標（5-10 年）</span><button class="btn btn-p btn-sm" onclick="openM('addGoal','mid')">＋ 新增中期</button></div>
+  ${mid.length===0?'<div class="card"><div class="card-bd"><div class="empty"><p>尚無中期目標</p></div></div></div>':mid.map(renderGoal).join('')}
+
+  <div class="sec-hd"><span class="sec-ttl">🏛️ 長期目標（20 年以上）</span><button class="btn btn-p btn-sm" onclick="openM('addGoal','long')">＋ 新增長期</button></div>
+  ${long.length===0?'<div class="card"><div class="card-bd"><div class="empty"><p>尚無長期目標</p></div></div></div>':long.map(renderGoal).join('')}`;
+}
+
+// ── INSURANCE 保險規劃 ─────────────────────────────────────
+function pgInsurance(){
+  const ins=S.data.insurances||[];
+  const members=S.data.members||[];
+  const totalCoverage=ins.filter(i=>i.type==='壽險').reduce((s,i)=>s+toN(i.coverage),0);
+  const totalPremium=ins.reduce((s,i)=>s+toN(i.annualPremium),0);
+  // 建議壽險：家庭年支出 × 10（家庭責任法簡化版）
+  const fixedTotal=(S.data.fixedItems||[]).reduce((s,f)=>s+toN(f.amount),0);
+  const annualNeed=fixedTotal*12;
+  const suggestedLife=annualNeed*10;
+  const lifeGap=suggestedLife-totalCoverage;
+
+  return`
+  <div class="pg-ttl">🛡️ 保險規劃</div>
+  <div class="pg-sub">保單清單 ＋ 壽險缺口分析　保障家庭財務安全網</div>
+
+  <div class="notice info">
+    💡 <b>保險規劃 = 風險的最後一道防線</b><br>
+    保險不是投資工具，而是「萬一發生意外時，讓家庭財務不會崩盤」的保障。建議壽險金額至少要能負擔家庭未來 10 年的固定支出。
+  </div>
+
+  <!-- 壽險缺口分析（重點功能）-->
+  <div class="card card-feature">
+    <div class="card-hd">
+      <span class="card-ttl">🎯 壽險缺口分析</span>
+      <span class="bdg" style="background:var(--blu);color:#fff;">家庭責任法</span>
+    </div>
+    <div class="card-bd">
+      <div style="background:var(--bg2);padding:20px 24px;border-radius:var(--r-sm);margin-bottom:18px;">
+        <div style="font-size:15px;line-height:2.1;color:var(--txt);letter-spacing:0.05em;">
+          📐 <b style="font-size:16px;color:var(--brown);">建議壽險金額計算</b><br>
+          家庭年支出 <b style="color:var(--red);">$${fmt(annualNeed)}</b>（固定支出 $${fmt(fixedTotal)} × 12 個月）<br>
+          × 10 倍（建議涵蓋未來 10 年）<br>
+          ─────────────<br>
+          ＝ 建議壽險保額 <b style="color:var(--blu);font-size:22px;font-family:'Noto Serif TC',serif;">$${fmt(suggestedLife)}</b>
+        </div>
+      </div>
+      <div class="sg sg3">
+        <div class="sc blu"><div class="sl">建議壽險保額</div><div class="sv blu">$${fmt(suggestedLife)}</div></div>
+        <div class="sc grn"><div class="sl">目前已準備</div><div class="sv grn">$${fmt(totalCoverage)}</div></div>
+        <div class="sc ${lifeGap>0?'red':'grn'}">
+          <div class="sl">${lifeGap>0?'⚠️ 保障缺口':'✅ 保障充足'}</div>
+          <div class="sv ${lifeGap>0?'red':'grn'}">$${fmt(Math.abs(lifeGap))}</div>
+          <div class="ss">${lifeGap>0?'建議補強壽險':'保障已足夠'}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 保險統計 -->
+  <div class="sg sg3">
+    <div class="sc gold"><div class="sl">保單總數</div><div class="sv gold">${ins.length}<span style="font-size:18px;"> 張</span></div></div>
+    <div class="sc rose"><div class="sl">年繳保費合計</div><div class="sv rose">$${fmt(totalPremium)}</div><div class="ss">月平均 $${fmt(Math.round(totalPremium/12))}</div></div>
+    <div class="sc pur"><div class="sl">壽險總保額</div><div class="sv pur">$${fmt(totalCoverage)}</div></div>
+  </div>
+
+  <!-- 保單清單 -->
+  <div class="card">
+    <div class="card-hd">
+      <span class="card-ttl">📋 保單清單</span>
+      <button class="btn btn-p btn-sm" onclick="openM('addInsurance')">＋ 新增保單</button>
+    </div>
+    <div class="card-bd">
+      ${ins.length===0?`<div class="empty"><div class="empty-ico">🛡️</div><p>尚未登記任何保單</p><button class="btn btn-p btn-sm" style="margin-top:14px;" onclick="openM('addInsurance')">立即新增</button></div>`:
+        `<div class="tw"><table>
+          <thead><tr><th>保單名稱</th><th>類型</th><th>被保險人</th><th>保額</th><th>年繳保費</th><th>到期日</th><th></th></tr></thead>
+          <tbody>${ins.map(i=>`<tr>
+            <td><b>${i.name}</b><br><span class="tm">${i.company||''}</span></td>
+            <td><span class="bdg" style="background:${i.type==='壽險'?'var(--blu)':i.type==='醫療險'?'var(--grn)':i.type==='意外險'?'var(--red)':'var(--acc)'};color:#fff;">${i.type||'-'}</span></td>
+            <td>${i.insured||'-'}</td>
+            <td class="an">$${fmt(i.coverage)}</td>
+            <td class="an">$${fmt(i.annualPremium)}</td>
+            <td>${i.expireDate||'-'}</td>
+            <td style="white-space:nowrap;"><button class="bdel" style="color:#aaa;font-size:14px;" onclick="openM('editInsurance','${i.id}')">✏️</button><button class="bdel" onclick="delInsurance('${i.id}')">×</button></td>
+          </tr>`).join('')}</tbody>
+        </table></div>`}
     </div>
   </div>`;
 }
@@ -933,17 +1279,56 @@ function pgFixed(){
 function pgBudget(){
   const cats=S.data.cats||DEF_CATS;
   const bgt=(S.data.budgets||{})[mk()]||{};
+  const mandatorySaving=toN(bgt.__mandatory||0);
   const allExp=getExp(true);
-  const tBgt=Object.values(bgt).reduce((s,v)=>s+toN(v),0);
+  const tBgt=Object.values(bgt).reduce((s,v)=>s+toN(v),0)-mandatorySaving;
   const catExp={};
   allExp.forEach(e=>{const c=e.category||'其他';catExp[c]=(catExp[c]||0)+toN(e.amount);});
   const tExp=allExp.reduce((s,e)=>s+toN(e.amount),0);
+  const tInc=getInc(true).reduce((s,i)=>s+toN(i.amount),0);
+  const savingPct=tInc>0?Math.round(mandatorySaving/tInc*100):0;
   return`
   <div class="pg-ttl">📋 預算管理</div>
-  <div class="pg-sub">各類別月預算 ↔ 信用卡＋支出同步加總</div>
+  <div class="pg-sub">先設定強制儲蓄　＋ 各類別變動預算　信用卡＋支出同步加總</div>
   ${moSel()}
+
+  <div class="notice tip">
+    💡 <b>「收入 − 儲蓄 ＝ 支出」原則：</b>先把要存的錢扣下來（強制儲蓄），剩下的才是你能花的變動預算。
+  </div>
+
+  <!-- 強制儲蓄設定（核心） -->
+  <div class="card card-feature">
+    <div class="card-hd">
+      <span class="card-ttl">🍾 本月強制儲蓄（先存後花）</span>
+      <span class="bdg" style="background:var(--pur);color:#fff;">最優先</span>
+    </div>
+    <div class="card-bd">
+      <div class="sg sg3">
+        <div>
+          <div class="sl">📥 本月家庭收入</div>
+          <div class="sv grn">$${fmt(tInc)}</div>
+        </div>
+        <div>
+          <div class="sl">🏦 強制儲蓄金額</div>
+          <div class="fb g8" style="margin-top:6px;">
+            <input type="number" value="${mandatorySaving||''}" placeholder="輸入金額" class="yinp"
+              style="width:180px;padding:10px 14px;font-size:20px;font-family:'Noto Serif TC',serif;font-weight:700;color:var(--pur);"
+              onchange="saveMandatory(this.value)">
+          </div>
+          <div class="ss" style="margin-top:6px;">${savingPct}% of 收入　${savingPct>=20?'✅ 健康':savingPct>=10?'⚠️ 可再加強':'🔴 偏低，建議 ≥ 20%'}</div>
+        </div>
+        <div>
+          <div class="sl">💸 可花的錢上限</div>
+          <div class="sv blu">$${fmt(tInc-mandatorySaving)}</div>
+          <div class="ss">收入 − 儲蓄</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 變動預算統計 -->
   <div class="sg sg3">
-    <div class="sc yel"><div class="sl">本月總預算</div><div class="sv">$${fmt(tBgt)}</div></div>
+    <div class="sc yel"><div class="sl">變動預算合計</div><div class="sv">$${fmt(tBgt)}</div></div>
     <div class="sc red"><div class="sl">已花費（含刷卡）</div><div class="sv red">$${fmt(tExp)}</div></div>
     <div class="sc ${tBgt-tExp>=0?'grn':'red'}"><div class="sl">剩餘預算</div><div class="sv ${tBgt-tExp>=0?'grn':'red'}">$${fmt(tBgt-tExp)}</div></div>
   </div>
@@ -961,17 +1346,17 @@ function pgBudget(){
         const used=catExp[cat]||0;
         const pct=budget>0?Math.min(100,Math.round(used/budget*100)):0;
         const col=pct>100?'var(--red)':pct>80?'var(--yelb)':'var(--grn)';
-        return`<div style="margin-bottom:18px;">
-          <div class="fbb" style="margin-bottom:6px;">
-            <span style="font-weight:700;font-size:13px;">${cat}</span>
+        return`<div style="margin-bottom:20px;">
+          <div class="fbb" style="margin-bottom:8px;">
+            <span style="font-weight:700;font-size:15px;color:var(--brown);">${cat}</span>
             <div class="fb g8">
               <input type="number" value="${budget||''}" placeholder="設定預算" class="yinp"
-                style="width:120px;padding:5px 8px;font-size:12px;" onchange="saveBgt('${cat}',this.value)">
+                style="width:140px;padding:7px 12px;font-size:14px;" onchange="saveBgt('${cat}',this.value)">
               <span class="tm">已花 $${fmt(used)}</span>
             </div>
           </div>
-          <div class="pb" style="height:16px;"><div class="pf" style="width:${pct}%;height:16px;background:${col};"></div></div>
-          <div class="tm" style="text-align:right;margin-top:3px;">${budget>0?`剩 $${fmt(budget-used)}（${pct}%）`:'尚未設預算'}</div>
+          <div class="pb-lg"><div class="pf" style="width:${pct}%;background:${col};"></div></div>
+          <div class="tm" style="text-align:right;margin-top:5px;">${budget>0?`剩 $${fmt(budget-used)}（${pct}%）`:'尚未設預算'}</div>
         </div>`;
       }).join('')}
     </div>
@@ -1931,6 +2316,102 @@ function modal(){
     <button class="btn btn-s btn-sm" onclick="addAllocRow()" style="margin-bottom:10px;">＋ 新增項目</button>
     <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="saveAlloc()">✓ 儲存</button></div>`;}
 
+  // ─── 家庭成員 modal ───
+  if(m.t==='addMember'){const ICONS=['👨','👩','👶','👴','👵','👦','👧','🧑'];const RELATIONS=['本人','配偶','父親','母親','兒子','女兒','兄弟','姊妹','其他'];c=`<div class="mttl">👨‍👩‍👧 新增家庭成員</div>
+    <div class="fgrp"><label>選擇圖示</label><div class="fb g8" style="flex-wrap:wrap;">${ICONS.map((ic,i)=>`<label style="cursor:pointer;padding:6px 10px;border:2px solid var(--bdr);border-radius:10px;font-size:22px;"><input type="radio" name="m_ico" value="${ic}" ${i===0?'checked':''} style="display:none;">${ic}</label>`).join('')}</div></div>
+    <div class="fg fg2">
+      <div class="fgrp"><label>姓名</label><input type="text" id="m0" placeholder="如：陳伯涵"></div>
+      <div class="fgrp"><label>稱謂</label><select id="m1">${RELATIONS.map(r=>`<option>${r}</option>`).join('')}</select></div>
+    </div>
+    <div class="fg fg2">
+      <div class="fgrp"><label>年齡</label><input type="number" id="m2" placeholder="35"></div>
+      <div class="fgrp"><label>月收入（元）</label><input type="number" id="m3" placeholder="0"></div>
+    </div>
+    <div class="fg fg2">
+      <div class="fgrp"><label>職業</label><input type="text" id="m4" placeholder="如：工程師、學生、退休"></div>
+      <div class="fgrp"><label>健康狀況</label><select id="m5"><option>良好</option><option>普通</option><option>需要照護</option><option>有特殊疾病</option></select></div>
+    </div>
+    <div class="fgrp"><label><input type="checkbox" id="m6"> 此成員為扶養人口（未成年／無收入）</label></div>
+    <div class="fgrp"><label>備註</label><textarea id="m7" rows="2" placeholder="特殊狀況、注意事項…"></textarea></div>
+    <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="saveMember()">✓ 新增</button></div>`;}
+
+  if(m.t==='editMember'){const ICONS=['👨','👩','👶','👴','👵','👦','👧','🧑'];const RELATIONS=['本人','配偶','父親','母親','兒子','女兒','兄弟','姊妹','其他'];const mb=(S.data.members||[]).find(x=>x.id===m.x)||{};c=`<div class="mttl">✏️ 編輯成員：${mb.name||''}</div>
+    <div class="fgrp"><label>選擇圖示</label><div class="fb g8" style="flex-wrap:wrap;">${ICONS.map(ic=>`<label style="cursor:pointer;padding:6px 10px;border:2px solid var(--bdr);border-radius:10px;font-size:22px;"><input type="radio" name="m_ico" value="${ic}" ${ic===mb.icon?'checked':''} style="display:none;">${ic}</label>`).join('')}</div></div>
+    <div class="fg fg2">
+      <div class="fgrp"><label>姓名</label><input type="text" id="m0" value="${mb.name||''}"></div>
+      <div class="fgrp"><label>稱謂</label><select id="m1">${RELATIONS.map(r=>`<option ${r===mb.relation?'selected':''}>${r}</option>`).join('')}</select></div>
+    </div>
+    <div class="fg fg2">
+      <div class="fgrp"><label>年齡</label><input type="number" id="m2" value="${mb.age||''}"></div>
+      <div class="fgrp"><label>月收入（元）</label><input type="number" id="m3" value="${mb.monthlyIncome||''}"></div>
+    </div>
+    <div class="fg fg2">
+      <div class="fgrp"><label>職業</label><input type="text" id="m4" value="${mb.job||''}"></div>
+      <div class="fgrp"><label>健康狀況</label><select id="m5">${['良好','普通','需要照護','有特殊疾病'].map(h=>`<option ${h===mb.health?'selected':''}>${h}</option>`).join('')}</select></div>
+    </div>
+    <div class="fgrp"><label><input type="checkbox" id="m6" ${mb.dependent?'checked':''}> 此成員為扶養人口</label></div>
+    <div class="fgrp"><label>備註</label><textarea id="m7" rows="2">${mb.note||''}</textarea></div>
+    <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="updateMember('${m.x}')">✓ 儲存</button></div>`;}
+
+  // ─── 人生目標 modal ───
+  if(m.t==='addGoal'){const term=m.x||'short';const GICONS=['🎯','🏠','✈️','🚗','💍','📚','💻','🎓','🏖️','💰','🏋️','🎸','👶','💝','🛍️','🌍'];const termLbl={short:'短期 0-5 年',mid:'中期 5-10 年',long:'長期 20 年以上'};c=`<div class="mttl">🎯 新增${termLbl[term]}目標</div>
+    <div class="fgrp"><label>圖示</label><div class="fb g8" style="flex-wrap:wrap;">${GICONS.map((ic,i)=>`<label style="cursor:pointer;padding:5px 9px;border:2px solid var(--bdr);border-radius:10px;font-size:20px;"><input type="radio" name="g_ico" value="${ic}" ${i===0?'checked':''} style="display:none;">${ic}</label>`).join('')}</div></div>
+    <div class="fgrp"><label>目標名稱</label><input type="text" id="m0" placeholder="如：頭期款 1000 萬"></div>
+    <div class="fg fg2">
+      <div class="fgrp"><label>目標金額（元）</label><input type="number" id="m1" placeholder="0"></div>
+      <div class="fgrp"><label>目標達成年份</label><input type="number" id="m2" placeholder="${yr()+(term==='short'?3:term==='mid'?7:25)}" min="${yr()}"></div>
+    </div>
+    <div class="fgrp"><label>已累積金額（元）</label><input type="number" id="m3" placeholder="0"></div>
+    <div class="fgrp"><label>備註</label><textarea id="m4" rows="2" placeholder="為什麼這個目標重要？要怎麼達成？"></textarea></div>
+    <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="saveGoal('${term}')">✓ 新增</button></div>`;}
+
+  if(m.t==='editGoal'){const g=(S.data.goals||[]).find(x=>x.id===m.x)||{};const GICONS=['🎯','🏠','✈️','🚗','💍','📚','💻','🎓','🏖️','💰','🏋️','🎸','👶','💝','🛍️','🌍'];const termLbl={short:'短期 0-5 年',mid:'中期 5-10 年',long:'長期 20 年以上'};c=`<div class="mttl">✏️ 編輯目標：${g.name||''}</div>
+    <div class="fgrp"><label>類型</label><select id="m_term">${Object.entries(termLbl).map(([k,v])=>`<option value="${k}" ${k===g.term?'selected':''}>${v}</option>`).join('')}</select></div>
+    <div class="fgrp"><label>圖示</label><div class="fb g8" style="flex-wrap:wrap;">${GICONS.map(ic=>`<label style="cursor:pointer;padding:5px 9px;border:2px solid var(--bdr);border-radius:10px;font-size:20px;"><input type="radio" name="g_ico" value="${ic}" ${ic===g.icon?'checked':''} style="display:none;">${ic}</label>`).join('')}</div></div>
+    <div class="fgrp"><label>目標名稱</label><input type="text" id="m0" value="${g.name||''}"></div>
+    <div class="fg fg2">
+      <div class="fgrp"><label>目標金額（元）</label><input type="number" id="m1" value="${g.targetAmount||''}"></div>
+      <div class="fgrp"><label>目標達成年份</label><input type="number" id="m2" value="${g.targetYear||''}"></div>
+    </div>
+    <div class="fgrp"><label>已累積金額（元）</label><input type="number" id="m3" value="${g.savedAmount||''}"></div>
+    <div class="fgrp"><label>備註</label><textarea id="m4" rows="2">${g.note||''}</textarea></div>
+    <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="updateGoal('${m.x}')">✓ 儲存</button></div>`;}
+
+  // ─── 保險 modal ───
+  if(m.t==='addInsurance'){const TYPES=['壽險','醫療險','意外險','癌症險','失能險','儲蓄險','投資型','其他'];c=`<div class="mttl">🛡️ 新增保單</div>
+    <div class="fg fg2">
+      <div class="fgrp"><label>保單名稱</label><input type="text" id="m0" placeholder="如：終身壽險A"></div>
+      <div class="fgrp"><label>保險公司</label><input type="text" id="m1" placeholder="如：國泰人壽"></div>
+    </div>
+    <div class="fg fg2">
+      <div class="fgrp"><label>險種類型</label><select id="m2">${TYPES.map(t=>`<option>${t}</option>`).join('')}</select></div>
+      <div class="fgrp"><label>被保險人</label><input type="text" id="m3" placeholder="姓名"></div>
+    </div>
+    <div class="fg fg2">
+      <div class="fgrp"><label>保額（元）</label><input type="number" id="m4" placeholder="0"></div>
+      <div class="fgrp"><label>年繳保費（元）</label><input type="number" id="m5" placeholder="0"></div>
+    </div>
+    <div class="fgrp"><label>到期日</label><input type="date" id="m6"></div>
+    <div class="fgrp"><label>備註</label><textarea id="m7" rows="2" placeholder="保單編號、特殊條款…"></textarea></div>
+    <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="saveInsurance()">✓ 新增</button></div>`;}
+
+  if(m.t==='editInsurance'){const ins=(S.data.insurances||[]).find(x=>x.id===m.x)||{};const TYPES=['壽險','醫療險','意外險','癌症險','失能險','儲蓄險','投資型','其他'];c=`<div class="mttl">✏️ 編輯保單：${ins.name||''}</div>
+    <div class="fg fg2">
+      <div class="fgrp"><label>保單名稱</label><input type="text" id="m0" value="${ins.name||''}"></div>
+      <div class="fgrp"><label>保險公司</label><input type="text" id="m1" value="${ins.company||''}"></div>
+    </div>
+    <div class="fg fg2">
+      <div class="fgrp"><label>險種類型</label><select id="m2">${TYPES.map(t=>`<option ${t===ins.type?'selected':''}>${t}</option>`).join('')}</select></div>
+      <div class="fgrp"><label>被保險人</label><input type="text" id="m3" value="${ins.insured||''}"></div>
+    </div>
+    <div class="fg fg2">
+      <div class="fgrp"><label>保額（元）</label><input type="number" id="m4" value="${ins.coverage||''}"></div>
+      <div class="fgrp"><label>年繳保費（元）</label><input type="number" id="m5" value="${ins.annualPremium||''}"></div>
+    </div>
+    <div class="fgrp"><label>到期日</label><input type="date" id="m6" value="${ins.expireDate||''}"></div>
+    <div class="fgrp"><label>備註</label><textarea id="m7" rows="2">${ins.note||''}</textarea></div>
+    <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="updateInsurance('${m.x}')">✓ 儲存</button></div>`;}
+
   return`<div class="mbk" onclick="bkClose(event)"><div class="mbox">${c}</div></div>`;
 }
 
@@ -2187,6 +2668,136 @@ window.saveAlloc=async()=>{
   await saveMain({allocConfig:{bigPurchaseLimit,plans}});
   toast('✅ 分流比例已更新');
   closeMod();
+};
+
+// ─── 強制儲蓄 ─────────────────────────────────────
+window.saveMandatory=async(val)=>{
+  const amt=toN(val);
+  const mk0=mk();
+  const budgets={...(S.data.budgets||{})};
+  budgets[mk0]={...(budgets[mk0]||{}),__mandatory:amt};
+  await saveMain({budgets});
+  toast(amt>0?`✅ 已設定本月強制儲蓄 $${fmt(amt)}`:'已清除強制儲蓄');
+};
+
+// ─── 家庭成員 ─────────────────────────────────────
+window.saveMember=async()=>{
+  const name=g('m0')?.trim();
+  if(!name){alert('請填寫姓名');return;}
+  const iconRadio=document.querySelector('input[name="m_ico"]:checked');
+  const icon=iconRadio?iconRadio.value:'👤';
+  const newMember={
+    id:'mem_'+Date.now(),
+    icon,name,
+    relation:g('m1')||'本人',
+    age:toN(g('m2')),
+    monthlyIncome:toN(g('m3')),
+    job:g('m4')?.trim()||'',
+    health:g('m5')||'良好',
+    dependent:document.getElementById('m6')?.checked||false,
+    note:g('m7')?.trim()||''
+  };
+  await saveMain({members:[...(S.data.members||[]),newMember]});
+  toast('✅ 已新增成員');closeMod();
+};
+window.updateMember=async(id)=>{
+  const name=g('m0')?.trim();
+  if(!name){alert('請填寫姓名');return;}
+  const iconRadio=document.querySelector('input[name="m_ico"]:checked');
+  const icon=iconRadio?iconRadio.value:'👤';
+  const members=(S.data.members||[]).map(mb=>mb.id===id?{
+    ...mb,icon,name,
+    relation:g('m1')||'本人',
+    age:toN(g('m2')),
+    monthlyIncome:toN(g('m3')),
+    job:g('m4')?.trim()||'',
+    health:g('m5')||'良好',
+    dependent:document.getElementById('m6')?.checked||false,
+    note:g('m7')?.trim()||''
+  }:mb);
+  await saveMain({members});toast('✅ 已更新');closeMod();
+};
+window.delMember=async(id)=>{
+  if(!confirm('確認刪除此成員？'))return;
+  await saveMain({members:(S.data.members||[]).filter(mb=>mb.id!==id)});
+  toast('已刪除');
+};
+
+// ─── 人生目標 ─────────────────────────────────────
+window.saveGoal=async(term)=>{
+  const name=g('m0')?.trim();
+  if(!name){alert('請填寫目標名稱');return;}
+  const iconRadio=document.querySelector('input[name="g_ico"]:checked');
+  const icon=iconRadio?iconRadio.value:'🎯';
+  const newGoal={
+    id:'goal_'+Date.now(),
+    term,icon,name,
+    targetAmount:toN(g('m1')),
+    targetYear:toN(g('m2'))||(yr()+(term==='short'?3:term==='mid'?7:25)),
+    savedAmount:toN(g('m3')),
+    note:g('m4')?.trim()||''
+  };
+  await saveMain({goals:[...(S.data.goals||[]),newGoal]});
+  toast('✅ 已新增目標');closeMod();
+};
+window.updateGoal=async(id)=>{
+  const name=g('m0')?.trim();
+  if(!name){alert('請填寫目標名稱');return;}
+  const iconRadio=document.querySelector('input[name="g_ico"]:checked');
+  const icon=iconRadio?iconRadio.value:'🎯';
+  const term=document.getElementById('m_term')?.value||'short';
+  const goals=(S.data.goals||[]).map(go=>go.id===id?{
+    ...go,term,icon,name,
+    targetAmount:toN(g('m1')),
+    targetYear:toN(g('m2')),
+    savedAmount:toN(g('m3')),
+    note:g('m4')?.trim()||''
+  }:go);
+  await saveMain({goals});toast('✅ 已更新');closeMod();
+};
+window.delGoal=async(id)=>{
+  if(!confirm('確認刪除此目標？'))return;
+  await saveMain({goals:(S.data.goals||[]).filter(go=>go.id!==id)});
+  toast('已刪除');
+};
+
+// ─── 保險 ─────────────────────────────────────────
+window.saveInsurance=async()=>{
+  const name=g('m0')?.trim();
+  if(!name){alert('請填寫保單名稱');return;}
+  const newIns={
+    id:'ins_'+Date.now(),
+    name,
+    company:g('m1')?.trim()||'',
+    type:g('m2')||'壽險',
+    insured:g('m3')?.trim()||'',
+    coverage:toN(g('m4')),
+    annualPremium:toN(g('m5')),
+    expireDate:g('m6')||'',
+    note:g('m7')?.trim()||''
+  };
+  await saveMain({insurances:[...(S.data.insurances||[]),newIns]});
+  toast('✅ 已新增保單');closeMod();
+};
+window.updateInsurance=async(id)=>{
+  const name=g('m0')?.trim();
+  if(!name){alert('請填寫保單名稱');return;}
+  const insurances=(S.data.insurances||[]).map(ins=>ins.id===id?{
+    ...ins,name,
+    company:g('m1')?.trim()||'',
+    type:g('m2')||'壽險',
+    insured:g('m3')?.trim()||'',
+    coverage:toN(g('m4')),
+    annualPremium:toN(g('m5')),
+    expireDate:g('m6')||'',
+    note:g('m7')?.trim()||''
+  }:ins);
+  await saveMain({insurances});toast('✅ 已更新');closeMod();
+};
+window.delInsurance=async(id)=>{
+  if(!confirm('確認刪除此保單？'))return;
+  await saveMain({insurances:(S.data.insurances||[]).filter(ins=>ins.id!==id)});
+  toast('已刪除');
 };
 
 // ─── EXPORT XLSX ─────────────────────────────────────────────
