@@ -605,7 +605,9 @@ function page(){
 function computeMonthly(){
   const inc=getInc(true),exp=getExp(true);
   const tInc=inc.reduce((s,i)=>s+toN(i.amount),0);
-  const tExp=exp.reduce((s,e)=>s+toN(e.amount),0);
+  // 排除「來自預備金」的支出（已在預備金帳本扣除過了，避免重複）
+  const realExp=exp.filter(e=>!e.fromLedger&&!e.excludeFromBudget);
+  const tExp=realExp.reduce((s,e)=>s+toN(e.amount),0);
   const fixedTotal=(S.data.fixedItems||[]).reduce((s,f)=>s+toN(f.amount),0);
   const bgt=(S.data.budgets||{})[mk()]||{};
   const mandatorySaving=toN(bgt.__mandatory||0);
@@ -655,7 +657,7 @@ function computeMonthly(){
   return{tInc,tExp,fixedTotal,mandatorySaving,monthLedger,yearLedger,
     variableBudget,variableRemaining,tA,tD,nw,liquidAssets,
     savingsRate,debtRatio,monthsCovered,freedomRate,passiveInc,
-    bgt,inc,exp};
+    bgt,inc,exp,realExp};
 }
 
 // 共用：產生「下一步建議」清單
@@ -1093,12 +1095,13 @@ function pgMonthlyEntry(){
   <div class="card" style="margin-top:18px;">
     <div class="card-hd">
       <span class="card-ttl">📝 本月已記錄的變動支出</span>
+      <span class="tm" style="margin-left:auto;font-size:12px;">（不含預備金支出 & 信用卡刷卡）</span>
       <button class="btn btn-p btn-sm" onclick="openM('addExp')">＋ 記一筆</button>
     </div>
     <div class="card-bd">
-      ${exp.length===0?'<div class="empty" style="padding:20px;"><p>還沒有變動支出</p></div>':
-        `<div class="tw">${expTbl(exp.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,10))}</div>
-        ${exp.length>10?`<div style="text-align:center;margin-top:10px;"><button class="btn btn-s btn-sm" onclick="setP('expenses')">看全部 ${exp.length} 筆 →</button></div>`:''}`}
+      ${M.realExp.length===0?'<div class="empty" style="padding:20px;"><p>還沒有變動支出</p></div>':
+        `<div class="tw">${expTbl(M.realExp.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,10))}</div>
+        ${M.realExp.length>10?`<div style="text-align:center;margin-top:10px;"><button class="btn btn-s btn-sm" onclick="setP('expenses')">看全部 ${M.realExp.length} 筆 →</button></div>`:''}`}
     </div>
   </div>`;
 }
@@ -2679,13 +2682,13 @@ function pgCC(){
         <div class="tw"><table>
           <thead><tr><th>日期</th><th>商家／品項</th><th>類別</th><th style="text-align:right;">金額</th><th>銀行</th><th></th></tr></thead>
           <tbody>${filtered.length===0?`<tr><td colspan="6"><div class="empty"><div class="empty-ico">💳</div><p>此銀行本月尚無刷卡</p></div></td></tr>`:
-            filtered.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(e=>`<tr>
+            filtered.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(e=>`<tr style="${e.fromLedger?'background:linear-gradient(90deg,rgba(167,149,179,0.08),transparent);':''}">
               <td>${e.date||''}</td>
-              <td><b>${e.item||'-'}</b>${e.note?`<br><span class="tm" style="font-size:11.5px;">${e.note}</span>`:''}</td>
+              <td>${e.fromLedger?'<span class="bdg" style="background:var(--pur);color:#fff;font-size:10px;margin-right:5px;">⛓️ 預備金</span>':''}<b>${e.item||'-'}</b>${e.note?`<br><span class="tm" style="font-size:11.5px;">${e.note}</span>`:''}</td>
               <td><span class="bdg">${e.category||'—'}</span></td>
               <td class="an" style="font-weight:700;color:${toN(e.amount)<0?'var(--grn)':'var(--red)'};">${toN(e.amount)<0?`+$${fmt(Math.abs(e.amount))}`:`-$${fmt(e.amount)}`}${toN(e.amount)<0?'<br><span class="tm" style="font-size:11px;color:var(--grn);">退款</span>':''}</td>
               <td><span class="bdg" style="background:var(--accL);color:var(--brown);">${e.cardBank||'其他'}</span></td>
-              <td style="white-space:nowrap;"><button class="bdel" style="color:#aaa;font-size:14px;" onclick="openM('editExp','${e.id}')">✏️</button><button class="bdel" onclick="delExp('${e.id}')">×</button></td>
+              <td style="white-space:nowrap;">${e.fromLedger?'<span class="tm" title="此筆來自預備金，請至預備金帳本編輯／刪除">🔒</span>':`<button class="bdel" style="color:#aaa;font-size:14px;" onclick="openM('editExp','${e.id}')">✏️</button><button class="bdel" onclick="delExp('${e.id}')">×</button>`}</td>
             </tr>`).join('')}
           </tbody>
         </table></div>`;
@@ -3439,7 +3442,7 @@ function modal(){
     </div>
     <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="updateFixed('${f.id}')">✓ 更新</button></div>`;}
 
-  if(m.t==='addLE'){const ALL=getAllLedgers();const l=ALL[S.ledgerIdx]||ALL[0];const ledgerType=getLedgerType(l.id);c=`<div class="mttl">📒 ${l.name} — 新增記錄</div>
+  if(m.t==='addLE'){const ALL=getAllLedgers();const l=ALL[S.ledgerIdx]||ALL[0];const ledgerType=getLedgerType(l.id);const banks=getBanks();c=`<div class="mttl">📒 ${l.name} — 新增記錄</div>
     <div class="notice info" style="font-size:13.5px;margin-bottom:14px;">
       💡 <b>正確記法：</b><br>
       ✅ <b>存入</b>（正數）：把錢從薪轉戶轉進這本帳本（這是「分流」不算支出）<br>
@@ -3452,6 +3455,17 @@ function modal(){
       <div class="fgrp"><label>類別</label><select id="m2">${l.cats.map(c=>`<option>${c}</option>`).join('')}</select></div>
       <div class="fgrp"><label>記錄人</label><select id="m3">${USERS.map(u=>`<option${u===S.user?' selected':''}>${u}</option>`).join('')}</select></div>
       <div class="fgrp" style="grid-column:1/-1"><label>說明備註</label><input type="text" id="m4" placeholder="如：5 月薪轉戶轉入、繳國泰人壽保險費等"></div>
+      <div class="fgrp" style="grid-column:1/-1;background:linear-gradient(135deg,var(--purl),var(--card));padding:14px 16px;border-radius:10px;border:1.5px solid var(--pur);">
+        <label style="color:var(--pur);font-weight:700;">💳 這筆是用信用卡刷的嗎？（自動同步到信用卡明細）</label>
+        <select id="m_card" style="margin-top:6px;">
+          <option value="">不是，純現金/銀行扣款（不同步）</option>
+          ${banks.map(b=>`<option value="${b}">是，刷 ${b} 卡</option>`).join('')}
+        </select>
+        <div class="tm" style="margin-top:8px;font-size:12px;line-height:1.6;">
+          💡 <b>使用情境：</b>保險費 $60,000 分 12 期，每月信用卡 -5,000；<br>
+          選擇「刷富邦卡」後 → 預備金帳本記 -5,000，系統<b>自動</b>在富邦信用卡明細產生對應的 -5,000 記錄（標記「來自預備金」不重複計入）。
+        </div>
+      </div>
     </div>
     <div class="mbtns" style="display:flex;gap:8px;">
       <button class="btn btn-s" onclick="closeMod()">取消</button>
@@ -4046,9 +4060,49 @@ window.quickFillDeposit=(ledgerId)=>{
 
 window.saveLE=async()=>{
   const date=g('m0'),amount=n('m1');if(!date||amount===0){alert('請填日期和金額');return;}
-  const d=new Date(date),l=LEDGERS[S.ledgerIdx];
-  await addSub('ledgerEntries',{lid:l.id,date,amount,cat:g('m2'),user:g('m3'),note:g('m4'),month:d.getMonth()+1,year:d.getFullYear()});
-  toast('✅ 已新增');closeMod();
+  const d=new Date(date);
+  const ALL=getAllLedgers();
+  const l=ALL[S.ledgerIdx]||ALL[0];
+  const cardBank=g('m_card')||'';
+  const note=g('m4')||'';
+  const cat=g('m2');
+  const user=g('m3');
+  const mo=d.getMonth()+1,yr2=d.getFullYear();
+
+  // 1. 寫入流水帳本身
+  const linkId='lnk_'+Date.now();
+  const ledgerEntry={
+    lid:l.id,date,amount,cat,user,
+    note:note+(cardBank?` 💳 ${cardBank}`:''),
+    month:mo,year:yr2,
+    linkedCardBank:cardBank||null,
+    linkId:cardBank&&amount<0?linkId:null
+  };
+  await addSub('ledgerEntries',ledgerEntry);
+
+  // 2. 如果是「支出 + 指定信用卡」，自動建立信用卡明細（標記為來自預備金）
+  if(cardBank&&amount<0){
+    const expAmount=Math.abs(amount);
+    const expItem=(note||l.name.replace(/[📒💰📚🚗🎓💊🎁💎🏖️🐈🐶🍼💼⚽🎮🧧🏢💡]/g,'').trim()+` (${cat})`).trim();
+    await addSub('expenses',{
+      date,
+      amount:expAmount,
+      category:cat,
+      item:expItem,
+      note:`⛓️ 來自預備金 - ${l.name}`,
+      payMethod:'信用卡',
+      cardBank,
+      user,
+      month:mo,year:yr2,
+      fromLedger:l.id,
+      linkId,
+      excludeFromBudget:true  // 不重複計入變動支出預算
+    });
+    toast(`✅ 已記錄並同步到 ${cardBank} 信用卡明細`);
+  }else{
+    toast('✅ 已新增');
+  }
+  closeMod();
 };
 window.saveBgt=async(cat,val)=>{
   const k=mk();const budgets={...(S.data.budgets||{})};if(!budgets[k])budgets[k]={};budgets[k][cat]=toN(val);await saveMain({budgets});
@@ -4225,7 +4279,19 @@ window.delA=async id=>{if(!confirm('確認刪除？'))return;await saveMain({ass
 window.delD=async id=>{if(!confirm('確認刪除？'))return;await saveMain({debts:(S.data.debts||[]).filter(d=>d.id!==id)});toast('已刪除');};
 window.delInc=async id=>{if(!confirm('確認刪除？'))return;await delSub('incomes',id);toast('已刪除');};
 window.delExp=async id=>{if(!confirm('確認刪除？'))return;await delSub('expenses',id);toast('已刪除');};
-window.delLE=async id=>{if(!confirm('確認刪除？'))return;await delSub('ledgerEntries',id);toast('已刪除');};
+window.delLE=async id=>{
+  if(!confirm('確認刪除？\n（若有同步到信用卡明細，會一併刪除）'))return;
+  // 找到 linkId（若有）
+  const le=(S.data.ledgerEntries||[]).find(e=>e.id===id);
+  const linkId=le?.linkId;
+  await delSub('ledgerEntries',id);
+  // 同步刪除信用卡明細
+  if(linkId){
+    const linked=(S.data.expenses||[]).filter(e=>e.linkId===linkId);
+    for(const l of linked){await delSub('expenses',l.id);}
+  }
+  toast('已刪除');
+};
 window.delFixed=async id=>{if(!confirm('確認刪除此固定支出？'))return;await saveMain({fixedItems:(S.data.fixedItems||[]).filter(f=>f.id!==id)});toast('已刪除');};
 window.delDream=async id=>{if(!confirm('確認刪除此夢想？'))return;await saveMain({dreams:(S.data.dreams||[]).filter(d=>d.id!==id)});toast('已刪除');};
 
