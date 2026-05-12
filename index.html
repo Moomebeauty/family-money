@@ -351,11 +351,29 @@ function parseTransactionText(text){
 }
 // 流水帳帳本
 const LEDGERS=[
-  {id:'traffic', name:'🚗 交通費流水帳', budget:10000, cats:['存入','加油停車','稅金','汽車保養','機車保養','保險','其他交通']},
-  {id:'utility', name:'💡 水電通訊流水帳', budget:5000, cats:['存入','電費','水費','天然氣','WIFI','Netflix','KKbox','Google','手機費','APP','校正','其他']},
-  {id:'union',   name:'🏢 工會保費流水帳', budget:7000, cats:['存入','工會費','保險','地價稅','房屋稅','其他']},
-  {id:'gift',    name:'🧧 紅包基金流水帳', budget:5000, cats:['存入','伯涵爸爸','伯涵媽媽','珞熙媽媽','小朋友','伯涵阿姨','女兒','珞熙外婆','婉甄','璇璇','婚禮','其他']},
+  {id:'traffic', name:'🚗 交通費流水帳', budget:10000, type:'month', cats:['存入','加油停車','稅金','汽車保養','機車保養','保險','其他交通']},
+  {id:'utility', name:'💡 水電通訊流水帳', budget:5000, type:'month', cats:['存入','電費','水費','天然氣','WIFI','Netflix','KKbox','Google','手機費','APP','校正','其他']},
+  {id:'union',   name:'🏢 工會保費流水帳', budget:7000, type:'year', cats:['存入','工會費','保險','地價稅','房屋稅','其他']},
+  {id:'gift',    name:'🧧 紅包基金流水帳', budget:5000, type:'year', cats:['存入','伯涵爸爸','伯涵媽媽','珞熙媽媽','小朋友','伯涵阿姨','女兒','珞熙外婆','婉甄','璇璇','婚禮','其他']},
 ];
+
+// 取得所有可用帳本（預設+自訂）
+function getAllLedgers(){
+  return [...LEDGERS,...((S.data&&S.data.customLedgers)||[])];
+}
+// 取得帳本類型
+function getLedgerType(ledgerId){
+  const all=getAllLedgers();
+  const l=all.find(x=>x.id===ledgerId);
+  if(!l)return 'month';
+  const cfg=(S.data&&S.data.ledgerConfig)?(S.data.ledgerConfig[ledgerId]||{}):{};
+  return cfg.type||l.type||'month';
+}
+// 取得帳本配置（每月該存等）
+function getLedgerCfg(ledgerId){
+  const cfg=(S.data&&S.data.ledgerConfig)?(S.data.ledgerConfig[ledgerId]||{}):{};
+  return cfg;
+}
 // 固定支出預設
 const DEF_FIXED=[
   {id:'f1',name:'房貸',amount:15606,note:'每月固定'},
@@ -392,6 +410,7 @@ let S={
     assets:[],debts:[],incomes:[],expenses:[],
     budgets:{},dreams:[],fixedItems:[...DEF_FIXED],
     cats:[...DEF_CATS],banks:[...DEF_BANKS],ledgerBudgets:{},yearNotes:{},reconcile:{},monthlyTable:{},
+    ledgerConfig:{},customLedgers:[],
     savingsPlans:[],savingsLogs:{},
     coolingList:[],quarterReviews:[],
     allocConfig:{bigPurchaseLimit:10000,plans:[
@@ -423,6 +442,8 @@ function startSync(){
       S.data.cats=d.cats&&d.cats.length?d.cats:[...DEF_CATS];
       S.data.banks=d.banks&&d.banks.length?d.banks:[...DEF_BANKS];
       S.data.ledgerBudgets=d.ledgerBudgets||{};
+      S.data.ledgerConfig=d.ledgerConfig||{};
+      S.data.customLedgers=d.customLedgers||[];
       S.data.yearNotes=d.yearNotes||{};
       S.data.reconcile=d.reconcile||{};
       S.data.monthlyTable=d.monthlyTable||{};
@@ -592,9 +613,28 @@ function pgOverview(){
   const logs=S.data.savingsLogs||{};
   const moSaved=plans.reduce((s,p)=>s+toN(logs[`${p.id}_${curMk}`]||0),0);
 
-  // ── 香檳塔計算（收入 − 強制儲蓄 = 可花的錢）──
-  const champagneSpendable=tInc-mandatorySaving;
-  const champagneRemaining=champagneSpendable-totalSpend;
+  // ── 香檳塔計算（完整四層分配）──
+  const ALL_LEDGERS_OV=getAllLedgers();
+  let monthLedgerOV=0,yearLedgerOV=0;
+  ALL_LEDGERS_OV.forEach(l=>{
+    const cfg=getLedgerCfg(l.id);
+    const type=getLedgerType(l.id);
+    const budget=(S.data.ledgerBudgets||{})[l.id];
+    let monthly=0;
+    if(type==='year'){
+      if(cfg.autoCalc!==false&&toN(cfg.yearlyTarget)>0){
+        const am=cfg.activeMonths||[1,2,3,4,5,6,7,8,9,10,11,12];
+        monthly=Math.ceil(toN(cfg.yearlyTarget)/am.length);
+        if(!am.includes(S.month))monthly=0;
+      }else monthly=toN(cfg.monthlyDeposit)||toN(budget)||0;
+      yearLedgerOV+=monthly;
+    }else{
+      monthly=toN(budget!==undefined?budget:l.budget);
+      monthLedgerOV+=monthly;
+    }
+  });
+  const champagneSpendable=tInc-mandatorySaving-fixedTotal-monthLedgerOV-yearLedgerOV;
+  const champagneRemaining=champagneSpendable-tExp;
   const savingPct=tInc>0?Math.round(mandatorySaving/tInc*100):0;
 
   // ── 四大健康指標 ──
@@ -664,29 +704,32 @@ function pgOverview(){
     </div>
   </div>
 
-  <!-- 🍾 香檳塔：收入 − 強制儲蓄 = 可花的錢 -->
+  <!-- 🍾 香檳塔：完整四層分配 -->
   ${mandatorySaving>0?`<div class="card card-feature">
     <div class="card-hd">
-      <span class="card-ttl">🍾 香檳塔計算　「收入 − 儲蓄 ＝ 支出」</span>
-      <span class="bdg" style="background:var(--pur);color:#fff;">先存後花</span>
+      <span class="card-ttl">🍾 香檳塔　「收入 − 儲蓄 − 固定 − 預備 ＝ 變動可花」</span>
+      <span class="bdg" style="background:var(--pur);color:#fff;">四層分配</span>
     </div>
     <div class="card-bd">
       <div style="background:linear-gradient(135deg,var(--accL),var(--card));padding:22px 26px;border-radius:var(--r-sm);margin-bottom:18px;">
         <div style="font-size:15px;line-height:2.2;color:var(--txt);letter-spacing:0.05em;">
           🥂 <b style="font-size:16px;color:var(--brown);">本月可花的錢計算</b><br>
           家庭收入 <b style="color:var(--grn);font-size:17px;">$${fmt(tInc)}</b><br>
-          － 強制儲蓄 <b style="color:var(--pur);font-size:17px;">$${fmt(mandatorySaving)}</b>（${savingPct}% of 收入，先存進買房/退休/預備金）<br>
+          <span style="color:var(--pur);">① － 強制儲蓄</span> <b style="color:var(--pur);font-size:17px;">$${fmt(mandatorySaving)}</b>（${savingPct}% of 收入）<br>
+          <span style="color:var(--red);">② － 月固定支出</span> <b style="color:var(--red);font-size:17px;">$${fmt(fixedTotal)}</b><br>
+          <span style="color:var(--blu);">③ － 月變動預備金</span> <b style="color:var(--blu);font-size:17px;">$${fmt(monthLedgerOV)}</b>（水電／交通／生活費）<br>
+          <span style="color:var(--gold);">④ － 年費攤提</span> <b style="color:var(--gold);font-size:17px;">$${fmt(yearLedgerOV)}</b>（保險／稅金／紅包）<br>
           ─────────────<br>
-          ＝ 本月可花上限 <b style="color:var(--blu);font-size:24px;font-family:'Noto Serif TC',serif;">$${fmt(champagneSpendable)}</b><br>
-          － 已花費 <b style="color:var(--red);font-size:17px;">$${fmt(totalSpend)}</b><br>
+          ＝ 變動可花上限 <b style="color:var(--brown);font-size:22px;font-family:'Noto Serif TC',serif;">$${fmt(champagneSpendable)}</b><br>
+          － 已花費（變動） <b style="color:var(--red);font-size:17px;">$${fmt(tExp)}</b><br>
           ─────────────<br>
-          ＝ 還能花 <b style="color:${champagneRemaining>=0?'var(--grn)':'var(--red)'};font-size:26px;font-family:'Noto Serif TC',serif;">$${fmt(champagneRemaining)}</b>
+          ＝ <b style="color:var(--brown);">還能花</b> <b style="color:${champagneRemaining>=0?'var(--grn)':'var(--red)'};font-size:28px;font-family:'Noto Serif TC',serif;">$${fmt(champagneRemaining)}</b>
         </div>
       </div>
-      ${champagneRemaining<0?`<div class="notice alert" style="margin-bottom:0;">⚠️ 已超出本月可花上限 <b>$${fmt(Math.abs(champagneRemaining))}</b>，但別動已存的錢！下個月要更節制。</div>`:champagneRemaining<champagneSpendable*0.2?`<div class="notice" style="margin-bottom:0;">⏰ 本月可花預算只剩 <b>${Math.round(champagneRemaining/champagneSpendable*100)}%</b>，注意控制非必要支出。</div>`:`<div class="notice ok" style="margin-bottom:0;">✅ 預算控制良好，繼續保持！</div>`}
+      ${champagneRemaining<0?`<div class="notice alert" style="margin-bottom:0;">⚠️ 已超出本月可花上限 <b>$${fmt(Math.abs(champagneRemaining))}</b>，但別動已存的錢！下個月要更節制。</div>`:champagneSpendable>0&&champagneRemaining<champagneSpendable*0.2?`<div class="notice" style="margin-bottom:0;">⏰ 本月可花預算只剩 <b>${Math.round(champagneRemaining/champagneSpendable*100)}%</b>，注意控制非必要支出。</div>`:`<div class="notice ok" style="margin-bottom:0;">✅ 預算控制良好，繼續保持！</div>`}
     </div>
   </div>`:`<div class="notice tip">
-    💡 <b>還沒設定本月強制儲蓄？</b> 建議到「預算」頁設定每月固定要存的金額，實踐「收入 − 儲蓄 ＝ 支出」原則。
+    💡 <b>還沒設定本月強制儲蓄？</b> 建議到「預算」頁設定，並完整啟動「四層分配法」。
     <button class="btn btn-p btn-sm" style="margin-left:10px;" onclick="setP('budget')">前往設定 →</button>
   </div>`}
 
@@ -1417,14 +1460,130 @@ function pgBudget(){
   const tExp=allExp.reduce((s,e)=>s+toN(e.amount),0);
   const tInc=getInc(true).reduce((s,i)=>s+toN(i.amount),0);
   const savingPct=tInc>0?Math.round(mandatorySaving/tInc*100):0;
+
+  // 月固定支出
+  const fixedTotal=(S.data.fixedItems||[]).reduce((s,f)=>s+toN(f.amount),0);
+
+  // 計算月度＋年度流水帳預備金
+  const ALL_LEDGERS=getAllLedgers();
+  let monthLedgerTotal=0,yearLedgerTotal=0;
+  const monthLedgers=[],yearLedgers=[];
+  ALL_LEDGERS.forEach(l=>{
+    const cfg=getLedgerCfg(l.id);
+    const type=getLedgerType(l.id);
+    const budget=(S.data.ledgerBudgets||{})[l.id];
+    let monthly=0;
+    if(type==='year'){
+      if(cfg.autoCalc!==false&&toN(cfg.yearlyTarget)>0){
+        const am=cfg.activeMonths||[1,2,3,4,5,6,7,8,9,10,11,12];
+        monthly=Math.ceil(toN(cfg.yearlyTarget)/am.length);
+        if(!am.includes(S.month))monthly=0;
+      }else{
+        monthly=toN(cfg.monthlyDeposit)||toN(budget)||0;
+      }
+      yearLedgerTotal+=monthly;
+      yearLedgers.push({...l,monthly,cfg});
+    }else{
+      monthly=toN(budget!==undefined?budget:l.budget);
+      monthLedgerTotal+=monthly;
+      monthLedgers.push({...l,monthly,cfg});
+    }
+  });
+
+  // 四層分配
+  const afterSaving=tInc-mandatorySaving;
+  const afterFixed=afterSaving-fixedTotal;
+  const afterMonthLedger=afterFixed-monthLedgerTotal;
+  const variableBudget=afterMonthLedger-yearLedgerTotal;
+
   return`
   <div class="pg-ttl">📋 預算管理</div>
-  <div class="pg-sub">先設定強制儲蓄　＋ 各類別變動預算　信用卡＋支出同步加總</div>
+  <div class="pg-sub">四層分配法：儲蓄 → 月固定 → 月變動預備 → 年費攤提 → 變動可花</div>
   ${moSel()}
 
   <div class="notice tip">
-    💡 <b>「收入 − 儲蓄 ＝ 支出」原則：</b>先把要存的錢扣下來（強制儲蓄），剩下的才是你能花的變動預算。
+    💡 <b>「收入 − 儲蓄 ＝ 支出」原則：</b>先把要存的錢扣下來，剩下的依「月固定 → 月變動預備金 → 年費攤提」順序分配，最後剩的才是真正能自由花的錢。
   </div>
+
+  <!-- 🍾 四層分配視覺化 -->
+  <div class="card card-feature">
+    <div class="card-hd">
+      <span class="card-ttl">🍾 本月四層分配瀑布</span>
+      <span class="bdg" style="background:var(--pur);color:#fff;">家庭財務骨架</span>
+    </div>
+    <div class="card-bd">
+      <div style="background:linear-gradient(135deg,var(--accL),var(--card));padding:22px 26px;border-radius:var(--r-sm);margin-bottom:18px;">
+        <div style="font-size:15px;line-height:2.3;color:var(--txt);letter-spacing:0.05em;">
+          🥂 <b style="font-size:16px;color:var(--brown);">本月可花的錢計算</b><br>
+          家庭收入 <b style="color:var(--grn);font-size:18px;font-family:'Noto Serif TC',serif;">$${fmt(tInc)}</b><br>
+          <span style="color:var(--pur);">① － 強制儲蓄</span> <b style="color:var(--pur);font-size:17px;font-family:'Noto Serif TC',serif;">$${fmt(mandatorySaving)}</b>（${savingPct}%）<br>
+          <span style="color:var(--red);">② － 月固定支出</span> <b style="color:var(--red);font-size:17px;font-family:'Noto Serif TC',serif;">$${fmt(fixedTotal)}</b>（房貸／車貸／房租等）<br>
+          <span style="color:var(--blu);">③ － 月變動預備金</span> <b style="color:var(--blu);font-size:17px;font-family:'Noto Serif TC',serif;">$${fmt(monthLedgerTotal)}</b>（水電／交通／生活費等流水帳）<br>
+          <span style="color:var(--gold);">④ － 年費攤提</span> <b style="color:var(--gold);font-size:17px;font-family:'Noto Serif TC',serif;">$${fmt(yearLedgerTotal)}</b>（保險／稅金／紅包年費分 12 月）<br>
+          ─────────────<br>
+          ＝ <b style="color:var(--brown);">變動可花預算</b> <b style="color:${variableBudget>=0?'var(--grn)':'var(--red)'};font-size:26px;font-family:'Noto Serif TC',serif;">$${fmt(variableBudget)}</b>
+        </div>
+      </div>
+
+      ${variableBudget<0?`<div class="notice alert" style="margin-bottom:14px;">🔴 <b>本月分配後超支 $${fmt(Math.abs(variableBudget))}！</b>請檢查：是否儲蓄太高？固定支出過大？或是收入不足？</div>`:variableBudget<5000?`<div class="notice" style="margin-bottom:14px;">⚠️ 變動預算只剩 <b>$${fmt(variableBudget)}</b>，要小心日常開銷。</div>`:`<div class="notice ok" style="margin-bottom:14px;">✅ 分配合理！本月有 <b>$${fmt(variableBudget)}</b> 可自由運用。</div>`}
+
+      <!-- 四層比例條 -->
+      ${tInc>0?`<div style="margin-bottom:8px;font-size:13px;color:var(--mut);letter-spacing:0.06em;">📊 收入分配比例</div>
+      <div style="display:flex;height:32px;border-radius:16px;overflow:hidden;box-shadow:inset 0 1px 3px rgba(0,0,0,.08);margin-bottom:10px;">
+        <div style="width:${(mandatorySaving/tInc*100).toFixed(1)}%;background:var(--pur);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;">${mandatorySaving>0?Math.round(mandatorySaving/tInc*100)+'%':''}</div>
+        <div style="width:${(fixedTotal/tInc*100).toFixed(1)}%;background:var(--red);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;">${fixedTotal>0?Math.round(fixedTotal/tInc*100)+'%':''}</div>
+        <div style="width:${(monthLedgerTotal/tInc*100).toFixed(1)}%;background:var(--blu);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;">${monthLedgerTotal>0?Math.round(monthLedgerTotal/tInc*100)+'%':''}</div>
+        <div style="width:${(yearLedgerTotal/tInc*100).toFixed(1)}%;background:var(--gold);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;">${yearLedgerTotal>0?Math.round(yearLedgerTotal/tInc*100)+'%':''}</div>
+        <div style="flex:1;background:var(--grn);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;">${variableBudget>0?Math.round(variableBudget/tInc*100)+'%':''}</div>
+      </div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--mut);">
+        <span><span style="display:inline-block;width:10px;height:10px;background:var(--pur);border-radius:2px;margin-right:5px;"></span>儲蓄</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:var(--red);border-radius:2px;margin-right:5px;"></span>月固定</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:var(--blu);border-radius:2px;margin-right:5px;"></span>月變動預備</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:var(--gold);border-radius:2px;margin-right:5px;"></span>年費攤提</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:var(--grn);border-radius:2px;margin-right:5px;"></span>變動可花</span>
+      </div>`:''}
+    </div>
+  </div>
+
+  <!-- 月變動預備金清單 -->
+  ${monthLedgers.length>0?`<div class="card">
+    <div class="card-hd">
+      <span class="card-ttl">📆 月變動預備金（從流水帳讀取）</span>
+      <button class="btn btn-s btn-sm" onclick="setP('ledger')">前往流水帳管理 →</button>
+    </div>
+    <div class="card-bd">
+      ${monthLedgers.map(ml=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px dashed var(--bdr);">
+        <div><b style="color:var(--brown);">${ml.name}</b><br><span class="tm">月度變動預備金</span></div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:var(--blu);">$${fmt(ml.monthly)}</div>
+      </div>`).join('')}
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0 0;margin-top:6px;border-top:2px solid var(--bdr);">
+        <b style="color:var(--brown);font-size:15px;">月變動預備金合計</b>
+        <span style="font-family:'Noto Serif TC',serif;font-size:24px;font-weight:700;color:var(--blu);">$${fmt(monthLedgerTotal)}</span>
+      </div>
+    </div>
+  </div>`:''}
+
+  <!-- 年費攤提清單 -->
+  ${yearLedgers.length>0?`<div class="card">
+    <div class="card-hd">
+      <span class="card-ttl">📅 年費攤提（大筆年費分月存）</span>
+      <button class="btn btn-s btn-sm" onclick="setP('ledger')">前往流水帳管理 →</button>
+    </div>
+    <div class="card-bd">
+      ${yearLedgers.map(yl=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px dashed var(--bdr);">
+        <div>
+          <b style="color:var(--brown);">${yl.name}</b>
+          ${toN(yl.cfg.yearlyTarget)>0?`<br><span class="tm">年費總額 $${fmt(yl.cfg.yearlyTarget)} ÷ ${(yl.cfg.activeMonths||[]).length} 月攤提</span>`:'<br><span class="tm">年度大筆預備金</span>'}
+        </div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:var(--gold);">$${fmt(yl.monthly)}</div>
+      </div>`).join('')}
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0 0;margin-top:6px;border-top:2px solid var(--bdr);">
+        <b style="color:var(--brown);font-size:15px;">年費攤提合計</b>
+        <span style="font-family:'Noto Serif TC',serif;font-size:24px;font-weight:700;color:var(--gold);">$${fmt(yearLedgerTotal)}</span>
+      </div>
+    </div>
+  </div>`:''}
 
   <!-- 強制儲蓄設定（核心） -->
   <div class="card card-feature">
@@ -1561,8 +1720,13 @@ function pgCC(){
   </div>
 
   <div class="sg sg4">
-    <div class="sc blu"><div class="sl">本月信用卡總額</div><div class="sv blu">$${fmt(total)}</div><div class="ss">${allCard.length} 筆刷卡</div></div>
-    ${userTotals.map(ut=>`<div class="sc rose"><div class="sl">${ut.u} 刷卡</div><div class="sv sm">$${fmt(ut.amt)}</div><div class="ss">${total>0?Math.round(ut.amt/total*100):0}% 佔比</div></div>`).join('')}
+    <div class="sc red"><div class="sl">💸 本月消費</div><div class="sv red">$${fmt(allCard.filter(e=>toN(e.amount)>0).reduce((s,e)=>s+toN(e.amount),0))}</div><div class="ss">${allCard.filter(e=>toN(e.amount)>0).length} 筆刷卡</div></div>
+    <div class="sc grn"><div class="sl">💚 本月退款</div><div class="sv grn">$${fmt(allCard.filter(e=>toN(e.amount)<0).reduce((s,e)=>s+Math.abs(toN(e.amount)),0))}</div><div class="ss">${allCard.filter(e=>toN(e.amount)<0).length} 筆退款</div></div>
+    <div class="sc blu"><div class="sl">📊 應繳淨額</div><div class="sv blu">$${fmt(total)}</div><div class="ss">${allCard.length} 筆合計</div></div>
+    <div class="sc rose"><div class="sl">🏦 使用卡張數</div><div class="sv rose">${new Set(allCard.map(e=>e.cardBank||'其他')).size}<span style="font-size:18px;"> 張</span></div></div>
+  </div>
+  <div class="sg sg3">
+    ${userTotals.map(ut=>`<div class="sc gold"><div class="sl">${ut.u} 刷卡</div><div class="sv sm">$${fmt(ut.amt)}</div><div class="ss">${total>0?Math.round(ut.amt/total*100):0}% 佔比</div></div>`).join('')}
   </div>
 
   <!-- 帳務核對 -->
@@ -1766,10 +1930,16 @@ function pgCC(){
         }else if(S.subTab===banks.length+1){
           filtered=list.filter(e=>!banks.includes(e.cardBank||''));
         }
-        const subTotal=filtered.reduce((s,e)=>s+toN(e.amount),0);
-        return`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding:10px 14px;background:var(--bg2);border-radius:var(--r-sm);">
-          <span style="font-size:14px;color:var(--brown);font-weight:600;">顯示 ${filtered.length} 筆</span>
-          <span style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:var(--red);">小計 $${fmt(subTotal)}</span>
+        const expenseSum=filtered.filter(e=>toN(e.amount)>0).reduce((s,e)=>s+toN(e.amount),0);
+        const refundSum=filtered.filter(e=>toN(e.amount)<0).reduce((s,e)=>s+Math.abs(toN(e.amount)),0);
+        const netSum=expenseSum-refundSum;
+        return`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding:14px 18px;background:var(--bg2);border-radius:var(--r-sm);flex-wrap:wrap;gap:14px;">
+          <span style="font-size:14px;color:var(--brown);font-weight:600;">📊 顯示 ${filtered.length} 筆</span>
+          <div style="display:flex;gap:18px;align-items:baseline;flex-wrap:wrap;">
+            <span><span class="tm">消費</span> <b style="font-family:'Noto Serif TC',serif;font-size:16px;color:var(--red);">$${fmt(expenseSum)}</b></span>
+            ${refundSum>0?`<span><span class="tm">退款</span> <b style="font-family:'Noto Serif TC',serif;font-size:16px;color:var(--grn);">−$${fmt(refundSum)}</b></span>`:''}
+            <span style="border-left:1px solid var(--bdr);padding-left:18px;"><span class="tm">應繳淨額</span> <b style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--brown);letter-spacing:0.04em;">$${fmt(netSum)}</b></span>
+          </div>
         </div>
         <div class="tw"><table>
           <thead><tr><th>日期</th><th>商家／品項</th><th>類別</th><th style="text-align:right;">金額</th><th>銀行</th><th></th></tr></thead>
@@ -1778,7 +1948,7 @@ function pgCC(){
               <td>${e.date||''}</td>
               <td><b>${e.item||'-'}</b>${e.note?`<br><span class="tm" style="font-size:11.5px;">${e.note}</span>`:''}</td>
               <td><span class="bdg">${e.category||'—'}</span></td>
-              <td class="an" style="font-weight:700;color:var(--red);">-$${fmt(e.amount)}</td>
+              <td class="an" style="font-weight:700;color:${toN(e.amount)<0?'var(--grn)':'var(--red)'};">${toN(e.amount)<0?`+$${fmt(Math.abs(e.amount))}`:`-$${fmt(e.amount)}`}${toN(e.amount)<0?'<br><span class="tm" style="font-size:11px;color:var(--grn);">退款</span>':''}</td>
               <td><span class="bdg" style="background:var(--accL);color:var(--brown);">${e.cardBank||'其他'}</span></td>
               <td style="white-space:nowrap;"><button class="bdel" style="color:#aaa;font-size:14px;" onclick="openM('editExp','${e.id}')">✏️</button><button class="bdel" onclick="delExp('${e.id}')">×</button></td>
             </tr>`).join('')}
@@ -1791,7 +1961,11 @@ function pgCC(){
 
 // ── LEDGER ────────────────────────────────────────────────────
 function pgLedger(){
-  const l=LEDGERS[S.ledgerIdx];
+  const ALL_LEDGERS=getAllLedgers();
+  const l=ALL_LEDGERS[S.ledgerIdx]||ALL_LEDGERS[0];
+  if(!l)return`<div class="pg-ttl">📒 流水帳</div><div class="empty"><p>請新增帳本</p><button class="btn btn-p" style="margin-top:14px;" onclick="openM('addLedger')">＋ 新增帳本</button></div>`;
+  const ledgerType=getLedgerType(l.id);
+  const ledgerCfg=getLedgerCfg(l.id);
   const ldBudgets=S.data.ledgerBudgets||{};
   const budget=ldBudgets[l.id]!==undefined?ldBudgets[l.id]:l.budget;
   const entries=getLedger(l.id).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
@@ -1801,6 +1975,24 @@ function pgLedger(){
   const cumTotal=allEntries.reduce((s,e)=>s+toN(e.amount),0);
   const mIn=entries.filter(e=>toN(e.amount)>0).reduce((s,e)=>s+toN(e.amount),0);
   const mOut=entries.filter(e=>toN(e.amount)<0).reduce((s,e)=>s+Math.abs(toN(e.amount)),0);
+
+  // 智能月存計算
+  const yearlyTarget=toN(ledgerCfg.yearlyTarget);
+  const activeMonths=ledgerCfg.activeMonths||[1,2,3,4,5,6,7,8,9,10,11,12];
+  const autoMonthly=(ledgerType==='year'&&yearlyTarget>0&&activeMonths.length>0)
+    ? Math.ceil(yearlyTarget/activeMonths.length)
+    : 0;
+  const recommendedDeposit=ledgerType==='year'
+    ? (ledgerCfg.autoCalc!==false?autoMonthly:toN(ledgerCfg.monthlyDeposit)||budget)
+    : budget;
+  const thisMonthInSchedule=ledgerType==='year'?activeMonths.includes(S.month):true;
+
+  // 年度進度
+  const curYear=yr();
+  const yearEntries=allEntries.filter(e=>{if(!e.date)return false;const d=new Date(e.date);return d.getFullYear()===curYear;});
+  const yearDeposit=yearEntries.filter(e=>e.cat==='存入').reduce((s,e)=>s+toN(e.amount),0);
+  const yearOutflow=yearEntries.filter(e=>toN(e.amount)<0).reduce((s,e)=>s+Math.abs(toN(e.amount)),0);
+  const yearProgress=yearlyTarget>0?Math.min(100,Math.round(yearDeposit/yearlyTarget*100)):0;
 
   // 累計分類統計（全部記錄）
   const cumCats={};
@@ -1831,24 +2023,51 @@ function pgLedger(){
   const diff=recVal!==''?toN(recVal)-cumTotal:null;
 
   return`
-  <div class="pg-ttl">📒 流水帳</div>
-  <div class="pg-sub">各帳本獨立追蹤，支援帳戶對帳</div>
-  <div class="tab-bar">${LEDGERS.map((ld,i)=>`<button class="tab-p${S.ledgerIdx===i?' active':''}" onclick="setLI(${i})">${ld.name.split(' ')[0]}</button>`).join('')}</div>
+  <div class="pg-ttl">📒 預備金帳本</div>
+  <div class="pg-sub">月度＝每月變動支出預備金　／　年度＝大筆年費預先攤提存錢</div>
+
+  <!-- 帳本切換 + 新增 -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;align-items:center;">
+    ${ALL_LEDGERS.map((ld,i)=>{
+      const t=getLedgerType(ld.id);
+      const tIco=t==='year'?'📅':'📆';
+      const active=S.ledgerIdx===i;
+      return`<button onclick="setLI(${i})" style="padding:10px 18px;border-radius:22px;border:1.5px solid ${active?'var(--acc)':'var(--bdr)'};background:${active?'var(--acc)':'#fff'};color:${active?'#fff':'var(--brown)'};font-weight:${active?'700':'500'};font-size:14px;cursor:pointer;letter-spacing:0.06em;transition:all .2s;">${ld.name} <span style="font-size:11px;opacity:.85;margin-left:4px;">${tIco}${t==='year'?'年度':'月度'}</span></button>`;
+    }).join('')}
+    <button class="btn btn-s btn-sm" onclick="openM('addLedger')" style="margin-left:auto;">＋ 新增帳本</button>
+  </div>
+
+  <!-- 帳本資訊 + 設定按鈕 -->
+  <div class="notice ${ledgerType==='year'?'gold':'info'}">
+    ${ledgerType==='year'?`📅 <b>年度預備金帳本</b>：${l.name} 屬於「大筆年費」（保險、稅金、紅包等）。${yearlyTarget>0?`年度目標 <b>$${fmt(yearlyTarget)}</b>，分 ${activeMonths.length} 個月攤提，每月該存 <b>$${fmt(autoMonthly)}</b>。${!thisMonthInSchedule?'<br>📌 本月不在攤提月份內，可暫不存入。':''}`:'點右下「⚙️ 帳本設定」設定年度目標，系統會自動算每月該存多少。'}`:`📆 <b>月度變動預備金帳本</b>：${l.name} 屬於「每月日常變動支出」（水電、交通、生活費等），每月固定存入預算金額。`}
+    <button class="btn btn-s btn-sm" style="margin-left:10px;" onclick="openM('editLedger','${l.id}')">⚙️ 帳本設定</button>
+  </div>
 
   <div style="display:flex;gap:14px;align-items:flex-start;">
     <!-- 左側主內容 -->
     <div style="flex:1;min-width:0;">
-      <div class="sg sg4" style="margin-bottom:12px;">
-        <div class="sc yel">
-          <div class="sl">每月預算</div>
-          <input type="number" class="yinp" style="width:100%;padding:4px 6px;font-size:16px;font-weight:700;font-family:'Noto Serif TC',serif;margin-top:2px;"
-            value="${budget}" placeholder="設定預算"
-            onchange="saveLedgerBudget('${l.id}',this.value)">
+      <div class="sg sg4" style="margin-bottom:14px;">
+        <div class="sc gold">
+          <div class="sl">💰 每月該存</div>
+          <div class="sv gold sm">$${fmt(recommendedDeposit)}</div>
+          <div class="ss">${ledgerType==='year'&&ledgerCfg.autoCalc!==false&&yearlyTarget>0?'系統計算':'你設定的'}</div>
         </div>
-        <div class="sc grn"><div class="sl">本月存入</div><div class="sv grn sm">$${fmt(mIn)}</div></div>
+        <div class="sc grn"><div class="sl">本月存入</div><div class="sv grn sm">$${fmt(mIn)}</div><div class="ss">${mIn>=recommendedDeposit&&recommendedDeposit>0?'✅ 達標':mIn>0?`剩 $${fmt(Math.max(0,recommendedDeposit-mIn))}`:'尚未存入'}</div></div>
         <div class="sc red"><div class="sl">本月支出</div><div class="sv red sm">$${fmt(mOut)}</div></div>
-        <div class="sc yel"><div class="sl">累計餘額</div><div class="sv sm">$${fmt(cumTotal)}</div></div>
+        <div class="sc ${cumTotal>=0?'blu':'red'}"><div class="sl">累計餘額</div><div class="sv ${cumTotal>=0?'blu':'red'} sm">$${fmt(cumTotal)}</div><div class="ss">${cumTotal<0?'⚠️ 餘額不足':'帳本存款'}</div></div>
       </div>
+
+      ${ledgerType==='year'&&yearlyTarget>0?`<!-- 年度進度條 -->
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-bd" style="padding:18px 22px;">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;">
+            <span style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:600;color:var(--brown);letter-spacing:0.08em;">📅 ${curYear} 年累積進度</span>
+            <span style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:${yearProgress>=100?'var(--grn)':'var(--acc)'};">${yearProgress}%</span>
+          </div>
+          <div class="pb-lg"><div class="pf" style="width:${yearProgress}%;background:${yearProgress>=100?'var(--grn)':'linear-gradient(90deg,var(--acc),var(--acc2))'};"></div></div>
+          <div class="tm" style="margin-top:8px;text-align:right;">已累積 $${fmt(yearDeposit)} / 目標 $${fmt(yearlyTarget)}　${yearProgress<100?`還需 $${fmt(yearlyTarget-yearDeposit)}`:'🎉 已達標'}　已支出 $${fmt(yearOutflow)}</div>
+        </div>
+      </div>`:''}
 
       <!-- 對帳 -->
       <div class="rec-box">
@@ -2542,6 +2761,97 @@ function modal(){
     </div>
     <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="updExp('${exp.id}')">✓ 更新</button></div>`;}
 
+  // ─── 📒 編輯帳本設定 modal ───
+  if(m.t==='editLedger'){const ALL=getAllLedgers();const l=ALL.find(x=>x.id===m.x)||ALL[0];const cfg=getLedgerCfg(l.id);const currentType=getLedgerType(l.id);const isCustom=(S.data.customLedgers||[]).some(c=>c.id===l.id);c=`<div class="mttl">⚙️ 帳本設定：${l.name}</div>
+    <div class="fgrp"><label>帳本類型</label>
+      <div class="fb g8">
+        <label style="flex:1;cursor:pointer;padding:14px;border:2px solid ${currentType==='month'?'var(--acc)':'var(--bdr)'};border-radius:10px;text-align:center;background:${currentType==='month'?'var(--accL)':'#fff'};">
+          <input type="radio" name="ltype" value="month" ${currentType==='month'?'checked':''} style="display:none;">
+          <div style="font-size:24px;">📆</div>
+          <div style="font-weight:700;color:var(--brown);">月度變動</div>
+          <div class="tm" style="font-size:11px;margin-top:4px;">水電、交通、生活費</div>
+        </label>
+        <label style="flex:1;cursor:pointer;padding:14px;border:2px solid ${currentType==='year'?'var(--gold)':'var(--bdr)'};border-radius:10px;text-align:center;background:${currentType==='year'?'var(--goldL)':'#fff'};">
+          <input type="radio" name="ltype" value="year" ${currentType==='year'?'checked':''} style="display:none;">
+          <div style="font-size:24px;">📅</div>
+          <div style="font-weight:700;color:var(--brown);">年度大筆</div>
+          <div class="tm" style="font-size:11px;margin-top:4px;">保險、稅金、紅包</div>
+        </label>
+      </div>
+    </div>
+
+    <div id="month-fields" style="display:${currentType==='month'?'block':'none'};">
+      <div class="fgrp"><label>每月預算（變動支出預備金）</label>
+        <input type="number" id="m_budget" value="${cfg.monthlyDeposit||l.budget||0}" placeholder="如：5000">
+      </div>
+    </div>
+
+    <div id="year-fields" style="display:${currentType==='year'?'block':'none'};">
+      <div class="fgrp"><label>年度總目標（一年總共會花多少）</label>
+        <input type="number" id="m_yearly" value="${cfg.yearlyTarget||''}" placeholder="如：70000（保險年費）">
+      </div>
+      <div class="fgrp"><label><input type="checkbox" id="m_auto" ${cfg.autoCalc!==false?'checked':''}> 自動計算每月該存（年度目標 ÷ 攤提月份）</label></div>
+      <div class="fgrp" id="manual-field" style="display:${cfg.autoCalc===false?'block':'none'};"><label>每月攤提金額（手動）</label>
+        <input type="number" id="m_manual" value="${cfg.monthlyDeposit||''}" placeholder="如：5833">
+      </div>
+      <div class="fgrp"><label>哪幾個月需要攤提（不勾＝該月不存）</label>
+        <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;">
+          ${[1,2,3,4,5,6,7,8,9,10,11,12].map(mo=>{const act=(cfg.activeMonths||[1,2,3,4,5,6,7,8,9,10,11,12]).includes(mo);return`<label style="cursor:pointer;padding:8px;text-align:center;border:1.5px solid ${act?'var(--acc)':'var(--bdr)'};border-radius:8px;background:${act?'var(--accL)':'#fff'};font-size:13px;font-weight:${act?'700':'500'};color:${act?'var(--brown)':'var(--mut)'};"><input type="checkbox" class="m_active_mo" data-mo="${mo}" ${act?'checked':''} style="display:none;">${mo}月</label>`;}).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div class="mbtns">
+      ${isCustom?'<button class="btn btn-d" onclick="delCustomLedger(\''+l.id+'\')" style="margin-right:auto;">🗑 刪除帳本</button>':''}
+      <button class="btn btn-s" onclick="closeMod()">取消</button>
+      <button class="btn btn-p" onclick="saveLedgerCfg('${l.id}')">✓ 儲存</button>
+    </div>`;
+    setTimeout(()=>{
+      document.querySelectorAll('input[name="ltype"]').forEach(r=>r.addEventListener('change',e=>{
+        const mf=document.getElementById('month-fields');if(mf)mf.style.display=e.target.value==='month'?'block':'none';
+        const yf=document.getElementById('year-fields');if(yf)yf.style.display=e.target.value==='year'?'block':'none';
+        // 更新 radio label 樣式
+        document.querySelectorAll('input[name="ltype"]').forEach(rr=>{
+          const lb=rr.parentElement;
+          if(rr.checked){lb.style.borderColor=rr.value==='month'?'var(--acc)':'var(--gold)';lb.style.background=rr.value==='month'?'var(--accL)':'var(--goldL)';}
+          else{lb.style.borderColor='var(--bdr)';lb.style.background='#fff';}
+        });
+      }));
+      document.getElementById('m_auto')?.addEventListener('change',e=>{
+        const mf=document.getElementById('manual-field');if(mf)mf.style.display=e.target.checked?'none':'block';
+      });
+      document.querySelectorAll('.m_active_mo').forEach(cb=>cb.addEventListener('change',e=>{
+        const lbl=e.target.parentElement;
+        if(e.target.checked){lbl.style.borderColor='var(--acc)';lbl.style.background='var(--accL)';lbl.style.color='var(--brown)';lbl.style.fontWeight='700';}
+        else{lbl.style.borderColor='var(--bdr)';lbl.style.background='#fff';lbl.style.color='var(--mut)';lbl.style.fontWeight='500';}
+      }));
+    },50);
+  }
+
+  // ─── ➕ 新增自訂帳本 modal ───
+  if(m.t==='addLedger'){const ICONS=['📒','💰','📚','🚗','🎓','💊','🎁','💎','🏖️','🐈','🐶','🍼','💼','⚽','🎮'];c=`<div class="mttl">➕ 新增預備金帳本</div>
+    <div class="notice info" style="font-size:13.5px;margin-bottom:14px;">
+      💡 用於記錄未來會有的大筆支出，例如「學費預備」「車輛保養」「股票股利」「孩子大學基金」等。
+    </div>
+    <div class="fgrp"><label>圖示</label><div class="fb g8" style="flex-wrap:wrap;">${ICONS.map((ic,i)=>`<label style="cursor:pointer;padding:8px 10px;border:2px solid var(--bdr);border-radius:10px;font-size:22px;"><input type="radio" name="l_ico" value="${ic}" ${i===0?'checked':''} style="display:none;">${ic}</label>`).join('')}</div></div>
+    <div class="fgrp"><label>帳本名稱</label><input type="text" id="m_name" placeholder="如：學費預備"></div>
+    <div class="fgrp"><label>帳本類型</label>
+      <div class="fb g8">
+        <label style="flex:1;cursor:pointer;padding:14px;border:2px solid var(--acc);border-radius:10px;text-align:center;background:var(--accL);">
+          <input type="radio" name="lnewtype" value="month" checked style="display:none;">
+          <div style="font-size:24px;">📆</div><div style="font-weight:700;">月度變動</div>
+        </label>
+        <label style="flex:1;cursor:pointer;padding:14px;border:2px solid var(--bdr);border-radius:10px;text-align:center;">
+          <input type="radio" name="lnewtype" value="year" style="display:none;">
+          <div style="font-size:24px;">📅</div><div style="font-weight:700;">年度大筆</div>
+        </label>
+      </div>
+    </div>
+    <div class="fgrp"><label>子類別（用逗號分隔，會自動加上「存入」）</label>
+      <input type="text" id="m_cats" placeholder="如：學雜費,書本費,補習費,其他">
+    </div>
+    <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="saveCustomLedger()">✓ 新增</button></div>`;}
+
   if(m.t==='editLE'){const l=LEDGERS[S.ledgerIdx];const le=(S.data.ledgerEntries||[]).find(e=>e.id===m.x)||{};c=`<div class="mttl">✏️ 編輯流水帳</div>
     <div class="fg fg2">
       <div class="fgrp"><label>日期</label><input type="date" id="m0" value="${le.date||today()}"></div>
@@ -2755,14 +3065,16 @@ function modal(){
       }));
     }
     const staged=S.importStaging;
-    const keptCount=staged.filter(s=>s.keep&&s.merchant&&toN(s.amount)>0).length;
-    const totalAmt=staged.filter(s=>s.keep&&s.merchant&&toN(s.amount)>0).reduce((s,it)=>s+toN(it.amount),0);
+    const keptCount=staged.filter(s=>s.keep&&s.merchant&&toN(s.amount)!==0).length;
+    const totalAmt=staged.filter(s=>s.keep&&s.merchant&&toN(s.amount)!==0).reduce((s,it)=>s+toN(it.amount),0);
     c=`<div class="mttl" style="display:flex;justify-content:space-between;align-items:center;">
       <span>📝 批次輸入信用卡明細</span>
-      <span class="bdg" style="background:var(--pur);color:#fff;">${keptCount} 筆 ／ $${fmt(totalAmt)}</span>
+      <span class="bdg" style="background:var(--pur);color:#fff;">${keptCount} 筆 ／ 淨額 $${fmt(totalAmt)}</span>
     </div>
     <div class="notice info" style="font-size:13.5px;margin-bottom:14px;">
-      💡 一次輸入多筆。<b>輸入商家後</b>按 Tab 或點別處，系統會自動猜類別。<br>📌 不夠用？按下方「＋ 再加 5 行」。
+      💡 一次輸入多筆。<b>輸入商家後</b>按 Tab 或點別處，系統會自動猜類別。<br>
+      📌 <b>退款</b>請輸入<b>負數</b>金額（如 -500），系統會自動視為退款處理。<br>
+      📌 不夠用？按下方「＋ 再加 5 行」。
     </div>
     <div style="max-height:55vh;overflow-y:auto;border:1px solid var(--bdr);border-radius:var(--r-sm);">
       <table style="width:100%;font-size:13px;">
@@ -2791,7 +3103,7 @@ function modal(){
       <button class="btn btn-s btn-sm" onclick="addBatchRows(5)">＋ 再加 5 行</button>
       <button class="btn btn-s btn-sm" onclick="addBatchRows(10)">＋ 再加 10 行</button>
       <button class="btn btn-s btn-sm" onclick="openM('addCat')">＋ 新增類別</button>
-      <span class="tm" style="margin-left:auto;">空白行（無商家或金額為 0）不會儲存</span>
+      <span class="tm" style="margin-left:auto;">退款請填負數（如 -500），空白行或金額為 0 不會儲存</span>
     </div>
     <div class="mbtns" style="margin-top:18px;">
       <button class="btn btn-s" onclick="cancelBatch()">取消</button>
@@ -3020,6 +3332,85 @@ window.saveLedgerBudget=async(lid,val)=>{
   ledgerBudgets[lid]=toN(val);
   await saveMain({ledgerBudgets});toast('✅ 預算已更新');
 };
+
+// ─── 📒 帳本類型與設定 ──────────────────────────
+window.saveLedgerCfg=async(lid)=>{
+  const typeRadio=document.querySelector('input[name="ltype"]:checked');
+  const type=typeRadio?typeRadio.value:'month';
+  const ledgerConfig={...(S.data.ledgerConfig||{})};
+  const cfg=ledgerConfig[lid]||{};
+  cfg.type=type;
+  if(type==='month'){
+    const budget=toN(document.getElementById('m_budget')?.value);
+    cfg.monthlyDeposit=budget;
+    cfg.autoCalc=false;
+    // 同步到 ledgerBudgets
+    const ledgerBudgets={...(S.data.ledgerBudgets||{})};
+    ledgerBudgets[lid]=budget;
+    ledgerConfig[lid]=cfg;
+    await saveMain({ledgerConfig,ledgerBudgets});
+  }else{
+    cfg.yearlyTarget=toN(document.getElementById('m_yearly')?.value);
+    cfg.autoCalc=document.getElementById('m_auto')?.checked!==false;
+    if(!cfg.autoCalc){
+      cfg.monthlyDeposit=toN(document.getElementById('m_manual')?.value);
+    }
+    // 收集活躍月份
+    const activeMonths=[];
+    document.querySelectorAll('.m_active_mo').forEach(cb=>{
+      if(cb.checked)activeMonths.push(parseInt(cb.dataset.mo));
+    });
+    cfg.activeMonths=activeMonths.length>0?activeMonths:[1,2,3,4,5,6,7,8,9,10,11,12];
+    ledgerConfig[lid]=cfg;
+    // 同步月存到 ledgerBudgets（給對帳邏輯用）
+    const monthly=cfg.autoCalc&&cfg.yearlyTarget>0?Math.ceil(cfg.yearlyTarget/cfg.activeMonths.length):toN(cfg.monthlyDeposit);
+    const ledgerBudgets={...(S.data.ledgerBudgets||{})};
+    ledgerBudgets[lid]=monthly;
+    await saveMain({ledgerConfig,ledgerBudgets});
+  }
+  toast('✅ 帳本設定已儲存');closeMod();
+};
+
+window.saveCustomLedger=async()=>{
+  const name=document.getElementById('m_name')?.value?.trim();
+  if(!name){alert('請填寫帳本名稱');return;}
+  const iconRadio=document.querySelector('input[name="l_ico"]:checked');
+  const icon=iconRadio?iconRadio.value:'📒';
+  const typeRadio=document.querySelector('input[name="lnewtype"]:checked');
+  const type=typeRadio?typeRadio.value:'month';
+  const catsRaw=document.getElementById('m_cats')?.value?.trim()||'其他';
+  const cats=['存入',...catsRaw.split(/[,，、]/).map(c=>c.trim()).filter(Boolean)];
+  const newLedger={
+    id:'led_'+Date.now(),
+    name:`${icon} ${name}`,
+    budget:0,
+    type,
+    cats
+  };
+  const customLedgers=[...(S.data.customLedgers||[]),newLedger];
+  // 初始化 config
+  const ledgerConfig={...(S.data.ledgerConfig||{})};
+  ledgerConfig[newLedger.id]={type,autoCalc:true,activeMonths:[1,2,3,4,5,6,7,8,9,10,11,12]};
+  await saveMain({customLedgers,ledgerConfig});
+  // 切到新帳本
+  const ALL=getAllLedgers();
+  const idx=ALL.findIndex(l=>l.id===newLedger.id);
+  if(idx>=0)S.ledgerIdx=idx;
+  closeMod();
+  toast(`✅ 已新增帳本：${name}`);
+};
+
+window.delCustomLedger=async(lid)=>{
+  if(!confirm('確認刪除此帳本？\n（已記錄的資料會保留在系統中，但無法再查看／編輯）'))return;
+  const customLedgers=(S.data.customLedgers||[]).filter(l=>l.id!==lid);
+  const ledgerConfig={...(S.data.ledgerConfig||{})};
+  delete ledgerConfig[lid];
+  await saveMain({customLedgers,ledgerConfig});
+  S.ledgerIdx=0;
+  closeMod();
+  toast('已刪除帳本');
+};
+
 window.tglInvest=()=>{const v=document.getElementById('m5')?.value==='1';['investBG','investMoBG'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display=v?'':'none';});};
 window.saveMoSavings=async(pid,mk2,val)=>{
   const savingsLogs={...(S.data.savingsLogs||{})};
@@ -3402,9 +3793,9 @@ window.removeStage=(i)=>{
   render();
 };
 window.confirmImport=async()=>{
-  // 過濾：有商家、金額大於 0、勾選保留
-  const items=(S.importStaging||[]).filter(s=>s.keep&&toN(s.amount)>0&&s.merchant&&s.merchant.trim());
-  if(items.length===0){alert('沒有可儲存的項目（商家不可空、金額需大於 0）');return;}
+  // 過濾：有商家、金額不為 0（允許負數退款）、勾選保留
+  const items=(S.importStaging||[]).filter(s=>s.keep&&toN(s.amount)!==0&&s.merchant&&s.merchant.trim());
+  if(items.length===0){alert('沒有可儲存的項目（商家不可空、金額不可為 0；負數代表退款）');return;}
   if(!confirm(`確認儲存 ${items.length} 筆刷卡記錄？`))return;
 
   setSyncing('syncing');
