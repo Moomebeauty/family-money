@@ -2876,16 +2876,21 @@ function pgLedger(){
           </div>
         </div>
         <div class="tw"><table>
-          <thead><tr><th>日期</th><th>金額</th><th>類別</th><th>說明</th><th>累計餘額</th><th></th></tr></thead>
-          <tbody>${rows.length===0?`<tr><td colspan="6"><div class="empty"><div class="empty-ico">📒</div><p>本月尚無紀錄</p></div></td></tr>`:
-            rows.map(r=>`<tr>
+          <thead><tr><th>日期</th><th>金額</th><th>類別</th><th>說明</th><th style="text-align:center;">同步</th><th>累計餘額</th><th></th></tr></thead>
+          <tbody>${rows.length===0?`<tr><td colspan="7"><div class="empty"><div class="empty-ico">📒</div><p>本月尚無紀錄</p></div></td></tr>`:
+            rows.map(r=>{
+              const hasLink=!!r.linkId;
+              const hasCardText=r.linkedCardBank||(r.note||'').includes('💳');
+              const isOrphan=!hasLink&&hasCardText;
+              return`<tr style="${isOrphan?'background:linear-gradient(90deg,var(--redl),transparent);':''}">
               <td>${r.date||''}</td>
               <td class="${toN(r.amount)>=0?'ap':'an'}">${toN(r.amount)>=0?'+':''}$${fmt(r.amount)}</td>
               <td><span class="bdg">${r.cat||''}</span></td>
               <td class="tm">${r.note||''}</td>
+              <td style="text-align:center;font-size:11px;">${hasLink?`<span class="bdg" style="background:var(--grn);color:#fff;" title="已連動信用卡明細">🔗 ${r.linkedCardBank||'已同步'}</span>`:isOrphan?`<span class="bdg" style="background:var(--red);color:#fff;" title="備註提到信用卡但沒同步！">⚠️ 未連動</span>`:'<span class="tm">－</span>'}</td>
               <td class="run-bal">$${fmt(r.run)}</td>
               <td style="white-space:nowrap;"><button class="bdel" style="color:#aaa;font-size:13px;" onclick="openM('editLE','${r.id}')">✏️</button><button class="bdel" onclick="delLE('${r.id}')">×</button></td>
-            </tr>`).join('')}
+            </tr>`;}).join('')}
           </tbody>
         </table></div>
       </div>
@@ -4492,17 +4497,33 @@ window.delD=async id=>{if(!confirm('確認刪除？'))return;await saveMain({deb
 window.delInc=async id=>{if(!confirm('確認刪除？'))return;await delSub('incomes',id);toast('已刪除');};
 window.delExp=async id=>{if(!confirm('確認刪除？'))return;await delSub('expenses',id);toast('已刪除');};
 window.delLE=async id=>{
-  if(!confirm('確認刪除？\n（若有同步到信用卡明細，會一併刪除）'))return;
-  // 找到 linkId（若有）
   const le=(S.data.ledgerEntries||[]).find(e=>e.id===id);
-  const linkId=le?.linkId;
-  await delSub('ledgerEntries',id);
-  // 同步刪除信用卡明細
-  if(linkId){
-    const linked=(S.data.expenses||[]).filter(e=>e.linkId===linkId);
-    for(const l of linked){await delSub('expenses',l.id);}
+  if(!le){alert('找不到此記錄');return;}
+  const linkId=le.linkId;
+  // 找信用卡明細是否有連動
+  const linkedCC=linkId?(S.data.expenses||[]).filter(e=>e.linkId===linkId):[];
+  const hasCardBank=le.linkedCardBank||le.note?.includes('💳');
+
+  let msg='確認刪除？';
+  if(linkedCC.length>0){
+    msg+=`\n\n✅ 此筆有同步到信用卡 ${le.linkedCardBank||''}，會一併刪除 ${linkedCC.length} 筆信用卡明細。`;
+  }else if(hasCardBank){
+    msg+=`\n\n⚠️ 此筆備註含信用卡資訊但「沒有連動記錄」（可能是舊資料）。\n刪除後，信用卡那邊可能還有對應明細未刪，請手動到信用卡頁面確認！`;
+  }else{
+    msg+=`\n\n（此筆無信用卡同步，純預備金記錄）`;
   }
-  toast('已刪除');
+
+  if(!confirm(msg))return;
+  await delSub('ledgerEntries',id);
+  for(const l of linkedCC){await delSub('expenses',l.id);}
+
+  if(linkedCC.length>0){
+    toast(`✅ 已刪除預備金 + ${linkedCC.length} 筆信用卡明細`);
+  }else if(hasCardBank){
+    toast(`⚠️ 已刪除預備金，請手動檢查信用卡明細`);
+  }else{
+    toast('已刪除');
+  }
 };
 window.delFixed=async id=>{if(!confirm('確認刪除此固定支出？'))return;await saveMain({fixedItems:(S.data.fixedItems||[]).filter(f=>f.id!==id)});toast('已刪除');};
 window.delDream=async id=>{if(!confirm('確認刪除此夢想？'))return;await saveMain({dreams:(S.data.dreams||[]).filter(d=>d.id!==id)});toast('已刪除');};
