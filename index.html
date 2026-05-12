@@ -966,12 +966,11 @@ function pgMonthlyEntry(){
         <div class="sc rose"><div class="sl">三人各自貢獻</div><div class="ss" style="margin-top:6px;font-size:13px;">${USERS.map(u=>{const ui=inc.filter(i=>i.user===u).reduce((s,i)=>s+toN(i.amount),0);return ui>0?`<b>${u}</b> $${fmt(ui)}`:'';}).filter(Boolean).join('<br>')||'-'}</div></div>
       </div>
       <div class="tw"><table>
-        <thead><tr><th>日期</th><th>金額</th><th>類別</th><th>類型</th><th>記錄人</th><th></th></tr></thead>
+        <thead><tr><th>日期</th><th>金額</th><th>類別</th><th>類型</th><th></th></tr></thead>
         <tbody>${inc.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(i=>`<tr>
           <td>${i.date||''}</td><td class="ap">+$${fmt(i.amount)}</td>
           <td><span class="bdg">${i.category||''}</span></td>
           <td>${i.isPassive?'<span class="bdg" style="background:var(--blu);color:#fff;">被動</span>':'<span class="tm">主動</span>'}</td>
-          <td><span class="bdg">${i.user||''}</span></td>
           <td><button class="bdel" onclick="openM('editInc','${i.id}')">✏️</button><button class="bdel" onclick="delInc('${i.id}')">×</button></td>
         </tr>`).join('')}</tbody>
       </table></div>`}
@@ -2095,13 +2094,12 @@ function pgCashflow(){
       <button class="btn btn-p btn-sm" onclick="openM('addInc')">＋ 新增</button>
     </div>
     <div class="tw"><table>
-      <thead><tr><th>日期</th><th>金額</th><th>類別</th><th>類型</th><th>記錄人</th><th>備註</th><th></th></tr></thead>
+      <thead><tr><th>日期</th><th>金額</th><th>類別</th><th>類型</th><th>備註</th><th></th></tr></thead>
       <tbody>${list.length===0?`<tr><td colspan="7"><div class="empty"><div class="empty-ico">💸</div><p>本月尚無收入</p></div></td></tr>`:
         list.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(i=>`<tr>
           <td>${i.date||''}</td><td class="ap">+$${fmt(i.amount)}</td>
           <td><span class="bdg">${i.category||''}</span></td>
           <td>${i.isPassive?'<span class="pill pi">被動</span>':'<span class="tm">主動</span>'}</td>
-          <td><span class="bdg bdg-${i.user}">${i.user||''}</span></td>
           <td class="tm">${i.note||''}</td>
           <td style="white-space:nowrap;"><button class="bdel" style="color:#aaa;font-size:13px;" onclick="openM('editInc','${i.id}')">✏️</button><button class="bdel" onclick="delInc('${i.id}')">×</button></td>
         </tr>`).join('')}
@@ -2923,23 +2921,42 @@ function pgLedger(){
     </div>
 
     <!-- 右側統計面板 -->
-    <div style="width:220px;flex-shrink:0;">
-      <!-- 累計分類統計 -->
+    <div style="width:240px;flex-shrink:0;">
+      <!-- 累計分類統計（可點擊展開） -->
       <div class="card" style="margin-bottom:12px;">
         <div class="card-hd"><span class="card-ttl">📊 累計分類統計</span></div>
         <div class="card-bd" style="padding:12px;">
-          ${Object.entries(cumCats).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--bdr);">
-              <span style="font-size:12px;color:var(--mut);">${c}</span>
-              <span style="font-size:12px;font-weight:700;color:var(--red);">(${fmt(v)})</span>
-            </div>`).join('')}
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--bdr);">
-            <span style="font-size:12px;color:var(--mut);">💰 本月預算存入</span>
+          <div class="tm" style="font-size:11px;margin-bottom:8px;color:var(--mut);">💡 點類別可展開該分類的所有明細</div>
+          ${Object.entries(cumCats).sort((a,b)=>b[1]-a[1]).map(([c,v])=>{
+            const isOpen=(S.openLedgerCat||'')===c;
+            const catEntries=allEntries.filter(e=>(e.cat||'')===c).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+            return`
+            <div style="border-bottom:1px solid var(--bdr);">
+              <div onclick="toggleLedgerCat('${c.replace(/'/g,"\\'")}')" style="display:flex;justify-content:space-between;align-items:center;padding:8px 6px;cursor:pointer;border-radius:6px;background:${isOpen?'var(--accL)':'transparent'};transition:all .15s;" onmouseover="this.style.background='${isOpen?'var(--accL)':'var(--bg2)'}'" onmouseout="this.style.background='${isOpen?'var(--accL)':'transparent'}'">
+                <span style="font-size:13px;color:var(--brown);font-weight:${isOpen?'700':'500'};">
+                  <span style="display:inline-block;width:12px;color:var(--acc);">${isOpen?'▼':'▶'}</span>
+                  ${c} <span class="tm" style="font-size:10px;">(${catEntries.length})</span>
+                </span>
+                <span style="font-size:12px;font-weight:700;color:var(--red);">${fmt(v)}</span>
+              </div>
+              ${isOpen?`<div style="background:var(--bg2);padding:8px 6px;border-radius:6px;margin:4px 0 8px;max-height:300px;overflow-y:auto;">
+                ${catEntries.length===0?'<div class="tm" style="text-align:center;padding:8px;font-size:11px;">無記錄</div>':catEntries.map(e=>`
+                  <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:6px 4px;border-bottom:1px dashed var(--bdr);gap:4px;">
+                    <div style="flex:1;min-width:0;">
+                      <div style="font-size:11px;color:var(--brown);font-weight:600;">${e.date||''}</div>
+                      ${e.note?`<div style="font-size:11px;color:var(--mut);word-break:break-all;line-height:1.4;">${e.note}</div>`:''}
+                    </div>
+                    <span style="font-size:12px;font-weight:700;color:${toN(e.amount)>=0?'var(--grn)':'var(--red)'};white-space:nowrap;">${toN(e.amount)>=0?'+':''}${fmt(e.amount)}</span>
+                  </div>`).join('')}
+              </div>`:''}
+            </div>`;}).join('')}
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 6px 5px;border-bottom:1px solid var(--bdr);">
+            <span style="font-size:13px;color:var(--brown);font-weight:500;">💰 本月預算存入</span>
             <span style="font-size:12px;font-weight:700;color:var(--grn);">${fmt(cumBudgetIn)}</span>
           </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;margin-top:2px;">
-            <span style="font-size:12px;font-weight:700;color:var(--brown);">合計</span>
-            <span style="font-size:13px;font-weight:700;color:${cumTotal>=0?'var(--grn)':'var(--red)'};">${fmt(cumTotal)}</span>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 6px 4px;margin-top:2px;background:var(--accL);border-radius:6px;">
+            <span style="font-size:13px;font-weight:700;color:var(--brown);">合計</span>
+            <span style="font-size:15px;font-weight:700;font-family:'Noto Serif TC',serif;color:${cumTotal>=0?'var(--grn)':'var(--red)'};">${fmt(cumTotal)}</span>
           </div>
         </div>
       </div>
@@ -3417,14 +3434,13 @@ function pgReports(){
 function expTbl(list){
   if(!list.length)return`<div class="empty"><div class="empty-ico">📭</div><p>尚無支出記錄</p></div>`;
   return`<table>
-    <thead><tr><th>日期</th><th>金額</th><th>類別</th><th>付款</th><th>記錄人</th><th>備註</th><th></th></tr></thead>
+    <thead><tr><th>日期</th><th>金額</th><th>類別</th><th>付款</th><th>備註</th><th></th></tr></thead>
     <tbody>${list.map(e=>`<tr>
       <td>${e.date||''}</td><td class="an">-$${fmt(e.amount)}</td>
       <td><span class="bdg">${e.category||''}</span></td>
       <td><span class="bdg bdg-${e.payMethod==='現金'?'cash':e.payMethod==='信用卡'?'card':'tx'}">
         ${e.payMethod||''}${e.cardBank?` · ${e.cardBank}`:''}
       </span></td>
-      <td><span class="bdg bdg-${e.user}">${e.user||''}</span></td>
       <td class="tm">${e.note||''}</td>
       <td style="white-space:nowrap;"><button class="bdel" style="color:#aaa;font-size:13px;" onclick="openM('editExp','${e.id}')">✏️</button><button class="bdel" onclick="delExp('${e.id}')">×</button></td>
     </tr>`).join('')}</tbody>
@@ -3456,7 +3472,6 @@ function modal(){
       <div class="fgrp"><label>金額（元）</label><input type="number" id="m1" placeholder="0"></div>
       <div class="fgrp"><label>類別</label><select id="m2">${INC_CATS.map(c=>`<option>${c}</option>`).join('')}</select></div>
       <div class="fgrp"><label>類型</label><select id="m3"><option value="0">主動（薪資、獎金）</option><option value="1">被動（股利、利息、租金）</option></select></div>
-      <div class="fgrp"><label>記錄人</label><select id="m4">${USERS.map(u=>`<option${u===S.user?' selected':''}>${u}</option>`).join('')}</select></div>
       <div class="fgrp"><label>備註</label><input type="text" id="m5" placeholder="選填"></div>
     </div>
     <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="saveInc()">✓ 確認</button></div>`;}
@@ -3474,7 +3489,6 @@ function modal(){
       <div class="fgrp" id="cBG" style="${defM==='信用卡'?'':'display:none'}"><label>信用卡銀行</label>
         <select id="m_cb">${banks.map(b=>`<option>${b}</option>`).join('')}</select>
       </div>
-      <div class="fgrp"><label>記錄人</label><select id="m4">${USERS.map(u=>`<option${u===S.user?' selected':''}>${u}</option>`).join('')}</select></div>
       <div class="fgrp"><label>備註</label><input type="text" id="m5" placeholder="選填"></div>
     </div>
     <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="saveExp()">✓ 確認</button></div>`;}
@@ -3530,7 +3544,6 @@ function modal(){
       <div class="fgrp"><label>日期</label><input type="date" id="m0" value="${today()}"></div>
       <div class="fgrp"><label>金額（正=存入 / 負=支出）</label><input type="number" id="m1" placeholder="如 +5833 存入 或 -6000 支出"></div>
       <div class="fgrp"><label>類別</label><select id="m2">${l.cats.map(c=>`<option>${c}</option>`).join('')}</select></div>
-      <div class="fgrp"><label>記錄人</label><select id="m3">${USERS.map(u=>`<option${u===S.user?' selected':''}>${u}</option>`).join('')}</select></div>
       <div class="fgrp" style="grid-column:1/-1"><label>說明備註</label><input type="text" id="m4" placeholder="如：5 月薪轉戶轉入、繳國泰人壽保險費等"></div>
       <div class="fgrp" style="grid-column:1/-1;background:linear-gradient(135deg,var(--purl),var(--card));padding:14px 16px;border-radius:10px;border:1.5px solid var(--pur);">
         <label style="color:var(--pur);font-weight:700;">💳 這筆是用信用卡刷的嗎？（自動同步到信用卡明細）</label>
@@ -3659,7 +3672,6 @@ function modal(){
       <div class="fgrp"><label>金額（元）</label><input type="number" id="m1" value="${inc.amount||0}"></div>
       <div class="fgrp"><label>類別</label><select id="m2">${INC_CATS.map(c=>`<option${c===(inc.category||'')?' selected':''}>${c}</option>`).join('')}</select></div>
       <div class="fgrp"><label>類型</label><select id="m3"><option value="0"${!inc.isPassive?' selected':''}>主動（薪資、獎金）</option><option value="1"${inc.isPassive?' selected':''}>被動（股利、利息、租金）</option></select></div>
-      <div class="fgrp"><label>記錄人</label><select id="m4">${USERS.map(u=>`<option${u===(inc.user||S.user)?' selected':''}>${u}</option>`).join('')}</select></div>
       <div class="fgrp"><label>備註</label><input type="text" id="m5" value="${inc.note||''}"></div>
     </div>
     <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="updInc('${inc.id}')">✓ 更新</button></div>`;}
@@ -3673,7 +3685,6 @@ function modal(){
       <div class="fgrp" id="cBG" style="${defM==='信用卡'?'':'display:none'}"><label>信用卡銀行</label>
         <select id="m_cb">${banks.map(b=>`<option${b===(exp.cardBank||'')?' selected':''}>${b}</option>`).join('')}</select>
       </div>
-      <div class="fgrp"><label>記錄人</label><select id="m4">${USERS.map(u=>`<option${u===(exp.user||S.user)?' selected':''}>${u}</option>`).join('')}</select></div>
       <div class="fgrp"><label>備註</label><input type="text" id="m5" value="${exp.note||''}"></div>
     </div>
     <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="updExp('${exp.id}')">✓ 更新</button></div>`;}
@@ -3807,7 +3818,6 @@ function modal(){
       <div class="fgrp"><label>日期</label><input type="date" id="m0" value="${le.date||today()}"></div>
       <div class="fgrp"><label>金額（正=存入 / 負=支出）</label><input type="number" id="m1" value="${le.amount||0}"></div>
       <div class="fgrp"><label>類別</label><select id="m2">${l.cats.map(c=>`<option${c===(le.cat||'')?' selected':''}>${c}</option>`).join('')}</select></div>
-      <div class="fgrp"><label>記錄人</label><select id="m3">${USERS.map(u=>`<option${u===(le.user||S.user)?' selected':''}>${u}</option>`).join('')}</select></div>
       <div class="fgrp" style="grid-column:1/-1"><label>說明備註</label><input type="text" id="m4" value="${(le.note||'').replace(/"/g,'&quot;')}"></div>
       <div class="fgrp" style="grid-column:1/-1;background:linear-gradient(135deg,var(--purl),var(--card));padding:14px 16px;border-radius:10px;border:1.5px solid var(--pur);">
         <label style="color:var(--pur);font-weight:700;">💳 用信用卡刷的嗎？</label>
@@ -4212,7 +4222,7 @@ window.setU=u=>{S.user=u;render();};
 window.setP=p=>{S.page=p;S.subTab=0;S.modal=null;render();};
 window.setMo=m=>{S.month=m;render();};
 window.setT=t=>{S.subTab=t;render();};
-window.setLI=i=>{S.ledgerIdx=i;render();};
+window.setLI=i=>{S.ledgerIdx=i;S.openLedgerCat=null;render();};
 window.openM=(t,x)=>{S.modal={t,x};render();};
 window.closeMod=()=>{S.modal=null;render();};
 window.bkClose=e=>{if(e.target===e.currentTarget)closeMod();};
@@ -4991,6 +5001,16 @@ window.removeStage=(i)=>{
 // 🗑 一鍵刪除本月所有信用卡明細（給測試或重新輸入用）
 // ─── 信用卡多筆勾選刪除 ─────────────────────────────
 // ─── 信用卡對帳確認（逐筆對照銀行帳單）───────────────────
+// 切換展開／收合預備金分類明細
+window.toggleLedgerCat=(cat)=>{
+  if((S.openLedgerCat||'')===cat){
+    S.openLedgerCat=null;
+  }else{
+    S.openLedgerCat=cat;
+  }
+  render();
+};
+
 window.toggleReconciled=async(id,checked)=>{
   // 取得最新該筆資料，避免覆蓋其他欄位
   const e=(S.data.expenses||[]).find(x=>x.id===id);
