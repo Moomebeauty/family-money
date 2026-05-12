@@ -2930,11 +2930,13 @@ function pgLedger(){
           ${Object.entries(cumCats).sort((a,b)=>b[1]-a[1]).map(([c,v])=>{
             const isOpen=(S.openLedgerCat||'')===c;
             const catEntries=allEntries.filter(e=>(e.cat||'')===c).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+            // 用 base64 編碼類別名，避免引號/特殊字元問題
+            const catB64=btoa(unescape(encodeURIComponent(c)));
             return`
             <div style="border-bottom:1px solid var(--bdr);">
-              <div onclick="toggleLedgerCat('${c.replace(/'/g,"\\'")}')" style="display:flex;justify-content:space-between;align-items:center;padding:8px 6px;cursor:pointer;border-radius:6px;background:${isOpen?'var(--accL)':'transparent'};transition:all .15s;" onmouseover="this.style.background='${isOpen?'var(--accL)':'var(--bg2)'}'" onmouseout="this.style.background='${isOpen?'var(--accL)':'transparent'}'">
+              <div class="led-cat-toggle" data-cat-b64="${catB64}" style="display:flex;justify-content:space-between;align-items:center;padding:8px 6px;cursor:pointer;border-radius:6px;background:${isOpen?'var(--accL)':'transparent'};transition:all .15s;user-select:none;">
                 <span style="font-size:13px;color:var(--brown);font-weight:${isOpen?'700':'500'};">
-                  <span style="display:inline-block;width:12px;color:var(--acc);">${isOpen?'▼':'▶'}</span>
+                  <span style="display:inline-block;width:14px;color:var(--acc);">${isOpen?'▼':'▶'}</span>
                   ${c} <span class="tm" style="font-size:10px;">(${catEntries.length})</span>
                 </span>
                 <span style="font-size:12px;font-weight:700;color:var(--red);">${fmt(v)}</span>
@@ -5001,7 +5003,7 @@ window.removeStage=(i)=>{
 // 🗑 一鍵刪除本月所有信用卡明細（給測試或重新輸入用）
 // ─── 信用卡多筆勾選刪除 ─────────────────────────────
 // ─── 信用卡對帳確認（逐筆對照銀行帳單）───────────────────
-// 切換展開／收合預備金分類明細
+// 切換展開／收合預備金分類明細（事件委派）
 window.toggleLedgerCat=(cat)=>{
   if((S.openLedgerCat||'')===cat){
     S.openLedgerCat=null;
@@ -5010,6 +5012,17 @@ window.toggleLedgerCat=(cat)=>{
   }
   render();
 };
+// 全域監聽器，捕捉所有 .led-cat-toggle 點擊
+document.addEventListener('click',(ev)=>{
+  const t=ev.target.closest('.led-cat-toggle');
+  if(!t)return;
+  const b64=t.dataset.catB64;
+  if(!b64)return;
+  try{
+    const cat=decodeURIComponent(escape(atob(b64)));
+    window.toggleLedgerCat(cat);
+  }catch(e){console.error('toggle cat failed',e);}
+});
 
 window.toggleReconciled=async(id,checked)=>{
   // 取得最新該筆資料，避免覆蓋其他欄位
