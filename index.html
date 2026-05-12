@@ -351,8 +351,13 @@ function parseTransactionText(text){
 }
 // 流水帳帳本
 const LEDGERS=[
+  {id:'food',    name:'🍜 飲食日常雜支', budget:8000, type:'month', cats:['存入','早餐','午餐','晚餐','飲料零食','便利商店','外送','日常用品','其他']},
   {id:'traffic', name:'🚗 交通費流水帳', budget:10000, type:'month', cats:['存入','加油停車','稅金','汽車保養','機車保養','保險','其他交通']},
   {id:'utility', name:'💡 水電通訊流水帳', budget:5000, type:'month', cats:['存入','電費','水費','天然氣','WIFI','Netflix','KKbox','Google','手機費','APP','校正','其他']},
+  {id:'beauty',  name:'💄 美麗基金', budget:3000, type:'month', cats:['存入','美髮','美甲','SPA','保養品','彩妝','服飾','其他美容']},
+  {id:'home',    name:'🏠 住家設備修繕', budget:2000, type:'month', cats:['存入','家電修繕','家具','清潔用品','五金','水電維修','其他住家']},
+  {id:'muji',    name:'🌸 沐蜜', budget:3000, type:'month', cats:['存入','沐蜜消費','其他']},
+  {id:'travel',  name:'✈️ 旅遊基金', budget:5000, type:'month', cats:['存入','機票','住宿','交通','飲食','門票','伴手禮','其他旅遊']},
   {id:'union',   name:'🏢 工會保費流水帳', budget:7000, type:'year', cats:['存入','工會費','保險','地價稅','房屋稅','其他']},
   {id:'gift',    name:'🧧 紅包基金流水帳', budget:5000, type:'year', cats:['存入','伯涵爸爸','伯涵媽媽','珞熙媽媽','小朋友','伯涵阿姨','女兒','珞熙外婆','婉甄','璇璇','婚禮','其他']},
 ];
@@ -2805,7 +2810,35 @@ function pgLedger(){
           <div class="pb-lg"><div class="pf" style="width:${yearProgress}%;background:${yearProgress>=100?'var(--grn)':'linear-gradient(90deg,var(--acc),var(--acc2))'};"></div></div>
           <div class="tm" style="margin-top:8px;text-align:right;">已累積 $${fmt(yearDeposit)} / 目標 $${fmt(yearlyTarget)}　${yearProgress<100?`還需 $${fmt(yearlyTarget-yearDeposit)}`:'🎉 已達標'}　已支出 $${fmt(yearOutflow)}</div>
         </div>
-      </div>`:''}
+      </div>
+
+      ${(ledgerCfg.yearlyItems||[]).length>0?`<!-- 年度明細項目清單 -->
+      <div class="card card-feature" style="margin-bottom:14px;">
+        <div class="card-hd">
+          <span class="card-ttl">📋 年度支出明細（每月 $${fmt(recommendedDeposit)} 從這算出）</span>
+          <button class="btn btn-s btn-sm" onclick="openM('editLedger','${l.id}')">⚙️ 編輯</button>
+        </div>
+        <div class="card-bd">
+          <div class="tw"><table>
+            <thead><tr><th>項目名稱</th><th style="text-align:right;">年金額</th><th>幾月扣</th><th style="text-align:right;">攤提每月</th></tr></thead>
+            <tbody>${(ledgerCfg.yearlyItems||[]).map(it=>`<tr>
+              <td><b>${it.name||'-'}</b></td>
+              <td class="an">$${fmt(it.amount)}</td>
+              <td><span class="bdg">${it.dueMonth||'未指定'}</span></td>
+              <td class="an" style="color:var(--acc);">$${fmt(Math.ceil(toN(it.amount)/((ledgerCfg.activeMonths||[1,2,3,4,5,6,7,8,9,10,11,12]).length||12)))}</td>
+            </tr>`).join('')}
+            <tr style="background:var(--bg2);font-weight:700;">
+              <td><b>合計</b></td>
+              <td class="an" style="color:var(--gold);font-family:'Noto Serif TC',serif;font-size:16px;">$${fmt(yearlyTarget)}</td>
+              <td></td>
+              <td class="an" style="color:var(--acc);font-family:'Noto Serif TC',serif;font-size:16px;">$${fmt(recommendedDeposit)}</td>
+            </tr>
+            </tbody>
+          </table></div>
+        </div>
+      </div>`:`<div class="notice tip" style="margin-bottom:14px;">
+        💡 還沒列出年度支出明細項目？點右上「⚙️ 帳本設定」加入「保險、稅金、紅包」等項目，系統會自動算出每月該存多少。
+      </div>`}`:''}
 
       <!-- 對帳 -->
       <div class="rec-box">
@@ -3546,11 +3579,35 @@ function modal(){
     </div>
 
     <div id="year-fields" style="display:${currentType==='year'?'block':'none'};">
-      <div class="fgrp"><label>年度總目標（一年總共會花多少）</label>
-        <input type="number" id="m_yearly" value="${cfg.yearlyTarget||''}" placeholder="如：70000（保險年費）">
+      <div style="background:linear-gradient(135deg,var(--goldL),var(--card));padding:14px 18px;border-radius:var(--r-sm);margin-bottom:14px;border:1.5px solid var(--gold);">
+        <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--brown);letter-spacing:0.08em;margin-bottom:8px;">📋 年度支出明細項目（系統會自動加總）</div>
+        <div class="tm" style="font-size:12.5px;margin-bottom:10px;line-height:1.7;">💡 列出這個帳本「一年內所有確定要支出的項目」，例如工會帳本：工會費 $5,000 + 保險 $30,000 + 地價稅 $8,000。系統會幫你加總並算出每月該存多少。</div>
+        <div id="yearly-items">
+          ${(cfg.yearlyItems||[]).map((it,i)=>`<div data-yi="${i}" style="display:grid;grid-template-columns:1fr 110px 90px 36px;gap:8px;margin-bottom:8px;align-items:center;">
+            <input type="text" class="yi-name" value="${(it.name||'').replace(/"/g,'&quot;')}" placeholder="項目名稱（如：國泰人壽）" style="padding:7px 10px;border:1px solid var(--bdr);border-radius:6px;font-size:13px;">
+            <input type="number" class="yi-amount" value="${it.amount||''}" placeholder="年金額" style="padding:7px 10px;border:1px solid var(--bdr);border-radius:6px;font-size:13px;text-align:right;">
+            <input type="text" class="yi-month" value="${it.dueMonth||''}" placeholder="幾月扣" style="padding:7px 10px;border:1px solid var(--bdr);border-radius:6px;font-size:13px;text-align:center;">
+            <button class="bdel" onclick="this.parentElement.remove();calcYearlyTotal();" style="font-size:18px;">×</button>
+          </div>`).join('')}
+        </div>
+        <button class="btn btn-s btn-sm" onclick="addYearlyItem()" style="margin-top:6px;">＋ 新增項目</button>
+        <div style="margin-top:12px;padding:10px 14px;background:var(--card);border-radius:8px;border:1px dashed var(--gold);">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;">
+            <span style="font-size:13px;color:var(--mut);">📊 年度合計（自動計算）</span>
+            <span id="yearly-total" style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:var(--gold);">$${fmt((cfg.yearlyItems||[]).reduce((s,it)=>s+toN(it.amount),0))}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:6px;">
+            <span style="font-size:13px;color:var(--mut);">📐 每月該存（攤提）</span>
+            <span id="monthly-deposit" style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:var(--acc);">$${fmt(Math.ceil((cfg.yearlyItems||[]).reduce((s,it)=>s+toN(it.amount),0)/((cfg.activeMonths||[1,2,3,4,5,6,7,8,9,10,11,12]).length||12)))}</span>
+          </div>
+        </div>
       </div>
-      <div class="fgrp"><label><input type="checkbox" id="m_auto" ${cfg.autoCalc!==false?'checked':''}> 自動計算每月該存（年度目標 ÷ 攤提月份）</label></div>
-      <div class="fgrp" id="manual-field" style="display:${cfg.autoCalc===false?'block':'none'};"><label>每月攤提金額（手動）</label>
+
+      <div class="fgrp" style="display:none;"><label>（自動計算的年度總目標）</label>
+        <input type="number" id="m_yearly" value="${cfg.yearlyTarget||0}" readonly>
+      </div>
+      <div class="fgrp"><label><input type="checkbox" id="m_auto" ${cfg.autoCalc!==false?'checked':''}> 自動計算每月該存（年度合計 ÷ 攤提月份）</label></div>
+      <div class="fgrp" id="manual-field" style="display:${cfg.autoCalc===false?'block':'none'};"><label>每月攤提金額（手動覆寫）</label>
         <input type="number" id="m_manual" value="${cfg.monthlyDeposit||''}" placeholder="如：5833">
       </div>
       <div class="fgrp"><label>哪幾個月需要攤提（不勾＝該月不存）</label>
@@ -3583,6 +3640,7 @@ function modal(){
         const lbl=e.target.parentElement;
         if(e.target.checked){lbl.style.borderColor='var(--acc)';lbl.style.background='var(--accL)';lbl.style.color='var(--brown)';lbl.style.fontWeight='700';}
         else{lbl.style.borderColor='var(--bdr)';lbl.style.background='#fff';lbl.style.color='var(--mut)';lbl.style.fontWeight='500';}
+        if(typeof calcYearlyTotal==='function')calcYearlyTotal();
       }));
     },50);
   }
@@ -3826,14 +3884,31 @@ function modal(){
     const staged=S.importStaging;
     const keptCount=staged.filter(s=>s.keep&&s.merchant&&toN(s.amount)!==0).length;
     const totalAmt=staged.filter(s=>s.keep&&s.merchant&&toN(s.amount)!==0).reduce((s,it)=>s+toN(it.amount),0);
-    c=`<div class="mttl" style="display:flex;justify-content:space-between;align-items:center;">
+    const expenseSum=staged.filter(s=>s.keep&&s.merchant&&toN(s.amount)>0).reduce((s,it)=>s+toN(it.amount),0);
+    const refundSum=staged.filter(s=>s.keep&&s.merchant&&toN(s.amount)<0).reduce((s,it)=>s+Math.abs(toN(it.amount)),0);
+    const ALL_LED=getAllLedgers();
+    c=`<div class="mttl" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
       <span>📝 批次輸入信用卡明細</span>
-      <span class="bdg" style="background:var(--pur);color:#fff;">${keptCount} 筆 ／ 淨額 $${fmt(totalAmt)}</span>
+      <div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;font-size:13px;">
+        <span><span class="tm">消費</span> <b style="color:var(--red);font-family:'Noto Serif TC',serif;font-size:15px;">$${fmt(expenseSum)}</b></span>
+        ${refundSum>0?`<span><span class="tm">退款</span> <b style="color:var(--grn);font-family:'Noto Serif TC',serif;font-size:15px;">−$${fmt(refundSum)}</b></span>`:''}
+        <span class="bdg" style="background:var(--pur);color:#fff;">${keptCount} 筆 ／ 淨額 $${fmt(totalAmt)}</span>
+      </div>
     </div>
-    <div class="notice info" style="font-size:13.5px;margin-bottom:14px;">
-      💡 一次輸入多筆。<b>輸入商家後</b>按 Tab 或點別處，系統會自動猜類別。<br>
-      📌 <b>退款</b>請輸入<b>負數</b>金額（如 -500），系統會自動視為退款處理。<br>
-      📌 不夠用？按下方「＋ 再加 5 行」。
+    <div class="notice info" style="font-size:13.5px;margin-bottom:10px;">
+      💡 <b>使用步驟：</b>1) 輸入每筆 → 2) 自動猜類別 → 3) 點右上方「同步到預備金」按鈕（可選）→ 4) 確認儲存<br>
+      📌 <b>退款</b>請按金額欄左邊「+/−」按鈕切換為負數（綠色 = 退款）<br>
+      📌 <b>同步到預備金帳本：</b>若這筆是飲食、美麗基金等預備金支出，可勾選對應帳本，系統會自動扣除預備金。
+    </div>
+
+    <!-- 一鍵同步到預備金帳本 -->
+    <div style="background:linear-gradient(135deg,var(--purl),var(--card));padding:12px 16px;border-radius:var(--r-sm);margin-bottom:14px;border:1.5px solid var(--pur);display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <span style="font-weight:700;color:var(--pur);font-size:13.5px;">⛓️ 全部同步到預備金帳本：</span>
+      <select id="batch-sync-ledger" style="padding:7px 12px;border:1px solid var(--pur);border-radius:8px;font-size:13px;background:#fff;">
+        <option value="">不同步（純信用卡明細）</option>
+        ${ALL_LED.map(l=>`<option value="${l.id}">${l.name}</option>`).join('')}
+      </select>
+      <span class="tm" style="font-size:12px;flex:1;min-width:200px;">⚠️ 選擇後，所有勾選的明細都會同時記錄到該預備金帳本（不會重複計入變動支出）</span>
     </div>
     <div style="max-height:55vh;overflow-y:auto;border:1px solid var(--bdr);border-radius:var(--r-sm);">
       <table style="width:100%;font-size:13px;">
@@ -3851,7 +3926,10 @@ function modal(){
           <td><input type="date" value="${s.date}" onchange="updateStage(${i},'date',this.value)" style="font-size:12.5px;padding:6px;width:100%;border:1px solid var(--bdr);border-radius:6px;"></td>
           <td><input type="text" value="${(s.merchant||'').replace(/"/g,'&quot;')}" placeholder="如：全家便利商店" onblur="batchAutoCat(${i},this.value)" oninput="updateStage(${i},'merchant',this.value)" style="font-size:13px;padding:6px;width:100%;border:1px solid var(--bdr);border-radius:6px;"></td>
           <td><select id="batch-cat-${i}" onchange="updateStage(${i},'category',this.value)" style="font-size:12.5px;padding:6px;width:100%;border:1px solid var(--bdr);border-radius:6px;">${cats.map(c2=>`<option value="${c2}" ${c2===s.category?'selected':''}>${c2}</option>`).join('')}</select></td>
-          <td><input type="number" value="${s.amount||''}" placeholder="0" oninput="updateStage(${i},'amount',this.value)" style="font-size:13px;padding:6px;width:100%;text-align:right;border:1px solid var(--bdr);border-radius:6px;"></td>
+          <td><div style="display:flex;gap:4px;align-items:center;">
+            <button onclick="toggleRefund(${i})" title="切換退款" style="padding:5px 7px;font-size:11px;border:1.5px solid ${toN(s.amount)<0?'var(--grn)':'var(--bdr)'};background:${toN(s.amount)<0?'var(--grnl)':'#fff'};color:${toN(s.amount)<0?'var(--grn)':'var(--mut)'};border-radius:6px;cursor:pointer;font-weight:700;flex-shrink:0;">${toN(s.amount)<0?'↻ 退':'+/−'}</button>
+            <input type="number" value="${s.amount||''}" placeholder="0" oninput="updateStage(${i},'amount',this.value)" style="font-size:13px;padding:6px;width:100%;text-align:right;border:1px solid var(--bdr);border-radius:6px;color:${toN(s.amount)<0?'var(--grn)':'var(--brown)'};font-weight:${toN(s.amount)<0?'700':'500'};">
+          </div></td>
           <td><select onchange="updateStage(${i},'cardBank',this.value)" style="font-size:12.5px;padding:6px;width:100%;border:1px solid var(--bdr);border-radius:6px;">${banks.map(b=>`<option value="${b}" ${b===s.cardBank?'selected':''}>${b}</option>`).join('')}</select></td>
           <td><button class="bdel" onclick="removeStage(${i})" style="font-size:18px;">×</button></td>
         </tr>`).join('')}</tbody>
@@ -4160,6 +4238,38 @@ window.saveLedgerBudget=async(lid,val)=>{
 };
 
 // ─── 📒 帳本類型與設定 ──────────────────────────
+// ─── 年度項目清單計算 ───────────────────────────
+window.addYearlyItem=()=>{
+  const list=document.getElementById('yearly-items');
+  if(!list)return;
+  const idx=list.querySelectorAll('[data-yi]').length;
+  const div=document.createElement('div');
+  div.dataset.yi=idx;
+  div.style.cssText='display:grid;grid-template-columns:1fr 110px 90px 36px;gap:8px;margin-bottom:8px;align-items:center;';
+  div.innerHTML=`<input type="text" class="yi-name" placeholder="項目名稱（如：國泰人壽）" style="padding:7px 10px;border:1px solid var(--bdr);border-radius:6px;font-size:13px;">
+    <input type="number" class="yi-amount" placeholder="年金額" style="padding:7px 10px;border:1px solid var(--bdr);border-radius:6px;font-size:13px;text-align:right;" oninput="calcYearlyTotal()">
+    <input type="text" class="yi-month" placeholder="幾月扣" style="padding:7px 10px;border:1px solid var(--bdr);border-radius:6px;font-size:13px;text-align:center;">
+    <button class="bdel" onclick="this.parentElement.remove();calcYearlyTotal();" style="font-size:18px;">×</button>`;
+  list.appendChild(div);
+};
+
+window.calcYearlyTotal=()=>{
+  let total=0;
+  document.querySelectorAll('#yearly-items .yi-amount').forEach(i=>{total+=toN(i.value);});
+  const totalEl=document.getElementById('yearly-total');
+  if(totalEl)totalEl.textContent='$'+fmt(total);
+  // 活躍月份
+  let activeCount=0;
+  document.querySelectorAll('.m_active_mo').forEach(cb=>{if(cb.checked)activeCount++;});
+  if(activeCount===0)activeCount=12;
+  const monthly=Math.ceil(total/activeCount);
+  const moEl=document.getElementById('monthly-deposit');
+  if(moEl)moEl.textContent='$'+fmt(monthly);
+  // 同步到隱藏的 m_yearly
+  const yEl=document.getElementById('m_yearly');
+  if(yEl)yEl.value=total;
+};
+
 window.saveLedgerCfg=async(lid)=>{
   const typeRadio=document.querySelector('input[name="ltype"]:checked');
   const type=typeRadio?typeRadio.value:'month';
@@ -4170,25 +4280,33 @@ window.saveLedgerCfg=async(lid)=>{
     const budget=toN(document.getElementById('m_budget')?.value);
     cfg.monthlyDeposit=budget;
     cfg.autoCalc=false;
-    // 同步到 ledgerBudgets
     const ledgerBudgets={...(S.data.ledgerBudgets||{})};
     ledgerBudgets[lid]=budget;
     ledgerConfig[lid]=cfg;
     await saveMain({ledgerConfig,ledgerBudgets});
   }else{
-    cfg.yearlyTarget=toN(document.getElementById('m_yearly')?.value);
+    // 收集年度項目清單
+    const yearlyItems=[];
+    document.querySelectorAll('#yearly-items [data-yi]').forEach(row=>{
+      const name=row.querySelector('.yi-name')?.value?.trim()||'';
+      const amount=toN(row.querySelector('.yi-amount')?.value);
+      const dueMonth=row.querySelector('.yi-month')?.value?.trim()||'';
+      if(name||amount>0){
+        yearlyItems.push({name,amount,dueMonth});
+      }
+    });
+    cfg.yearlyItems=yearlyItems;
+    cfg.yearlyTarget=yearlyItems.reduce((s,it)=>s+toN(it.amount),0);
     cfg.autoCalc=document.getElementById('m_auto')?.checked!==false;
     if(!cfg.autoCalc){
       cfg.monthlyDeposit=toN(document.getElementById('m_manual')?.value);
     }
-    // 收集活躍月份
     const activeMonths=[];
     document.querySelectorAll('.m_active_mo').forEach(cb=>{
       if(cb.checked)activeMonths.push(parseInt(cb.dataset.mo));
     });
     cfg.activeMonths=activeMonths.length>0?activeMonths:[1,2,3,4,5,6,7,8,9,10,11,12];
     ledgerConfig[lid]=cfg;
-    // 同步月存到 ledgerBudgets（給對帳邏輯用）
     const monthly=cfg.autoCalc&&cfg.yearlyTarget>0?Math.ceil(cfg.yearlyTarget/cfg.activeMonths.length):toN(cfg.monthlyDeposit);
     const ledgerBudgets={...(S.data.ledgerBudgets||{})};
     ledgerBudgets[lid]=monthly;
@@ -4563,6 +4681,14 @@ window.cancelBatch=()=>{
   closeMod();
 };
 
+// 切換正/負金額（退款）
+window.toggleRefund=(i)=>{
+  if(!S.importStaging[i])return;
+  const cur=toN(S.importStaging[i].amount);
+  S.importStaging[i].amount=cur===0?0:-cur;
+  render();
+};
+
 // ─── 📋 從文字解析（暫存 batch 跳到 textParser）───
 window.openTextParser=()=>{
   S.modal={t:'textParser'};
@@ -4634,7 +4760,13 @@ window.confirmImport=async()=>{
   // 過濾：有商家、金額不為 0（允許負數退款）、勾選保留
   const items=(S.importStaging||[]).filter(s=>s.keep&&toN(s.amount)!==0&&s.merchant&&s.merchant.trim());
   if(items.length===0){alert('沒有可儲存的項目（商家不可空、金額不可為 0；負數代表退款）');return;}
-  if(!confirm(`確認儲存 ${items.length} 筆刷卡記錄？`))return;
+
+  // 檢查是否要同步到預備金
+  const syncLedgerId=document.getElementById('batch-sync-ledger')?.value||'';
+  const syncLedger=syncLedgerId?getAllLedgers().find(l=>l.id===syncLedgerId):null;
+  const syncMsg=syncLedger?`\n\n⛓️ 將同步到「${syncLedger.name}」預備金帳本`:'';
+
+  if(!confirm(`確認儲存 ${items.length} 筆刷卡記錄？${syncMsg}`))return;
 
   setSyncing('syncing');
   try{
@@ -4644,26 +4776,51 @@ window.confirmImport=async()=>{
         const dt=new Date(it.date);
         if(!isNaN(dt)){y=dt.getFullYear();mo=dt.getMonth()+1;}
       }
+      const amount=toN(it.amount);
+      const linkId=syncLedger?'lnk_'+Date.now()+'_'+Math.random().toString(36).slice(2,6):null;
+
       const newExp={
         date:it.date||today(),
-        amount:toN(it.amount),
+        amount,
         category:it.category||'其他',
         item:it.merchant,
-        note:'',
+        note:syncLedger?`⛓️ 來自預備金 - ${syncLedger.name}`:'',
         payMethod:'信用卡',
         cardBank:it.cardBank||'',
         user:S.user,
         month:mo,year:y,
         _at:Date.now()
       };
+      if(syncLedger){
+        newExp.fromLedger=syncLedger.id;
+        newExp.linkId=linkId;
+        newExp.excludeFromBudget=true;
+      }
       await addDoc(collection(db,'families',FID,'expenses'),newExp);
+
+      // 同步到預備金帳本（消費 -> 支出，退款 -> 存入）
+      if(syncLedger){
+        await addDoc(collection(db,'families',FID,'ledgerEntries'),{
+          lid:syncLedger.id,
+          date:it.date||today(),
+          amount:-amount,  // 反向：信用卡 +100 消費 = 預備金 -100 支出
+          cat:amount>0?(syncLedger.cats.find(c=>c!=='存入')||'其他'):'存入',
+          user:S.user,
+          note:`${it.merchant} 💳 ${it.cardBank||''}${amount<0?' 退款':''}`,
+          month:mo,year:y,
+          linkedCardBank:it.cardBank||'',
+          linkId,
+          _at:Date.now()
+        });
+      }
+
       // 學習商家類別
       await learnMerchant(it.merchant,it.category);
     }
     setSyncing('synced');
     S.importStaging=[];
     closeMod();
-    toast(`✅ 已儲存 ${items.length} 筆刷卡記錄`);
+    toast(`✅ 已儲存 ${items.length} 筆${syncLedger?`，同步到 ${syncLedger.name}`:''}`);
   }catch(err){
     console.error(err);
     setSyncing('error');
