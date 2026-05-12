@@ -2456,8 +2456,9 @@ function pgCC(){
       <div class="notice info" style="margin-bottom:14px;">
         💡 用表格一次輸入多筆消費，系統會自動<b>智能猜類別</b>（如「全家」→ 飲食、「中油」→ 交通）。
       </div>
-      <div style="text-align:center;">
+      <div style="text-align:center;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
         <button class="btn btn-p" style="font-size:16px;padding:14px 28px;" onclick="openM('batchEntry')">📝 開始批次輸入</button>
+        <button class="btn btn-d" style="font-size:14px;padding:12px 22px;" onclick="delThisMonthCC()">🗑 刪除本月信用卡資料</button>
       </div>
     </div>
   </div>
@@ -2859,6 +2860,7 @@ function pgLedger(){
           <span class="card-ttl">${l.name}</span>
           <div class="fb g8">
             ${moSel().replace('class="mo-scroll"','class="mo-scroll" style="margin:0;max-width:220px;"')}
+            <button class="btn btn-s btn-sm" onclick="openM('batchLE')">📋 批次輸入</button>
             <button class="btn btn-p btn-sm" onclick="openM('addLE')">＋ 記一筆</button>
           </div>
         </div>
@@ -3506,6 +3508,87 @@ function modal(){
       <button class="btn btn-p" onclick="saveLE()">✓ 確認</button>
     </div>`;}
 
+  // ─── 📋 預備金帳本批次輸入 modal ───
+  if(m.t==='batchLE'){const ALL=getAllLedgers();const l=ALL[S.ledgerIdx]||ALL[0];const banks=getBanks();const ledgerType=getLedgerType(l.id);
+    if(!S.importStaging||S.importStaging.length===0||S.importStaging[0]?._kind!=='LE'){
+      S.importStaging=Array.from({length:5},(_,i)=>({
+        _kind:'LE',
+        id:'bat_'+Date.now()+'_'+i,
+        date:today(),
+        merchant:'',
+        amount:0,
+        category:l.cats[1]||'其他',
+        cardBank:'',
+        keep:true
+      }));
+    }
+    const staged=S.importStaging;
+    const keptCount=staged.filter(s=>s.keep&&s.merchant&&toN(s.amount)!==0).length;
+    const totalAmt=staged.filter(s=>s.keep&&s.merchant&&toN(s.amount)!==0).reduce((s,it)=>s+toN(it.amount),0);
+    const expSum=staged.filter(s=>s.keep&&s.merchant&&toN(s.amount)>0).reduce((s,it)=>s+toN(it.amount),0);
+    const refundSum=staged.filter(s=>s.keep&&s.merchant&&toN(s.amount)<0).reduce((s,it)=>s+Math.abs(toN(it.amount)),0);
+    c=`<div class="mttl" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+      <span>📋 ${l.name} — 批次輸入</span>
+      <div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;font-size:13px;">
+        <span><span class="tm">支出</span> <b style="color:var(--red);font-family:'Noto Serif TC',serif;font-size:15px;">$${fmt(expSum)}</b></span>
+        ${refundSum>0?`<span><span class="tm">退款</span> <b style="color:var(--grn);font-family:'Noto Serif TC',serif;font-size:15px;">−$${fmt(refundSum)}</b></span>`:''}
+        <span class="bdg" style="background:var(--pur);color:#fff;">${keptCount} 筆 ／ 淨額 $${fmt(totalAmt)}</span>
+      </div>
+    </div>
+    <div class="notice info" style="font-size:13.5px;margin-bottom:10px;">
+      💡 <b>輸入方式：</b>每行一筆消費。<b>金額預設正數＝支出</b>（從帳本扣錢）。退款請按「+/−」切換為負數。<br>
+      📌 <b>同步信用卡：</b>每筆可指定「用哪張信用卡刷」，系統會自動在該卡明細產生對應記錄。<br>
+      📌 <b>免重複計帳：</b>同步到信用卡的記錄會自動標記，<b>不會重複計入變動支出</b>。
+    </div>
+
+    <!-- 一鍵同步信用卡 -->
+    <div style="background:linear-gradient(135deg,var(--purl),var(--card));padding:12px 16px;border-radius:var(--r-sm);margin-bottom:14px;border:1.5px solid var(--pur);display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <span style="font-weight:700;color:var(--pur);font-size:13.5px;">💳 全部同步到信用卡：</span>
+      <select id="batch-sync-card" onchange="applyAllCardBank(this.value)" style="padding:7px 12px;border:1px solid var(--pur);border-radius:8px;font-size:13px;background:#fff;">
+        <option value="">不同步（純預備金記錄）</option>
+        ${banks.map(b=>`<option value="${b}">全部刷 ${b} 卡</option>`).join('')}
+      </select>
+      <span class="tm" style="font-size:12px;flex:1;min-width:200px;">⚠️ 也可以每行單獨指定不同的卡</span>
+    </div>
+
+    <div style="max-height:50vh;overflow-y:auto;border:1px solid var(--bdr);border-radius:var(--r-sm);">
+      <table style="width:100%;font-size:13px;">
+        <thead style="position:sticky;top:0;z-index:5;background:var(--bg2);">
+          <tr>
+            <th style="width:120px;">日期</th>
+            <th>說明／商家</th>
+            <th style="width:130px;">類別</th>
+            <th style="width:130px;">金額</th>
+            <th style="width:140px;">💳 信用卡</th>
+            <th style="width:40px;"></th>
+          </tr>
+        </thead>
+        <tbody id="batchLE-body">${staged.map((s,i)=>`<tr id="batchLE-row-${i}">
+          <td><input type="date" value="${s.date}" onchange="updateStage(${i},'date',this.value)" style="font-size:12.5px;padding:6px;width:100%;border:1px solid var(--bdr);border-radius:6px;"></td>
+          <td><input type="text" value="${(s.merchant||'').replace(/"/g,'&quot;')}" placeholder="如：國泰人壽保費、全家便利商店" oninput="updateStage(${i},'merchant',this.value)" style="font-size:13px;padding:6px;width:100%;border:1px solid var(--bdr);border-radius:6px;"></td>
+          <td><select onchange="updateStage(${i},'category',this.value)" style="font-size:12.5px;padding:6px;width:100%;border:1px solid var(--bdr);border-radius:6px;">${l.cats.filter(c=>c!=='存入').map(c2=>`<option value="${c2}" ${c2===s.category?'selected':''}>${c2}</option>`).join('')}</select></td>
+          <td><div style="display:flex;gap:4px;align-items:center;">
+            <button onclick="toggleRefund(${i})" title="切換正負" style="padding:5px 7px;font-size:11px;border:1.5px solid ${toN(s.amount)<0?'var(--grn)':'var(--bdr)'};background:${toN(s.amount)<0?'var(--grnl)':'#fff'};color:${toN(s.amount)<0?'var(--grn)':'var(--mut)'};border-radius:6px;cursor:pointer;font-weight:700;flex-shrink:0;">${toN(s.amount)<0?'↻退':'+/−'}</button>
+            <input type="number" value="${s.amount||''}" placeholder="0" oninput="updateStage(${i},'amount',this.value)" style="font-size:13px;padding:6px;width:100%;text-align:right;border:1px solid var(--bdr);border-radius:6px;color:${toN(s.amount)<0?'var(--grn)':'var(--red)'};font-weight:${toN(s.amount)!==0?'700':'500'};">
+          </div></td>
+          <td><select onchange="updateStage(${i},'cardBank',this.value)" style="font-size:12px;padding:6px;width:100%;border:1px solid var(--bdr);border-radius:6px;">
+            <option value="">不刷卡</option>
+            ${banks.map(b=>`<option value="${b}" ${b===s.cardBank?'selected':''}>${b}</option>`).join('')}
+          </select></td>
+          <td><button class="bdel" onclick="removeStage(${i})" style="font-size:18px;">×</button></td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:12px;align-items:center;flex-wrap:wrap;">
+      <button class="btn btn-s btn-sm" onclick="addBatchLERows(5)">＋ 再加 5 行</button>
+      <button class="btn btn-s btn-sm" onclick="addBatchLERows(10)">＋ 再加 10 行</button>
+      <span class="tm" style="margin-left:auto;font-size:12px;">空白行不會儲存</span>
+    </div>
+    <div class="mbtns" style="margin-top:18px;">
+      <button class="btn btn-s" onclick="cancelBatch()">取消</button>
+      ${keptCount>0?`<button class="btn btn-p" onclick="confirmBatchLE('${l.id}')">✅ 儲存這 ${keptCount} 筆到 ${l.name}</button>`:'<button class="btn btn-s" disabled>請至少填一筆</button>'}
+    </div>`;}
+
   if(m.t==='addDream'){const DI=['🏠','🚗','✈️','💍','📚','💻','🎓','🏖️','🌏','💰','🏋️','🎸'];c=`<div class="mttl">🌟 新增夢想計畫</div>
     <div class="fg fg2">
       <div class="fgrp"><label>夢想名稱</label><input type="text" id="m0" placeholder="如：買房、環遊世界"></div>
@@ -4059,7 +4142,7 @@ function modal(){
     </div>`;
   }
 
-  return`<div class="mbk" onclick="bkClose(event)"><div class="mbox" style="max-width:${m.t==='batchEntry'||m.t==='importPreview'||m.t==='cardPay'||m.t==='editRewards'||m.t==='textParser'?'960px':'560px'};">${c}</div></div>`;
+  return`<div class="mbk" onclick="bkClose(event)"><div class="mbox" style="max-width:${m.t==='batchEntry'||m.t==='batchLE'||m.t==='importPreview'||m.t==='cardPay'||m.t==='editRewards'||m.t==='textParser'?'960px':'560px'};">${c}</div></div>`;
 }
 
 // ═══ ACTIONS ══════════════════════════════════════════════════
@@ -4756,6 +4839,134 @@ window.removeStage=(i)=>{
   S.importStaging.splice(i,1);
   render();
 };
+// 🗑 一鍵刪除本月所有信用卡明細（給測試或重新輸入用）
+window.delThisMonthCC=async()=>{
+  const y=yr(),mo=S.month;
+  const allExp=S.data.expenses||[];
+  const targets=allExp.filter(e=>{
+    if(e.payMethod!=='信用卡')return false;
+    if(toN(e.year)===y&&toN(e.month)===mo)return true;
+    if(e.date){const d=new Date(e.date);return d.getFullYear()===y&&d.getMonth()+1===mo;}
+    return false;
+  });
+  if(targets.length===0){alert(`${y} 年 ${mo} 月沒有任何信用卡明細`);return;}
+  if(!confirm(`⚠️ 確定要刪除 ${y} 年 ${mo} 月的全部 ${targets.length} 筆信用卡明細？\n\n📌 此動作會：\n• 刪除所有 ${mo} 月的信用卡刷卡記錄\n• 如果有同步到預備金帳本，會一併把對應的預備金支出刪除\n\n⚠️ 無法復原，請確認！`))return;
+  if(!confirm(`再次確認：真的要刪除 ${targets.length} 筆嗎？`))return;
+
+  setSyncing('syncing');
+  try{
+    let deleted=0,linkedDeleted=0;
+    for(const t of targets){
+      // 連動刪除預備金帳本對應記錄
+      if(t.linkId){
+        const linked=(S.data.ledgerEntries||[]).filter(le=>le.linkId===t.linkId);
+        for(const l of linked){await delSub('ledgerEntries',l.id);linkedDeleted++;}
+      }
+      await delSub('expenses',t.id);
+      deleted++;
+    }
+    setSyncing('synced');
+    toast(`✅ 已刪除 ${deleted} 筆信用卡明細${linkedDeleted>0?`，連動刪除 ${linkedDeleted} 筆預備金記錄`:''}`);
+  }catch(err){
+    console.error(err);
+    setSyncing('error');
+    alert('刪除失敗：'+err.message);
+  }
+};
+
+// ─── 📋 預備金批次輸入相關 ───────────────────────────
+window.addBatchLERows=(n)=>{
+  const ALL=getAllLedgers();
+  const l=ALL[S.ledgerIdx]||ALL[0];
+  const newRows=Array.from({length:n},(_,i)=>({
+    _kind:'LE',
+    id:'bat_'+Date.now()+'_'+(S.importStaging.length+i),
+    date:today(),
+    merchant:'',
+    amount:0,
+    category:l.cats[1]||'其他',
+    cardBank:'',
+    keep:true
+  }));
+  S.importStaging=[...(S.importStaging||[]),...newRows];
+  render();
+};
+
+window.applyAllCardBank=(bank)=>{
+  S.importStaging=(S.importStaging||[]).map(s=>({...s,cardBank:bank}));
+  render();
+};
+
+window.confirmBatchLE=async(ledgerId)=>{
+  const items=(S.importStaging||[]).filter(s=>s.keep&&toN(s.amount)!==0&&s.merchant&&s.merchant.trim());
+  if(items.length===0){alert('沒有可儲存的項目');return;}
+  const ALL=getAllLedgers();
+  const l=ALL.find(x=>x.id===ledgerId)||ALL[0];
+
+  // 統計同步到信用卡的筆數
+  const ccCount=items.filter(it=>it.cardBank).length;
+  const msg=`確認儲存 ${items.length} 筆到「${l.name}」？${ccCount>0?`\n\n💳 其中 ${ccCount} 筆會同時同步到對應信用卡明細`:''}`;
+  if(!confirm(msg))return;
+
+  setSyncing('syncing');
+  try{
+    let cnt=0;
+    for(const it of items){
+      let y=yr(),mo=S.month;
+      if(it.date){
+        const dt=new Date(it.date);
+        if(!isNaN(dt)){y=dt.getFullYear();mo=dt.getMonth()+1;}
+      }
+      const amount=toN(it.amount);
+      // 預備金的金額方向：正數=支出（從帳本扣）→ 存負；負數=退款（加回帳本）→ 存正
+      const ledgerAmount=-amount;
+      const linkId=it.cardBank?'lnk_'+Date.now()+'_'+cnt:null;
+
+      // 1. 寫入預備金帳本
+      await addDoc(collection(db,'families',FID,'ledgerEntries'),{
+        lid:ledgerId,
+        date:it.date||today(),
+        amount:ledgerAmount,
+        cat:amount>0?(it.category||'其他'):'存入',
+        user:S.user,
+        note:`${it.merchant}${it.cardBank?` 💳 ${it.cardBank}`:''}${amount<0?' 退款':''}`,
+        month:mo,year:y,
+        linkedCardBank:it.cardBank||null,
+        linkId,
+        _at:Date.now()
+      });
+
+      // 2. 如果有指定信用卡，同步建立信用卡明細
+      if(it.cardBank){
+        await addDoc(collection(db,'families',FID,'expenses'),{
+          date:it.date||today(),
+          amount,
+          category:it.category||'其他',
+          item:it.merchant,
+          note:`⛓️ 來自預備金 - ${l.name}`,
+          payMethod:'信用卡',
+          cardBank:it.cardBank,
+          user:S.user,
+          month:mo,year:y,
+          fromLedger:ledgerId,
+          linkId,
+          excludeFromBudget:true,
+          _at:Date.now()
+        });
+      }
+      cnt++;
+    }
+    setSyncing('synced');
+    S.importStaging=[];
+    closeMod();
+    toast(`✅ 已儲存 ${cnt} 筆到 ${l.name}${ccCount>0?`，並同步 ${ccCount} 筆到信用卡`:''}`);
+  }catch(err){
+    console.error(err);
+    setSyncing('error');
+    alert('儲存失敗：'+err.message);
+  }
+};
+
 window.confirmImport=async()=>{
   // 過濾：有商家、金額不為 0（允許負數退款）、勾選保留
   const items=(S.importStaging||[]).filter(s=>s.keep&&toN(s.amount)!==0&&s.merchant&&s.merchant.trim());
