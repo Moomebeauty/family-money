@@ -3768,14 +3768,32 @@ function modal(){
     </div>
     <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="saveCustomLedger()">✓ 新增</button></div>`;}
 
-  if(m.t==='editLE'){const l=LEDGERS[S.ledgerIdx];const le=(S.data.ledgerEntries||[]).find(e=>e.id===m.x)||{};c=`<div class="mttl">✏️ 編輯流水帳</div>
+  if(m.t==='editLE'){
+    const ALL=getAllLedgers();
+    const le=(S.data.ledgerEntries||[]).find(e=>e.id===m.x)||{};
+    // 用 le.lid 找對應帳本（不是 S.ledgerIdx）
+    const l=ALL.find(x=>x.id===le.lid)||ALL[S.ledgerIdx]||ALL[0];
+    const banks=getBanks();
+    const curBank=le.linkedCardBank||'';
+    c=`<div class="mttl">✏️ 編輯流水帳：${l.name}</div>
+    ${le.linkId?`<div class="notice info" style="font-size:13px;margin-bottom:14px;">🔗 此筆已連動到信用卡 <b>${curBank}</b> 明細，修改後信用卡那邊也會自動更新。</div>`:''}
     <div class="fg fg2">
       <div class="fgrp"><label>日期</label><input type="date" id="m0" value="${le.date||today()}"></div>
       <div class="fgrp"><label>金額（正=存入 / 負=支出）</label><input type="number" id="m1" value="${le.amount||0}"></div>
       <div class="fgrp"><label>類別</label><select id="m2">${l.cats.map(c=>`<option${c===(le.cat||'')?' selected':''}>${c}</option>`).join('')}</select></div>
-      <div class="fgrp" style="grid-column:1/-1"><label>說明備註</label><input type="text" id="m4" value="${le.note||''}"></div>
+      <div class="fgrp"><label>記錄人</label><select id="m3">${USERS.map(u=>`<option${u===(le.user||S.user)?' selected':''}>${u}</option>`).join('')}</select></div>
+      <div class="fgrp" style="grid-column:1/-1"><label>說明備註</label><input type="text" id="m4" value="${(le.note||'').replace(/"/g,'&quot;')}"></div>
+      <div class="fgrp" style="grid-column:1/-1;background:linear-gradient(135deg,var(--purl),var(--card));padding:14px 16px;border-radius:10px;border:1.5px solid var(--pur);">
+        <label style="color:var(--pur);font-weight:700;">💳 用信用卡刷的嗎？</label>
+        <select id="m_card" style="margin-top:6px;">
+          <option value="">不是，純現金/銀行扣款</option>
+          ${banks.map(b=>`<option value="${b}"${b===curBank?' selected':''}>是，刷 ${b} 卡</option>`).join('')}
+        </select>
+        <div class="tm" style="margin-top:6px;font-size:12px;">⚠️ 修改信用卡會：① 若原本有同步 → 同步信用卡明細；② 若原本無同步但你選了 → 新建立信用卡明細</div>
+      </div>
     </div>
-    <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="updLE('${le.id}')">✓ 更新</button></div>`;}
+    <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="updLE('${le.id}')">✓ 更新</button></div>`;
+  }
 
   if(m.t==='editAsset'){const AT=['股票','ETF','基金','現金存款','定存','不動產','黃金','外幣','其他'];const a=(S.data.assets||[]).find(a=>a.id===m.x)||{};c=`<div class="mttl">✏️ 編輯資產</div>
     <div class="fg fg2">
@@ -4313,12 +4331,85 @@ window.updExp=async(id)=>{
   toast('✅ 已更新');closeMod();
 };
 window.updLE=async(id)=>{
-  const date=g('m0'),amount=n('m1');if(!date||amount===0){alert('請填日期和金額');return;}
-  const d=new Date(date),l=LEDGERS[S.ledgerIdx];
+  const date=g('m0'),amount=n('m1');
+  if(!date||amount===0){alert('請填日期和金額');return;}
+  const d=new Date(date);
+  const oldLE=(S.data.ledgerEntries||[]).find(e=>e.id===id);
+  if(!oldLE){alert('找不到原始記錄');return;}
+  const ALL=getAllLedgers();
+  const l=ALL.find(x=>x.id===oldLE.lid)||ALL[S.ledgerIdx]||ALL[0];
+
+  const cat=g('m2');
+  const note=g('m4')||'';
+  const user=g('m3')||S.user;
+  const newBank=g('m_card')||'';
+  const oldLinkId=oldLE.linkId;
+  const oldBank=oldLE.linkedCardBank||'';
+  const mo=d.getMonth()+1,yr2=d.getFullYear();
+
   setSyncing('syncing');
-  try{await setDoc(doc(db,'families',FID,'ledgerEntries',id),{lid:l.id,date,amount,cat:g('m2'),note:g('m4'),month:d.getMonth()+1,year:d.getFullYear()});setSyncing('synced');}
-  catch{setSyncing('error');toast('儲存失敗');}
-  toast('✅ 已更新');closeMod();
+  try{
+    // 決定 linkId：原本有就保留，原本沒有但這次選了卡就建立
+    let linkId=oldLinkId;
+    if(!linkId&&newBank&&amount<0)linkId='lnk_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
+
+    // 更新流水帳本身（用 setDoc 但要保留所有原欄位）
+    const newLE={
+      ...oldLE,
+      lid:l.id,date,amount,cat,user,
+      note:note,
+      month:mo,year:yr2,
+      linkedCardBank:newBank||null,
+      linkId:(newBank&&amount<0)?linkId:(amount>=0?null:linkId)
+    };
+    delete newLE.id;  // 避免覆蓋 doc id
+    await setDoc(doc(db,'families',FID,'ledgerEntries',id),newLE);
+
+    // 處理信用卡明細同步（4 種情境）
+    const oldLinked=oldLinkId?(S.data.expenses||[]).filter(e=>e.linkId===oldLinkId):[];
+
+    if(newBank&&amount<0){
+      // 情境 A：要有信用卡明細
+      const expAmount=Math.abs(amount);
+      const expItem=(note||l.name.replace(/[📒💰📚🚗🎓💊🎁💎🏖️🐈🐶🍼💼⚽🎮🧧🏢💡🍜💄🏠🌸✈️]/g,'').trim()+` (${cat})`).trim();
+      const newCCData={
+        date,amount:expAmount,
+        category:cat,
+        item:expItem,
+        note:`⛓️ 來自預備金 - ${l.name}`,
+        payMethod:'信用卡',
+        cardBank:newBank,
+        user,
+        month:mo,year:yr2,
+        fromLedger:l.id,
+        linkId,
+        excludeFromBudget:true
+      };
+      if(oldLinked.length>0){
+        // 更新原有的信用卡明細
+        for(const old of oldLinked){
+          await setDoc(doc(db,'families',FID,'expenses',old.id),newCCData);
+        }
+      }else{
+        // 新建立信用卡明細
+        await addDoc(collection(db,'families',FID,'expenses'),{...newCCData,_at:Date.now()});
+      }
+      toast(`✅ 已更新並同步到 ${newBank} 信用卡明細`);
+    }else if(oldLinked.length>0){
+      // 情境 B：原本有，現在不要了 → 刪除信用卡明細
+      for(const old of oldLinked){await delSub('expenses',old.id);}
+      toast(`✅ 已更新，並移除原 ${oldBank} 信用卡明細`);
+    }else{
+      // 情境 C：原本無、現在也無 → 純更新
+      toast('✅ 已更新');
+    }
+    setSyncing('synced');
+  }catch(err){
+    console.error(err);
+    setSyncing('error');
+    alert('更新失敗：'+err.message);
+  }
+  closeMod();
 };
 window.updAsset=async(id)=>{
   const name=g('m0'),value=n('m2');if(!name||!value){alert('請填名稱和現值');return;}
