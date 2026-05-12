@@ -888,6 +888,48 @@ function pgMonthlyEntry(){
   <div class="pg-sub">${userName}，跟著 4 個步驟，把這個月的財務狀況一次設定好</div>
   ${moSel()}
 
+  <!-- 🚨 避免重複記支出指南 -->
+  <div class="card" style="margin-bottom:18px;background:linear-gradient(135deg,var(--purl),var(--card));border:1.5px solid var(--pur);">
+    <div class="card-hd" style="background:transparent;">
+      <span class="card-ttl" style="color:var(--pur);">🚨 重要：避免重複記支出！記帳前必看</span>
+      <button class="btn btn-s btn-sm" onclick="this.parentElement.parentElement.querySelector('.guide-body').style.display=this.parentElement.parentElement.querySelector('.guide-body').style.display==='none'?'block':'none';this.textContent=this.textContent.includes('展開')?'收起':'展開';">展開</button>
+    </div>
+    <div class="card-bd guide-body" style="display:none;">
+      <div style="font-size:14px;line-height:2;color:var(--txt);letter-spacing:0.05em;">
+        <b style="color:var(--brown);font-size:16px;">💡 三大記帳原則：</b><br><br>
+
+        <b style="color:var(--grn);">1. 同一筆錢只能記一次</b><br>
+        舉例：5/10 在全家便利商店刷信用卡 $135<br>
+        ✅ 正確：在「信用卡明細」記 1 筆 $135<br>
+        ❌ 錯誤：又在「支出記帳」記一筆 → 變成 $270 重複！<br><br>
+
+        <b style="color:var(--blu);">2. 信用卡帳單繳費不是「新支出」</b><br>
+        舉例：5/25 中信信用卡刷了 $20,000 從銀行扣款<br>
+        ✅ 正確：5 月所有刷卡明細已記在信用卡頁，這只是「之前刷卡的實際扣款」<br>
+        ❌ 錯誤：再記一筆 $20,000 支出 → 重複！<br><br>
+
+        <b style="color:var(--gold);">3. 預備金存入 ≠ 支出</b><br>
+        舉例：5/5 從薪水撥 $5,833 進「保險預備金帳本」<br>
+        ✅ 正確：在預備金帳本記「存入 +5833」（這是「分流」不是支出）<br>
+        ❌ 錯誤：當成支出記 → 重複！<br><br>
+        ✅ 真正支出在 5 月扣保險時：在預備金帳本記「-6000」<br><br>
+
+        <b style="color:var(--pur);font-size:16px;">📐 各類支出應該記在哪？</b>
+      </div>
+      <div class="tw" style="margin-top:14px;"><table>
+        <thead><tr><th>支出類型</th><th>記在哪</th><th>備註</th></tr></thead>
+        <tbody>
+          <tr><td><b>房貸／車貸／房租／分期</b></td><td><span class="bdg" style="background:var(--red);color:#fff;">📌 月固定支出</span></td><td class="tm">銀行直接扣款，金額固定</td></tr>
+          <tr><td><b>水電瓦斯／通訊／交通</b></td><td><span class="bdg" style="background:var(--blu);color:#fff;">📒 預備金帳本</span></td><td class="tm">每月變動，先存入帳本再扣</td></tr>
+          <tr><td><b>保險／稅金／紅包／年費</b></td><td><span class="bdg" style="background:var(--gold);color:#fff;">📒 預備金帳本（年度）</span></td><td class="tm">每月攤提先存，到期扣款</td></tr>
+          <tr><td><b>現金消費（餐廳、便利商店等）</b></td><td><span class="bdg" style="background:var(--acc);color:#fff;">🧾 支出記帳</span></td><td class="tm">日常變動支出</td></tr>
+          <tr><td><b>信用卡刷卡消費</b></td><td><span class="bdg" style="background:var(--pur);color:#fff;">💳 信用卡明細</span></td><td class="tm">不要再記到支出記帳！</td></tr>
+          <tr><td><b>信用卡帳單繳費</b></td><td><span class="bdg" style="background:var(--mut);color:#fff;">❌ 不要記</b></td><td class="tm">這只是把之前刷卡的錢實際付掉</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+
   <!-- 進度條 -->
   <div class="card" style="margin-bottom:18px;">
     <div class="card-bd" style="padding:18px 26px;">
@@ -988,11 +1030,43 @@ function pgMonthlyEntry(){
     <div class="card-bd">
       <div class="notice info" style="font-size:14px;margin-bottom:14px;">
         💡 <b>口語說明：</b>把每月會花的水電、交通、生活費（變動）＋年度大筆費用（保險、稅金、紅包）<b>先預備好</b>，避免年中突然被一大筆扣款嚇到。<br>
-        📐 <b>計算邏輯：</b>年費 ÷ 12 個月攤提到每月，讓現金流穩定。
+        📐 <b>計算邏輯：</b>年費 ÷ 12 個月攤提到每月，讓現金流穩定。<br>
+        ⚠️ <b>注意：</b>「存入帳本」是把薪水分流，<b>不算支出</b>。實際扣款（如保險到期）才是支出。
       </div>
-      <div class="sg sg2">
+      <div class="sg sg2" style="margin-bottom:18px;">
         <div class="sc blu"><div class="sl">📆 月變動預備金</div><div class="sv blu">$${fmt(M.monthLedger)}</div><div class="ss">水電 / 交通 / 生活費</div></div>
         <div class="sc gold"><div class="sl">📅 年費攤提</div><div class="sv gold">$${fmt(M.yearLedger)}</div><div class="ss">保險 / 稅金 / 紅包</div></div>
+      </div>
+
+      <!-- 各帳本快速存入 -->
+      <div style="background:var(--bg2);padding:18px 22px;border-radius:var(--r-sm);">
+        <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--brown);letter-spacing:0.08em;margin-bottom:14px;">📒 各帳本本月狀態（點「＋ 存入」直接記錄存錢）</div>
+        ${ALL_LEDGERS.map(l=>{
+          const cfg=getLedgerCfg(l.id);
+          const type=getLedgerType(l.id);
+          const budget=(S.data.ledgerBudgets||{})[l.id];
+          let monthly=0;
+          if(type==='year'){
+            if(cfg.autoCalc!==false&&toN(cfg.yearlyTarget)>0){
+              const am=cfg.activeMonths||[1,2,3,4,5,6,7,8,9,10,11,12];
+              monthly=Math.ceil(toN(cfg.yearlyTarget)/am.length);
+              if(!am.includes(S.month))monthly=0;
+            }else monthly=toN(cfg.monthlyDeposit)||toN(budget)||0;
+          }else monthly=toN(budget!==undefined?budget:l.budget);
+          // 本月已存
+          const moEntries=getLedger(l.id);
+          const deposited=moEntries.filter(e=>e.cat==='存入').reduce((s,e)=>s+toN(e.amount),0);
+          const spent=moEntries.filter(e=>toN(e.amount)<0).reduce((s,e)=>s+Math.abs(toN(e.amount)),0);
+          const isPaid=deposited>=monthly;
+          const skipThisMonth=type==='year'&&monthly===0;
+          return`<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:var(--card);border-radius:var(--r-sm);margin-bottom:8px;border-left:3px solid ${skipThisMonth?'var(--mut)':isPaid?'var(--grn)':'var(--yelb)'};">
+            <div style="flex:1;">
+              <div><b style="color:var(--brown);">${l.name}</b> <span class="bdg" style="margin-left:6px;background:${type==='year'?'var(--gold)':'var(--blu)'};color:#fff;font-size:11px;">${type==='year'?'年度':'月度'}</span></div>
+              <div class="tm" style="margin-top:4px;font-size:12.5px;">${skipThisMonth?`本月不需存入`:`本月該存 $${fmt(monthly)}　／　已存 <b style="color:${isPaid?'var(--grn)':'var(--yelb)'};">$${fmt(deposited)}</b>${spent>0?`　／　已用 $${fmt(spent)}`:''}`}</div>
+            </div>
+            ${!skipThisMonth?`<button class="btn ${isPaid?'btn-s':'btn-p'} btn-sm" onclick="setLI(${ALL_LEDGERS.indexOf(l)});openM('addLE');">${isPaid?'✓ 已存':'＋ 存入'}</button>`:''}
+          </div>`;
+        }).join('')}
       </div>
     </div>
   </div>
@@ -2071,8 +2145,16 @@ function pgFixed(){
   const items=S.data.fixedItems||[];
   const total=items.reduce((s,f)=>s+toN(f.amount),0);
   return`
-  <div class="pg-ttl">📌 固定支出管理</div>
-  <div class="pg-sub">每月固定會有的支出，自動計入月報</div>
+  <div class="pg-ttl">📌 月固定支出管理</div>
+  <div class="pg-sub">每月一定要繳的支出（房貸、車貸、房租、分期）</div>
+
+  <div class="notice tip" style="margin-bottom:14px;">
+    ⚠️ <b>避免重複記支出！</b>請仔細閱讀以下原則：<br>
+    ✅ <b>放這裡：</b>「每月一定金額」且「直接從銀行扣款」的（房貸、車貸、房租、分期）<br>
+    ❌ <b>不要放這裡：</b>水電費（金額會變、應放預備金帳本）、保險費（年費、應放預備金帳本）<br>
+    ❌ <b>不要放這裡：</b>信用卡帳單繳費（這只是「之前刷卡的實際扣款」，不是新支出）
+  </div>
+
   <div class="sg sg2">
     <div class="sc red"><div class="sl">月固定支出合計</div><div class="sv red">$${fmt(total)}</div><div class="ss">每月自動計入</div></div>
     <div class="sc yel"><div class="sl">年度固定支出</div><div class="sv sm">$${fmt(total*12)}</div></div>
@@ -2741,7 +2823,7 @@ function pgLedger(){
           <span class="card-ttl">${l.name}</span>
           <div class="fb g8">
             ${moSel().replace('class="mo-scroll"','class="mo-scroll" style="margin:0;max-width:220px;"')}
-            <button class="btn btn-p btn-sm" onclick="openM('addLedger')">＋ 新增</button>
+            <button class="btn btn-p btn-sm" onclick="openM('addLE')">＋ 記一筆</button>
           </div>
         </div>
         <div class="tw"><table>
@@ -3357,15 +3439,25 @@ function modal(){
     </div>
     <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="updateFixed('${f.id}')">✓ 更新</button></div>`;}
 
-  if(m.t==='addLedger'){const l=LEDGERS[S.ledgerIdx];c=`<div class="mttl">📒 ${l.name}</div>
+  if(m.t==='addLE'){const ALL=getAllLedgers();const l=ALL[S.ledgerIdx]||ALL[0];const ledgerType=getLedgerType(l.id);c=`<div class="mttl">📒 ${l.name} — 新增記錄</div>
+    <div class="notice info" style="font-size:13.5px;margin-bottom:14px;">
+      💡 <b>正確記法：</b><br>
+      ✅ <b>存入</b>（正數）：把錢從薪轉戶轉進這本帳本（這是「分流」不算支出）<br>
+      ✅ <b>支出</b>（負數）：用帳本內的錢實際繳費（這才是真支出）<br>
+      📌 例：5,833 元存入 → 填 <b>+5833</b>　／　保險扣款 6,000 → 填 <b>-6000</b>
+    </div>
     <div class="fg fg2">
       <div class="fgrp"><label>日期</label><input type="date" id="m0" value="${today()}"></div>
-      <div class="fgrp"><label>金額（正=存入 / 負=支出）</label><input type="number" id="m1" placeholder="如 -500 或 5000"></div>
+      <div class="fgrp"><label>金額（正=存入 / 負=支出）</label><input type="number" id="m1" placeholder="如 +5833 存入 或 -6000 支出"></div>
       <div class="fgrp"><label>類別</label><select id="m2">${l.cats.map(c=>`<option>${c}</option>`).join('')}</select></div>
       <div class="fgrp"><label>記錄人</label><select id="m3">${USERS.map(u=>`<option${u===S.user?' selected':''}>${u}</option>`).join('')}</select></div>
-      <div class="fgrp" style="grid-column:1/-1"><label>說明備註</label><input type="text" id="m4" placeholder="選填"></div>
+      <div class="fgrp" style="grid-column:1/-1"><label>說明備註</label><input type="text" id="m4" placeholder="如：5 月薪轉戶轉入、繳國泰人壽保險費等"></div>
     </div>
-    <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="saveLE()">✓ 確認</button></div>`;}
+    <div class="mbtns" style="display:flex;gap:8px;">
+      <button class="btn btn-s" onclick="closeMod()">取消</button>
+      <button class="btn btn-s" onclick="quickFillDeposit('${l.id}')" style="background:var(--grnl);color:var(--grn);">💰 快速填本月該存金額</button>
+      <button class="btn btn-p" onclick="saveLE()">✓ 確認</button>
+    </div>`;}
 
   if(m.t==='addDream'){const DI=['🏠','🚗','✈️','💍','📚','💻','🎓','🏖️','🌏','💰','🏋️','🎸'];c=`<div class="mttl">🌟 新增夢想計畫</div>
     <div class="fg fg2">
@@ -3925,6 +4017,33 @@ window.updateFixed=async(id)=>{
   const fixedItems=(S.data.fixedItems||[]).map(f=>f.id===id?{...f,name:g('m0'),amount:n('m1'),note:g('m2')}:f);
   await saveMain({fixedItems});toast('✅ 已更新');closeMod();
 };
+// 快速填入本月該存的金額（系統自動計算）
+window.quickFillDeposit=(ledgerId)=>{
+  const cfg=getLedgerCfg(ledgerId);
+  const type=getLedgerType(ledgerId);
+  const budget=(S.data.ledgerBudgets||{})[ledgerId];
+  const ALL=getAllLedgers();
+  const l=ALL.find(x=>x.id===ledgerId)||{};
+  let monthly=0;
+  if(type==='year'){
+    if(cfg.autoCalc!==false&&toN(cfg.yearlyTarget)>0){
+      const am=cfg.activeMonths||[1,2,3,4,5,6,7,8,9,10,11,12];
+      if(!am.includes(S.month)){
+        alert(`📅 本月（${S.month} 月）不在攤提月份內，不需要存入`);return;
+      }
+      monthly=Math.ceil(toN(cfg.yearlyTarget)/am.length);
+    }else monthly=toN(cfg.monthlyDeposit)||toN(budget)||0;
+  }else{
+    monthly=toN(budget!==undefined?budget:l.budget);
+  }
+  if(monthly<=0){alert('還沒設定每月該存的金額，請先到「⚙️ 帳本設定」設定');return;}
+  // 填入 modal 欄位
+  const m1=document.getElementById('m1');if(m1)m1.value=monthly;
+  const m2=document.getElementById('m2');if(m2)m2.value='存入';
+  const m4=document.getElementById('m4');if(m4)m4.value=`${S.month} 月薪轉戶轉入`;
+  toast(`已自動填入本月該存 $${fmt(monthly)}`);
+};
+
 window.saveLE=async()=>{
   const date=g('m0'),amount=n('m1');if(!date||amount===0){alert('請填日期和金額');return;}
   const d=new Date(date),l=LEDGERS[S.ledgerIdx];
