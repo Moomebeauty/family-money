@@ -2685,16 +2685,27 @@ function pgCC(){
             <span style="border-left:1px solid var(--bdr);padding-left:18px;"><span class="tm">應繳淨額</span> <b style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--brown);letter-spacing:0.04em;">$${fmt(netSum)}</b></span>
           </div>
         </div>
+        <!-- 多筆刪除工具列 -->
+        <div id="cc-bulk-bar" style="display:none;background:var(--redl);padding:10px 16px;border-radius:var(--r-sm);margin-bottom:10px;border:1.5px solid var(--red);align-items:center;gap:12px;flex-wrap:wrap;">
+          <span style="font-weight:700;color:var(--red);">已選 <span id="cc-bulk-count">0</span> 筆</span>
+          <button class="btn btn-d btn-sm" onclick="delSelectedCC()" style="background:var(--red);color:#fff;">🗑 刪除已選</button>
+          <button class="btn btn-s btn-sm" onclick="clearCCSelection()">取消選取</button>
+          <span class="tm" style="margin-left:auto;font-size:12px;">⚠️ 若被選的有「⛓️ 預備金」記錄，會一併同步刪除預備金帳本對應記錄</span>
+        </div>
         <div class="tw"><table>
-          <thead><tr><th>日期</th><th>商家／品項</th><th>類別</th><th style="text-align:right;">金額</th><th>銀行</th><th></th></tr></thead>
-          <tbody>${filtered.length===0?`<tr><td colspan="6"><div class="empty"><div class="empty-ico">💳</div><p>此銀行本月尚無刷卡</p></div></td></tr>`:
+          <thead><tr>
+            <th style="width:40px;text-align:center;"><input type="checkbox" id="cc-select-all" onchange="toggleAllCC(this.checked)"></th>
+            <th>日期</th><th>商家／品項</th><th>類別</th><th style="text-align:right;">金額</th><th>銀行</th><th></th>
+          </tr></thead>
+          <tbody>${filtered.length===0?`<tr><td colspan="7"><div class="empty"><div class="empty-ico">💳</div><p>此銀行本月尚無刷卡</p></div></td></tr>`:
             filtered.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(e=>`<tr style="${e.fromLedger?'background:linear-gradient(90deg,rgba(167,149,179,0.08),transparent);':''}">
+              <td style="text-align:center;"><input type="checkbox" class="cc-select" data-id="${e.id}" data-linkid="${e.linkId||''}" data-fromledger="${e.fromLedger||''}" onchange="updateCCBulkBar()"></td>
               <td>${e.date||''}</td>
               <td>${e.fromLedger?'<span class="bdg" style="background:var(--pur);color:#fff;font-size:10px;margin-right:5px;">⛓️ 預備金</span>':''}<b>${e.item||'-'}</b>${e.note?`<br><span class="tm" style="font-size:11.5px;">${e.note}</span>`:''}</td>
               <td><span class="bdg">${e.category||'—'}</span></td>
               <td class="an" style="font-weight:700;color:${toN(e.amount)<0?'var(--grn)':'var(--red)'};">${toN(e.amount)<0?`+$${fmt(Math.abs(e.amount))}`:`-$${fmt(e.amount)}`}${toN(e.amount)<0?'<br><span class="tm" style="font-size:11px;color:var(--grn);">退款</span>':''}</td>
               <td><span class="bdg" style="background:var(--accL);color:var(--brown);">${e.cardBank||'其他'}</span></td>
-              <td style="white-space:nowrap;">${e.fromLedger?'<span class="tm" title="此筆來自預備金，請至預備金帳本編輯／刪除">🔒</span>':`<button class="bdel" style="color:#aaa;font-size:14px;" onclick="openM('editExp','${e.id}')">✏️</button><button class="bdel" onclick="delExp('${e.id}')">×</button>`}</td>
+              <td style="white-space:nowrap;">${e.fromLedger?`<button class="bdel" onclick="delExp('${e.id}')" title="刪除（連帶刪除預備金記錄）">×</button>`:`<button class="bdel" style="color:#aaa;font-size:14px;" onclick="openM('editExp','${e.id}')">✏️</button><button class="bdel" onclick="delExp('${e.id}')">×</button>`}</td>
             </tr>`).join('')}
           </tbody>
         </table></div>`;
@@ -4840,6 +4851,51 @@ window.removeStage=(i)=>{
   render();
 };
 // 🗑 一鍵刪除本月所有信用卡明細（給測試或重新輸入用）
+// ─── 信用卡多筆勾選刪除 ─────────────────────────────
+window.toggleAllCC=(checked)=>{
+  document.querySelectorAll('.cc-select').forEach(cb=>{cb.checked=checked;});
+  updateCCBulkBar();
+};
+window.updateCCBulkBar=()=>{
+  const checked=document.querySelectorAll('.cc-select:checked');
+  const bar=document.getElementById('cc-bulk-bar');
+  const cnt=document.getElementById('cc-bulk-count');
+  if(bar)bar.style.display=checked.length>0?'flex':'none';
+  if(cnt)cnt.textContent=checked.length;
+};
+window.clearCCSelection=()=>{
+  document.querySelectorAll('.cc-select').forEach(cb=>{cb.checked=false;});
+  const all=document.getElementById('cc-select-all');if(all)all.checked=false;
+  updateCCBulkBar();
+};
+window.delSelectedCC=async()=>{
+  const checked=document.querySelectorAll('.cc-select:checked');
+  if(checked.length===0){alert('請先勾選要刪除的明細');return;}
+  if(!confirm(`⚠️ 確定刪除 ${checked.length} 筆刷卡明細？\n（若有連動到預備金帳本，也會一併刪除）\n\n此動作無法復原。`))return;
+
+  setSyncing('syncing');
+  let deleted=0,linkedDeleted=0;
+  try{
+    for(const cb of checked){
+      const id=cb.dataset.id;
+      const linkId=cb.dataset.linkid;
+      // 連動刪除預備金記錄
+      if(linkId){
+        const linked=(S.data.ledgerEntries||[]).filter(le=>le.linkId===linkId);
+        for(const l of linked){await delSub('ledgerEntries',l.id);linkedDeleted++;}
+      }
+      await delSub('expenses',id);
+      deleted++;
+    }
+    setSyncing('synced');
+    toast(`✅ 已刪除 ${deleted} 筆${linkedDeleted>0?`，連動刪除 ${linkedDeleted} 筆預備金記錄`:''}`);
+  }catch(err){
+    console.error(err);
+    setSyncing('error');
+    alert('刪除失敗：'+err.message);
+  }
+};
+
 window.delThisMonthCC=async()=>{
   const y=yr(),mo=S.month;
   const allExp=S.data.expenses||[];
