@@ -535,6 +535,8 @@ function render(){
     ${mobNav()}
   </div>
   ${S.modal?modal():''}`;
+  // render 後觸發複利計算（如果儲蓄頁）
+  if(S.page==='savings'){setTimeout(()=>{if(typeof calcCompound==='function')calcCompound();},50);}
 }
 function renderLogin(){
   document.getElementById('LS').style.display='none';
@@ -668,6 +670,23 @@ function computeMonthly(){
 // 共用：產生「下一步建議」清單
 function getNextSteps(M){
   const steps=[];
+  // ★ 人生階段引導（針對「預備金階段」的個人化首要任務）
+  const emergencyMonths=toN(M.monthsCovered);
+  const hasIncome=M.tInc>0;
+  if(hasIncome){
+    if(emergencyMonths<3){
+      const needAmount=Math.round(M.fixedTotal*6-M.liquidAssets);
+      const monthsToGoal=M.mandatorySaving>0?Math.ceil(needAmount/M.mandatorySaving):'?';
+      steps.push({pri:0,ico:'🆘',ttl:`你的首要任務：把緊急預備金存到 6 個月`,sub:`目前可撐 <b>${emergencyMonths} 個月</b>，距離 6 個月目標還差 <b>$${fmt(Math.max(0,needAmount))}</b>。<br>📐 以你目前每月存 $${fmt(M.mandatorySaving)} 的速度，約 <b>${monthsToGoal} 個月</b>後達標。<br>💡 達標前不建議投資 ETF，避免急用時被迫低點賣股。`,btn:{lbl:'看儲蓄計畫',action:"setP('savings')"},color:'var(--red)'});
+    }else if(emergencyMonths<6){
+      const needAmount=Math.round(M.fixedTotal*6-M.liquidAssets);
+      const monthsToGoal=M.mandatorySaving>0?Math.ceil(needAmount/M.mandatorySaving):'?';
+      steps.push({pri:0,ico:'🏃',ttl:`預備金衝刺中：再 ${monthsToGoal} 個月就達標！`,sub:`目前可撐 <b>${emergencyMonths} 個月</b>，已超過 3 個月警戒線。<br>📐 還差 $${fmt(Math.max(0,needAmount))} 達到 6 個月目標。<br>💡 達標後可開始小額定期定額 ETF（0050、006208）。`,btn:{lbl:'看儲蓄計畫',action:"setP('savings')"},color:'var(--yelb)'});
+    }else{
+      const monthlyInvestable=Math.max(0,M.variableRemaining);
+      steps.push({pri:0,ico:'🚀',ttl:`預備金已達標！可開始定期定額投資`,sub:`目前可撐 <b>${emergencyMonths} 個月</b>，緊急預備金足夠。<br>📐 你還有約 $${fmt(monthlyInvestable)}/月 可投資。<br>💡 33 歲每月投 $5,000 × 27 年 × 年化 10% ≈ $657 萬（試算不保證）。<br>⚠️ 選簡單：0050、006208、VOO、VT，定期定額後不要看。`,btn:{lbl:'看複利試算',action:"setP('savings')"},color:'var(--grn)'});
+    }
+  }
   // 1. 沒填本月收入
   if(M.tInc===0){
     steps.push({pri:1,ico:'💰',ttl:'記錄本月收入',sub:`月初第一件事，先填入家庭薪資與其他收入`,btn:{lbl:'前往記帳',action:"setP('monthly')"},color:'var(--grn)'});
@@ -2467,9 +2486,6 @@ function pgCC(){
     <div class="sc blu"><div class="sl">📊 應繳淨額</div><div class="sv blu">$${fmt(total)}</div><div class="ss">${allCard.length} 筆合計</div></div>
     <div class="sc rose"><div class="sl">🏦 使用卡張數</div><div class="sv rose">${new Set(allCard.map(e=>e.cardBank||'其他')).size}<span style="font-size:18px;"> 張</span></div></div>
   </div>
-  <div class="sg sg3">
-    ${userTotals.map(ut=>`<div class="sc gold"><div class="sl">${ut.u} 刷卡</div><div class="sv sm">$${fmt(ut.amt)}</div><div class="ss">${total>0?Math.round(ut.amt/total*100):0}% 佔比</div></div>`).join('')}
-  </div>
 
   <!-- 帳務核對 -->
   <div class="card">
@@ -3109,8 +3125,65 @@ function pgSavings(){
 
   return`
   <div class="pg-ttl">🏦 儲蓄計畫</div>
-  <div class="pg-sub">先儲蓄，再生活 — 月目標 ＋ 年度終極目標</div>
+  <div class="pg-sub">先儲蓄，再生活 — 月目標 ＋ 年度終極目標 ＋ 複利試算</div>
   ${moSel()}
+
+  <!-- ⚠️ 緊急預備金狀態 -->
+  ${(()=>{
+    const M=computeMonthly();
+    const target6=M.fixedTotal*6;
+    const cur=M.liquidAssets;
+    const pct=target6>0?Math.min(100,Math.round(cur/target6*100)):0;
+    const need=Math.max(0,target6-cur);
+    const monthsToGoal=M.mandatorySaving>0?Math.ceil(need/M.mandatorySaving):0;
+    const status=M.monthsCovered>=6?'達標':M.monthsCovered>=3?'進度中':'不足';
+    const col=M.monthsCovered>=6?'var(--grn)':M.monthsCovered>=3?'var(--yelb)':'var(--red)';
+    return`<div class="card card-feature" style="border:2px solid ${col};">
+      <div class="card-hd">
+        <span class="card-ttl">🆘 緊急預備金狀態</span>
+        <span class="bdg" style="background:${col};color:#fff;">${status}</span>
+      </div>
+      <div class="card-bd">
+        <div class="sg sg3" style="margin-bottom:14px;">
+          <div><div class="sl">目前累積</div><div class="sv ${M.monthsCovered>=6?'grn':M.monthsCovered>=3?'gold':'red'} sm">$${fmt(cur)}</div><div class="ss">可撐 ${M.monthsCovered} 個月</div></div>
+          <div><div class="sl">6 個月目標</div><div class="sv blu sm">$${fmt(target6)}</div><div class="ss">月固定支出 × 6</div></div>
+          <div><div class="sl">還差</div><div class="sv ${need===0?'grn':'red'} sm">$${fmt(need)}</div><div class="ss">${monthsToGoal>0?`約 ${monthsToGoal} 個月後達標`:'已達標 🎉'}</div></div>
+        </div>
+        <div class="pb-lg"><div class="pf" style="width:${pct}%;background:${col};"></div></div>
+        <div class="tm" style="margin-top:8px;text-align:center;">進度 ${pct}%　${M.monthsCovered<6?'⚠️ 達標前建議所有閒錢都先存緊急預備金，不要急著投資':'✅ 已達標，可考慮開始定期定額投資'}</div>
+      </div>
+    </div>`;
+  })()}
+
+  <!-- 📈 複利試算器 -->
+  <div class="card card-feature">
+    <div class="card-hd">
+      <span class="card-ttl">📈 複利試算器</span>
+      <span class="bdg" style="background:var(--pur);color:#fff;">時間是你的優勢</span>
+    </div>
+    <div class="card-bd">
+      <div class="notice tip" style="font-size:13.5px;margin-bottom:14px;">
+        💡 <b>用法：</b>輸入「每月投資金額」「年化報酬率」「投資年數」→ 看複利後變多少。<br>
+        📐 <b>公式：</b>未來值 = 每月投資 × [(1+r)^n − 1] / r　（r = 月化報酬率 = 年化 ÷ 12）<br>
+        ⚠️ <b>這是「假設條件下」的數學試算，不是投資承諾。</b>實際報酬會受市場波動、稅費影響。
+      </div>
+      <div class="fg fg3">
+        <div class="fgrp"><label>每月投資金額（NT$）</label>
+          <input type="number" id="ci_monthly" value="${(S.data.compoundCfg||{}).monthly||5000}" oninput="calcCompound()">
+        </div>
+        <div class="fgrp"><label>年化報酬率 (%)</label>
+          <input type="number" step="0.1" id="ci_rate" value="${(S.data.compoundCfg||{}).rate||10}" oninput="calcCompound()">
+          <div class="tm" style="font-size:11px;margin-top:3px;">📊 參考：0050 過去 10 年平均約 9-10%，定存約 1.5%</div>
+        </div>
+        <div class="fgrp"><label>投資年數</label>
+          <input type="number" id="ci_years" value="${(S.data.compoundCfg||{}).years||27}" oninput="calcCompound()">
+          <div class="tm" style="font-size:11px;margin-top:3px;">⏳ 你 33 歲 → 60 歲 = 27 年</div>
+        </div>
+      </div>
+      <div id="ci-result" style="background:linear-gradient(135deg,var(--purl),var(--card));padding:20px 24px;border-radius:var(--r-sm);margin-top:14px;border:1.5px solid var(--pur);">載入中…</div>
+      <div style="text-align:right;margin-top:10px;"><button class="btn btn-s btn-sm" onclick="saveCompoundCfg()">💾 儲存設定</button></div>
+    </div>
+  </div>
 
   <!-- 整體概況 -->
   <div class="sg sg4">
@@ -5004,6 +5077,71 @@ window.removeStage=(i)=>{
 // ─── 信用卡多筆勾選刪除 ─────────────────────────────
 // ─── 信用卡對帳確認（逐筆對照銀行帳單）───────────────────
 // 切換展開／收合預備金分類明細（事件委派）
+// ─── 📈 複利試算器 ─────────────────────────────
+window.calcCompound=()=>{
+  const monthly=toN(document.getElementById('ci_monthly')?.value);
+  const rate=toN(document.getElementById('ci_rate')?.value);
+  const years=toN(document.getElementById('ci_years')?.value);
+  const resultEl=document.getElementById('ci-result');
+  if(!resultEl)return;
+  if(monthly<=0||years<=0){
+    resultEl.innerHTML=`<div style="text-align:center;color:var(--mut);">請輸入正確的數字</div>`;return;
+  }
+  const r=rate/100/12;  // 月化利率
+  const n=years*12;
+  let futureValue;
+  if(r===0){
+    futureValue=monthly*n;
+  }else{
+    futureValue=monthly*(Math.pow(1+r,n)-1)/r;
+  }
+  const totalInvested=monthly*n;
+  const profit=futureValue-totalInvested;
+  const profitRatio=totalInvested>0?Math.round(profit/totalInvested*100):0;
+
+  // 年化里程碑
+  const milestones=[5,10,15,20,years].filter((v,i,a)=>a.indexOf(v)===i&&v<=years).sort((a,b)=>a-b);
+  const milestonesHTML=milestones.map(y=>{
+    const nn=y*12;
+    const fv=r===0?monthly*nn:monthly*(Math.pow(1+r,nn)-1)/r;
+    return`<div style="flex:1;text-align:center;padding:10px;background:var(--card);border-radius:8px;min-width:120px;">
+      <div class="tm" style="font-size:11px;">${y} 年後</div>
+      <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--brown);margin-top:3px;">$${fmt(Math.round(fv))}</div>
+      <div class="tm" style="font-size:10px;color:var(--mut);">投入 $${fmt(monthly*nn)}</div>
+    </div>`;
+  }).join('');
+
+  resultEl.innerHTML=`
+    <div style="text-align:center;margin-bottom:14px;">
+      <div class="tm" style="font-size:13px;letter-spacing:0.1em;">${years} 年後總值（試算）</div>
+      <div style="font-family:'Noto Serif TC',serif;font-size:42px;font-weight:700;color:var(--pur);letter-spacing:0.04em;margin-top:4px;">$${fmt(Math.round(futureValue))}</div>
+    </div>
+    <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
+      <div style="flex:1;text-align:center;padding:10px;background:var(--card);border-radius:8px;min-width:120px;">
+        <div class="tm" style="font-size:11px;">你總共投入</div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--blu);">$${fmt(totalInvested)}</div>
+      </div>
+      <div style="flex:1;text-align:center;padding:10px;background:var(--card);border-radius:8px;min-width:120px;">
+        <div class="tm" style="font-size:11px;">複利幫你賺</div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--grn);">$${fmt(Math.round(profit))}</div>
+        <div class="tm" style="font-size:10px;">+${profitRatio}%</div>
+      </div>
+    </div>
+    <div style="border-top:1px dashed var(--bdr);padding-top:14px;">
+      <div class="tm" style="font-size:12px;margin-bottom:8px;color:var(--brown);font-weight:600;">📊 各年里程碑：</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">${milestonesHTML}</div>
+    </div>
+    <div class="tm" style="font-size:11px;margin-top:14px;line-height:1.6;color:var(--mut);">⚠️ <b>免責聲明：</b>此為數學試算結果，假設報酬率穩定。實際投資會受市場波動、稅費影響。0050 過去 10 年平均年化約 9-10%，但<b>過去績效不代表未來</b>。請依個人風險承受度決定。</div>`;
+};
+
+window.saveCompoundCfg=async()=>{
+  const monthly=toN(document.getElementById('ci_monthly')?.value);
+  const rate=toN(document.getElementById('ci_rate')?.value);
+  const years=toN(document.getElementById('ci_years')?.value);
+  await saveMain({compoundCfg:{monthly,rate,years}});
+  toast('✅ 已儲存複利設定');
+};
+
 window.toggleLedgerCat=(cat)=>{
   if((S.openLedgerCat||'')===cat){
     S.openLedgerCat=null;
