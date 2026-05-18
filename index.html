@@ -4309,13 +4309,13 @@ const n=id=>toN(g(id));
 window.saveInc=async()=>{
   const date=g('m0'),amount=n('m1');if(!date||!amount){alert('請填日期和金額');return;}
   const d=new Date(date);
-  await addSub('incomes',{date,amount,category:g('m2'),isPassive:g('m3')==='1',user:g('m4'),note:g('m5'),month:d.getMonth()+1,year:d.getFullYear()});
+  await addSub('incomes',{date,amount,category:g('m2'),isPassive:g('m3')==='1',user:S.user,note:g('m5')||'',month:d.getMonth()+1,year:d.getFullYear()});
   toast('✅ 收入已記錄');closeMod();
 };
 window.saveExp=async()=>{
   const date=g('m0'),amount=n('m1');if(!date||!amount){alert('請填日期和金額');return;}
   const d=new Date(date),method=g('m3'),cardBank=method==='信用卡'?g('m_cb'):'';
-  await addSub('expenses',{date,amount,category:g('m2'),payMethod:method,cardBank,user:g('m4'),note:g('m5'),month:d.getMonth()+1,year:d.getFullYear()});
+  await addSub('expenses',{date,amount,category:g('m2'),payMethod:method,cardBank,user:S.user,note:g('m5')||'',month:d.getMonth()+1,year:d.getFullYear()});
   toast('✅ 支出已記帳');closeMod();
 };
 window.saveAsset=async()=>{
@@ -4428,18 +4428,38 @@ window.updDream=async(id)=>{
 window.updInc=async(id)=>{
   const date=g('m0'),amount=n('m1');if(!date||!amount){alert('請填日期和金額');return;}
   const d=new Date(date);
+  const oldInc=(S.data.incomes||[]).find(i=>i.id===id)||{};
   setSyncing('syncing');
-  try{await setDoc(doc(db,'families',FID,'incomes',id),{date,amount,category:g('m2'),isPassive:g('m3')==='1',user:g('m4'),note:g('m5'),month:d.getMonth()+1,year:d.getFullYear()});setSyncing('synced');}
-  catch{setSyncing('error');toast('儲存失敗');}
-  toast('✅ 已更新');closeMod();
+  try{
+    const newData={...oldInc,date,amount,category:g('m2'),isPassive:g('m3')==='1',note:g('m5')||'',month:d.getMonth()+1,year:d.getFullYear()};
+    delete newData.id;
+    await setDoc(doc(db,'families',FID,'incomes',id),newData);
+    setSyncing('synced');
+    toast('✅ 已更新');
+  }catch(err){
+    console.error(err);setSyncing('error');
+    alert('儲存失敗：'+(err.message||err));
+    return;
+  }
+  closeMod();
 };
 window.updExp=async(id)=>{
   const date=g('m0'),amount=n('m1');if(!date||!amount){alert('請填日期和金額');return;}
   const d=new Date(date),method=g('m3'),cardBank=method==='信用卡'?g('m_cb'):'';
+  const oldExp=(S.data.expenses||[]).find(e=>e.id===id)||{};
   setSyncing('syncing');
-  try{await setDoc(doc(db,'families',FID,'expenses',id),{date,amount,category:g('m2'),payMethod:method,cardBank,user:g('m4'),note:g('m5'),month:d.getMonth()+1,year:d.getFullYear()});setSyncing('synced');}
-  catch{setSyncing('error');toast('儲存失敗');}
-  toast('✅ 已更新');closeMod();
+  try{
+    const newData={...oldExp,date,amount,category:g('m2'),payMethod:method,cardBank,note:g('m5')||'',month:d.getMonth()+1,year:d.getFullYear()};
+    delete newData.id;
+    await setDoc(doc(db,'families',FID,'expenses',id),newData);
+    setSyncing('synced');
+    toast('✅ 已更新');
+  }catch(err){
+    console.error(err);setSyncing('error');
+    alert('儲存失敗：'+(err.message||err));
+    return;
+  }
+  closeMod();
 };
 window.updLE=async(id)=>{
   const date=g('m0'),amount=n('m1');
