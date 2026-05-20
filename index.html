@@ -391,6 +391,7 @@ const PAGES=[
   {id:'home',     ico:'🏠',lbl:'首頁',group:'main'},
   {id:'monthly',  ico:'💰',lbl:'每月記帳',group:'main'},
   {id:'goals',    ico:'🎯',lbl:'目標 GPS',group:'main'},
+  {id:'invest',   ico:'💎',lbl:'投資主軸',group:'main'},
   {id:'health',   ico:'📊',lbl:'健檢報告',group:'main'},
   {id:'settings', ico:'⚙️',lbl:'設定',group:'main'},
   // 進階子頁（從設定／首頁進去）
@@ -410,7 +411,7 @@ const PAGES=[
   {id:'dreams',   ico:'🌟',lbl:'夢想計畫',group:'advanced'},
   {id:'reports',  ico:'📈',lbl:'年報',group:'advanced'},
 ];
-const MOB=['home','monthly','goals','health','settings'];
+const MOB=['home','monthly','invest','goals','settings'];
 
 // ── STATE ───────────────────────────────────────────────────
 let S={
@@ -433,7 +434,8 @@ let S={
     ]},
     allocLogs:{},
     members:[],goals:[],insurances:[],
-    merchantCats:{},cardPayments:{},cardRewards:{},importStaging:[]
+    merchantCats:{},cardPayments:{},cardRewards:{},
+    investTracks:[],investNotes:{},importStaging:[]
   }
 };
 const getBanks=()=>S.data.banks&&S.data.banks.length?S.data.banks:[...DEF_BANKS];
@@ -470,6 +472,8 @@ function startSync(){
       S.data.merchantCats=d.merchantCats||{};
       S.data.cardPayments=d.cardPayments||{};
       S.data.cardRewards=d.cardRewards||{};
+      S.data.investTracks=d.investTracks||[];
+      S.data.investNotes=d.investNotes||{};
     }
     setSyncing('synced');
     if(S.auth) render();
@@ -580,6 +584,7 @@ function page(){
     // 新版 5 大主頁
     case'home':     return pgHome();
     case'health':   return pgHealth();
+    case'invest':   return pgInvest();
     case'settings': return pgSettings();
     // monthly 在新版是「每月記帳」，舊版的「逐月收支」改名為 monthlytab
     case'monthly':  return pgMonthlyEntry();
@@ -877,6 +882,64 @@ function pgHome(){
       </div>
     </div>
   </div>`}
+
+  <!-- 📜 我的財務座右銘（個人化提醒，預設展開）-->
+  <div class="card card-feature">
+    <div class="card-hd">
+      <span class="card-ttl">📜 我的財務座右銘　33 歲的任務</span>
+      <button class="btn btn-s btn-sm" onclick="(function(b){const c=b.parentElement.parentElement.querySelector('.creed-body');c.style.display=c.style.display==='none'?'block':'none';b.textContent=c.style.display==='none'?'展開':'收起';})(this)">收起</button>
+    </div>
+    <div class="card-bd creed-body">
+      <div style="background:linear-gradient(135deg,var(--accL),var(--card));padding:20px 24px;border-radius:var(--r-sm);font-size:14.5px;line-height:2;letter-spacing:0.05em;color:var(--txt);">
+        <div style="text-align:center;font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--brown);letter-spacing:0.1em;margin-bottom:14px;padding-bottom:12px;border-bottom:1.5px dashed var(--bdr);">
+          ⏳ 我最大的優勢就是時間「33 歲」<br>
+          <span style="font-size:14px;color:var(--mut);font-weight:500;">每年投資報酬率 10%，哪怕金額小，越早開始越好</span>
+        </div>
+
+        <b style="color:var(--brown);font-family:'Noto Serif TC',serif;font-size:15px;">🎯 現在該做到的事</b>
+
+        <div style="margin:10px 0 16px;padding-left:16px;">
+          <div style="margin-bottom:10px;"><b style="color:var(--pur);">1. 先存到第一桶金</b><br>
+          <span style="font-size:13.5px;">不用一開始就 100 萬。先從每個月固定投資幾千、幾萬開始。重點是<b>養成習慣</b>，讓錢自動進到投資帳戶。</span></div>
+
+          <div style="margin-bottom:10px;"><b style="color:var(--blu);">2. 保住你的「固定收入」</b><br>
+          <span style="font-size:13.5px;">複利要能成立，是因為你有薪水可以過日子，才捨得把獲利再投進去。好好工作、提升專業、增加收入，比研究明牌股票更重要。</span></div>
+
+          <div><b style="color:var(--grn);">3. 投資選簡單的就好</b><br>
+          <span style="font-size:13.5px;">指數型 ETF（0050、006208，或美股 VOO、VT）就夠了。不用研究個股，定期定額買進，放著就對了。</span></div>
+        </div>
+
+        <b style="color:var(--brown);font-family:'Noto Serif TC',serif;font-size:15px;">💭 心態上要想清楚</b>
+        <div style="margin:10px 0 16px;padding-left:16px;font-size:13.5px;">
+          33 歲到 60 歲，還有 27 年。中間會經歷股災、疫情、各種意外。<br>
+          很多人受不了股市大跌就把錢領出來，<b style="color:var(--red);">複利就斷掉了</b>。<br>
+          這筆投資的錢，27 年內都不會動用。生活費、緊急預備金要分開存。
+        </div>
+
+        <b style="color:var(--red);font-family:'Noto Serif TC',serif;font-size:15px;">🚫 不要犯的錯</b>
+        <div style="margin:10px 0 16px;padding-left:16px;font-size:13.5px;">
+          • 不要借錢投資（槓桿會讓你睡不著）<br>
+          • 不要追明牌、聽小道消息<br>
+          • 不要頻繁買賣（手續費和稅會吃掉複利）<br>
+          • 不要因為短期下跌就停損出場
+        </div>
+
+        <b style="color:var(--gold);font-family:'Noto Serif TC',serif;font-size:15px;">🌸 別把人生只用來存錢</b>
+        <div style="margin:10px 0 16px;padding-left:16px;font-size:13.5px;">
+          80 歲有 1 億，不如 60 歲就開始花 200 萬。該花的還是要花：<br>
+          • 該談戀愛、結婚、生小孩，不要等<br>
+          • 該旅行、學東西、陪父母，不要等<br>
+          • 該照顧身體、運動、體檢，不要省<br>
+          複利會幫你準備未來，但現在的人生也只有一次。
+        </div>
+
+        <div style="text-align:center;font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);letter-spacing:0.1em;padding:14px;background:var(--card);border-radius:var(--r-sm);margin-top:8px;border-left:4px solid var(--acc);border-right:4px solid var(--acc);">
+          ✨ 33 歲的任務：穩定收入、固定投資、認真生活 ✨<br>
+          <span style="font-size:13px;color:var(--mut);font-weight:500;">讓時間和複利幫你工作，你只要做好自己的事就好</span>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- 🚀 快速入口 -->
   <div class="card">
@@ -1329,6 +1392,235 @@ function pgSettings(){
         <button onclick="setP('reports')" style="padding:14px;border:1.5px solid var(--bdr);border-radius:var(--r-sm);background:var(--card);cursor:pointer;text-align:center;"><div style="font-size:24px;margin-bottom:4px;">📈</div><div style="font-weight:700;color:var(--brown);">年報</div></button>
         <button onclick="setP('dreams')" style="padding:14px;border:1.5px solid var(--bdr);border-radius:var(--r-sm);background:var(--card);cursor:pointer;text-align:center;"><div style="font-size:24px;margin-bottom:4px;">🌟</div><div style="font-weight:700;color:var(--brown);">夢想計畫</div></button>
         <button onclick="exportCSV()" style="padding:14px;border:1.5px solid var(--bdr);border-radius:var(--r-sm);background:var(--card);cursor:pointer;text-align:center;"><div style="font-size:24px;margin-bottom:4px;">⬇️</div><div style="font-weight:700;color:var(--brown);">匯出 Excel</div></button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ─── 💎 投資主軸 ─────────────────────────────────────
+function pgInvest(){
+  const tracks=S.data.investTracks||[];
+  const notes=S.data.investNotes||{};
+  return`
+  <div class="pg-ttl">💎 投資主軸　ETF 主食 ｜ 基金配菜 ｜ 股票辣椒</div>
+  <div class="pg-sub">投資心法 ＋ 分批加碼追蹤器 ＋ 趨勢筆記</div>
+
+  <!-- 🍱 配置原則：主食/配菜/辣椒 -->
+  <div class="card card-feature">
+    <div class="card-hd">
+      <span class="card-ttl">🍱 資產配置三原則</span>
+      <span class="bdg" style="background:var(--gold);color:#fff;">主軸思維</span>
+    </div>
+    <div class="card-bd">
+      <div class="sg sg3">
+        <div style="background:linear-gradient(135deg,var(--grnl),var(--card));padding:18px 22px;border-radius:var(--r-sm);border-left:4px solid var(--grn);">
+          <div style="font-size:38px;text-align:center;margin-bottom:8px;">🍚</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--brown);text-align:center;letter-spacing:0.1em;margin-bottom:8px;">ETF 當主食</div>
+          <div class="tm" style="text-align:center;font-size:13px;margin-bottom:10px;">主食才是吃最久的東西</div>
+          <div style="font-size:13px;line-height:1.8;">
+            • 靠市場一起漲，比較穩<br>
+            • 適合長期持有<br>
+            • 例：0050、006208、VOO、VT<br>
+            • <b>建議佔比 70-80%</b>
+          </div>
+        </div>
+        <div style="background:linear-gradient(135deg,var(--accL),var(--card));padding:18px 22px;border-radius:var(--r-sm);border-left:4px solid var(--acc);">
+          <div style="font-size:38px;text-align:center;margin-bottom:8px;">🥬</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--brown);text-align:center;letter-spacing:0.1em;margin-bottom:8px;">基金當配菜</div>
+          <div class="tm" style="text-align:center;font-size:13px;margin-bottom:10px;">配菜吃太多會偏食</div>
+          <div style="font-size:13px;line-height:1.8;">
+            • 靠經理人選得準不準<br>
+            • 容易大賺也容易翻車<br>
+            • 例：安聯科技、QQQ<br>
+            • <b>建議佔比 10-20%</b>
+          </div>
+        </div>
+        <div style="background:linear-gradient(135deg,var(--redl),var(--card));padding:18px 22px;border-radius:var(--r-sm);border-left:4px solid var(--red);">
+          <div style="font-size:38px;text-align:center;margin-bottom:8px;">🌶️</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--brown);text-align:center;letter-spacing:0.1em;margin-bottom:8px;">單一股票當辣椒</div>
+          <div class="tm" style="text-align:center;font-size:13px;margin-bottom:10px;">辣椒放太多會辣死</div>
+          <div style="font-size:13px;line-height:1.8;">
+            • 風險最高、波動最大<br>
+            • 適合資深玩家<br>
+            • 例：個股、主題股<br>
+            • <b>建議佔比 5-10%</b>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 📉 分批加碼追蹤器（核心功能）-->
+  <div class="card card-feature">
+    <div class="card-hd">
+      <span class="card-ttl">📉 分批加碼追蹤器　跌 10% 買一點 ｜ 跌 20% 再買 ｜ 跌 30% 加碼</span>
+      <button class="btn btn-p btn-sm" onclick="openM('addInvest')">＋ 新增追蹤標的</button>
+    </div>
+    <div class="card-bd">
+      <div class="notice info" style="font-size:13.5px;margin-bottom:14px;">
+        💡 <b>使用方式：</b><br>
+        1. 點「＋ 新增追蹤標的」加入你想關注的 ETF / 基金 / 股票<br>
+        2. 設定「參考價」（基準價，例如最近的高點、買進均價）<br>
+        3. 每週或每月更新「目前股價」<br>
+        4. 系統會自動算跌幅，並給你訊號：⚠️ 買一點 → 🔥 再買 → 💎 加碼買<br>
+        📌 <b>記得：沒人能猜最低點，分批買比一次賭對更重要。</b>
+      </div>
+
+      ${tracks.length===0?`<div class="empty" style="padding:30px;">
+        <div style="font-size:56px;margin-bottom:10px;">📉</div>
+        <p style="font-size:16px;margin-bottom:6px;">還沒設定追蹤標的</p>
+        <p class="tm" style="font-size:13px;">建議從你的主力 ETF 開始（如 0050、006208）</p>
+        <button class="btn btn-p" style="margin-top:14px;" onclick="openM('addInvest')">立即新增第一個</button>
+      </div>`:`<div class="sg sg2">
+        ${tracks.map(t=>{
+          const refP=toN(t.refPrice);
+          const curP=toN(t.currentPrice);
+          const drop=refP>0?((curP-refP)/refP*100):0;
+          const dropPct=Math.abs(drop).toFixed(1);
+          const isDropping=drop<0;
+          // 訊號等級
+          let signal='',sigCol='var(--mut)',sigBg='var(--bg2)',sigIco='';
+          if(isDropping){
+            if(drop<=-30){signal='💎 加碼買（重壓）';sigCol='#fff';sigBg='var(--red)';sigIco='💎';}
+            else if(drop<=-20){signal='🔥 再買一點';sigCol='#fff';sigBg='var(--gold)';sigIco='🔥';}
+            else if(drop<=-10){signal='⚠️ 可以買一點';sigCol='#fff';sigBg='var(--yelb)';sigIco='⚠️';}
+            else {signal=`觀望（跌幅 ${dropPct}%）`;sigCol='var(--mut)';sigBg='var(--bg2)';}
+          }else if(drop>0){
+            signal=`📈 上漲 ${dropPct}%（不適合進場）`;sigCol='var(--grn)';sigBg='var(--grnl)';
+          }else{
+            signal='💤 持平';sigCol='var(--mut)';sigBg='var(--bg2)';
+          }
+          const cardCol=drop<=-30?'var(--red)':drop<=-20?'var(--gold)':drop<=-10?'var(--yelb)':'var(--bdr)';
+          return`<div style="border:2px solid ${cardCol};border-radius:var(--r-sm);padding:18px 22px;background:var(--card);">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
+              <div style="flex:1;">
+                <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--brown);letter-spacing:0.06em;">${t.icon||'📊'} ${t.name||'-'}</div>
+                <div class="tm" style="margin-top:4px;font-size:12px;">${t.code||''} ${t.type?`<span class="bdg" style="background:var(--accL);color:var(--brown);font-size:11px;">${t.type}</span>`:''}</div>
+              </div>
+              <div style="display:flex;gap:4px;">
+                <button class="bdel" style="color:#aaa;font-size:14px;" onclick="openM('editInvest','${t.id}')">✏️</button>
+                <button class="bdel" onclick="delInvest('${t.id}')">×</button>
+              </div>
+            </div>
+
+            <div class="sg sg2" style="margin-bottom:12px;">
+              <div style="text-align:center;padding:10px;background:var(--bg2);border-radius:8px;">
+                <div class="tm" style="font-size:11px;">參考價</div>
+                <div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:var(--brown);">$${fmt(refP)}</div>
+              </div>
+              <div style="text-align:center;padding:10px;background:${isDropping?'var(--redl)':'var(--grnl)'};border-radius:8px;">
+                <div class="tm" style="font-size:11px;">目前股價</div>
+                <div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:${isDropping?'var(--red)':'var(--grn)'};">$${fmt(curP)}</div>
+              </div>
+            </div>
+
+            <div style="text-align:center;padding:14px;background:${sigBg};border-radius:8px;margin-bottom:12px;border:2px solid ${cardCol};">
+              <div style="font-family:'Noto Serif TC',serif;font-size:24px;font-weight:700;color:${sigCol};">${signal}</div>
+              ${isDropping?`<div style="font-size:14px;color:${sigCol};margin-top:4px;">跌幅 ${dropPct}%</div>`:''}
+            </div>
+
+            <!-- 加碼進度條 -->
+            <div style="margin-bottom:10px;">
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--mut);margin-bottom:4px;">
+                <span>+0%</span><span>-10%</span><span>-20%</span><span>-30%+</span>
+              </div>
+              <div style="position:relative;height:8px;background:var(--bg2);border-radius:4px;overflow:hidden;">
+                <div style="position:absolute;left:0;top:0;height:100%;width:${Math.min(100,Math.max(0,-drop/30*100))}%;background:linear-gradient(90deg,var(--yelb),var(--gold),var(--red));"></div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:6px;margin-top:10px;">
+              <input type="number" step="0.01" placeholder="輸入目前股價" id="ip_${t.id}" style="flex:1;padding:8px 10px;border:1px solid var(--bdr);border-radius:6px;font-size:13px;">
+              <button class="btn btn-p btn-sm" onclick="updateInvestPrice('${t.id}')">更新</button>
+            </div>
+
+            ${t.note?`<div class="tm" style="margin-top:10px;font-size:12px;line-height:1.6;padding:8px;background:var(--bg2);border-radius:6px;">📝 ${t.note}</div>`:''}
+          </div>`;
+        }).join('')}
+      </div>`}
+    </div>
+  </div>
+
+  <!-- 🎯 2026 投資筆記 -->
+  <div class="card">
+    <div class="card-hd">
+      <span class="card-ttl">🎯 2026 投資趨勢筆記</span>
+      <span class="bdg" style="background:var(--blu);color:#fff;">心法整理</span>
+    </div>
+    <div class="card-bd">
+      <div class="notice tip" style="font-size:13px;margin-bottom:14px;">
+        ⚠️ 以下整理自「巴菲威幼兒園」內容，<b>不是投資建議</b>。請依個人狀況判斷。
+      </div>
+
+      <div style="background:linear-gradient(135deg,var(--purl),var(--card));padding:18px 22px;border-radius:var(--r-sm);margin-bottom:14px;">
+        <b style="color:var(--brown);font-family:'Noto Serif TC',serif;font-size:16px;">🌐 整個世界都在為 AI 蓋基礎建設</b>
+        <div style="font-size:13.5px;line-height:1.9;margin-top:10px;">
+          AI 現在不是只有晶片，未來最賺的可能不是 AI 公司，而是：<br>
+          <span style="display:inline-block;margin:8px 0;padding:6px 12px;background:var(--card);border-radius:20px;font-size:12px;">⚡ 電力</span>
+          <span style="display:inline-block;margin:8px 4px;padding:6px 12px;background:var(--card);border-radius:20px;font-size:12px;">🔋 儲能</span>
+          <span style="display:inline-block;margin:8px 4px;padding:6px 12px;background:var(--card);border-radius:20px;font-size:12px;">🔌 變壓器</span>
+          <span style="display:inline-block;margin:8px 4px;padding:6px 12px;background:var(--card);border-radius:20px;font-size:12px;">🌊 發電</span>
+          <span style="display:inline-block;margin:8px 4px;padding:6px 12px;background:var(--card);border-radius:20px;font-size:12px;">📡 電網升級</span>
+        </div>
+      </div>
+
+      <div style="background:linear-gradient(135deg,var(--accL),var(--card));padding:18px 22px;border-radius:var(--r-sm);margin-bottom:14px;">
+        <b style="color:var(--brown);font-family:'Noto Serif TC',serif;font-size:16px;">🌡️ AI 下一波可能不是 Nvidia，是散熱</b>
+        <div style="font-size:13.5px;line-height:1.9;margin-top:10px;">
+          AI 伺服器越來越燙，以前機櫃 5-10kW，現在 AI 機櫃直接衝到 60kW 以上。<br>
+          可能受惠：<br>
+          <span style="display:inline-block;margin:4px;padding:6px 12px;background:var(--card);border-radius:20px;font-size:12px;">💧 水冷</span>
+          <span style="display:inline-block;margin:4px;padding:6px 12px;background:var(--card);border-radius:20px;font-size:12px;">🧊 液冷</span>
+          <span style="display:inline-block;margin:4px;padding:6px 12px;background:var(--card);border-radius:20px;font-size:12px;">🔧 散熱模組</span>
+          <span style="display:inline-block;margin:4px;padding:6px 12px;background:var(--card);border-radius:20px;font-size:12px;">🧪 散熱材料</span>
+          <span style="display:inline-block;margin:4px;padding:6px 12px;background:var(--card);border-radius:20px;font-size:12px;">⚗️ 化學材料</span>
+          <span style="display:inline-block;margin:4px;padding:6px 12px;background:var(--card);border-radius:20px;font-size:12px;">🔗 特殊膠材</span>
+        </div>
+      </div>
+
+      <div style="background:linear-gradient(135deg,var(--grnl),var(--card));padding:18px 22px;border-radius:var(--r-sm);margin-bottom:14px;">
+        <b style="color:var(--brown);font-family:'Noto Serif TC',serif;font-size:16px;">🏠 為什麼基金現在勝率高（vs 房市）</b>
+        <div style="font-size:13.5px;line-height:1.9;margin-top:10px;">
+          台灣房市 2026 觀察：漲不太動、成交量變少、貸款更難、買方敢殺價<br>
+          房子最怕的不是跌，是「你卡一大筆頭期款進去，結果 2-3 年幾乎不漲，還要背貸款、稅金、管理費、空租風險」<br>
+          反而基金順風：AI 還在很強、台灣靠 AI/半導體/出口、台積電上修展望
+        </div>
+      </div>
+
+      <div style="background:linear-gradient(135deg,var(--yelb)/15,var(--card));padding:18px 22px;border-radius:var(--r-sm);margin-bottom:14px;border-left:4px solid var(--yelb);">
+        <b style="color:var(--brown);font-family:'Noto Serif TC',serif;font-size:16px;">📊 為什麼要分批買</b>
+        <div style="font-size:13.5px;line-height:1.9;margin-top:10px;">
+          如果 AI 需求還在、資料中心還在蓋、晶片還在缺、企業還在砸錢，<br>
+          那短期跌下來，有時候只是市場在冷靜，<b>不是 AI 真的結束</b>。<br><br>
+          <b>所以很多人最愛的買法是：</b><br>
+          • 跌 10% 買一點<br>
+          • 跌 20% 再買<br>
+          • 跌 30% 再加碼<br><br>
+          因為<b>沒人能猜最低點</b>，<b>分批買比一次賭對更重要</b>。<br>
+          這就是為什麼威力要你們分批買、分散風險。
+        </div>
+      </div>
+
+      <div style="background:linear-gradient(135deg,var(--rose)/20,var(--card));padding:18px 22px;border-radius:var(--r-sm);text-align:center;">
+        <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--brown);letter-spacing:0.1em;margin-bottom:10px;">🌸 巴菲威心法</div>
+        <div style="font-size:14px;line-height:2;color:var(--txt);">
+          <b>花開就有花落，氣氛不用每天像過年</b><br>
+          <b>人生就是科學加玄學，能學的都學</b>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 📝 我的投資紀錄筆記 -->
+  <div class="card">
+    <div class="card-hd">
+      <span class="card-ttl">📝 我的投資紀錄筆記</span>
+    </div>
+    <div class="card-bd">
+      <textarea id="invest-notes" rows="6" placeholder="記下你的投資決策、心得、加碼點位... 例：&#10;2026/05 觀察到 0050 從 200 跌到 175（-12.5%），按照計畫加碼買了 5 張&#10;2026/06 散熱類 ETF 在追蹤中..." style="width:100%;font-size:14px;line-height:1.7;padding:14px;border:1.5px solid var(--bdr);border-radius:var(--r-sm);font-family:inherit;">${(notes.text||'').replace(/</g,'&lt;')}</textarea>
+      <div style="text-align:right;margin-top:10px;">
+        <span class="tm" style="font-size:11px;margin-right:14px;">最後更新：${notes.updatedAt?new Date(notes.updatedAt).toLocaleString('zh-TW'):'-'}</span>
+        <button class="btn btn-p btn-sm" onclick="saveInvestNotes()">💾 儲存筆記</button>
       </div>
     </div>
   </div>`;
@@ -3185,6 +3477,60 @@ function pgSavings(){
     </div>
   </div>
 
+  <!-- 💰 股息運用指引 -->
+  <div class="card card-feature">
+    <div class="card-hd">
+      <span class="card-ttl">💰 股息該拿來做什麼？</span>
+      <span class="bdg" style="background:var(--gold);color:#fff;">累積期的關鍵決定</span>
+    </div>
+    <div class="card-bd">
+      <div class="notice tip" style="font-size:13.5px;margin-bottom:14px;">
+        ⚠️ <b>提醒：</b>以下是主流被廣泛討論的觀念整理，<b>不是投資建議</b>。實際決策請依個人狀況。
+      </div>
+
+      <div style="background:linear-gradient(135deg,var(--grnl),var(--card));padding:20px 24px;border-radius:var(--r-sm);margin-bottom:14px;border-left:4px solid var(--grn);">
+        <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--brown);letter-spacing:0.08em;margin-bottom:10px;">📈 你的階段（累積期）→ 答案幾乎只有一個：<span style="color:var(--grn);">全部再投入</span></div>
+        <div style="font-size:14px;line-height:1.9;color:var(--txt);">
+          <b>核心邏輯：</b>複利 = 「利息再生利息」。如果股息被你領出來花掉，你就拿不到「股息的股息」。<br><br>
+
+          <b>📊 試算對比（持有 0050 100 萬，每年配息 4%）：</b><br>
+          <div style="margin:10px 0 0 16px;padding:12px;background:var(--card);border-radius:8px;">
+            <b style="color:var(--red);">情境 A：股息花掉</b><br>
+            <span style="font-size:13px;">27 年後 ≈ <b>$480 萬</b>（只靠價差年化 6%）</span><br><br>
+
+            <b style="color:var(--grn);">情境 B：股息再投入</b><br>
+            <span style="font-size:13px;">27 年後 ≈ <b>$1,300 萬</b>（含股息再投入年化 10%）</span><br><br>
+
+            <b style="color:var(--brown);">差距 = $820 萬</b>　← 這就是複利的威力
+          </div>
+        </div>
+      </div>
+
+      <div style="background:var(--bg2);padding:18px 22px;border-radius:var(--r-sm);margin-bottom:14px;">
+        <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--brown);letter-spacing:0.08em;margin-bottom:10px;">🛠️ 怎麼做到「股息再投入」？</div>
+        <div style="font-size:13.5px;line-height:1.9;">
+          1. <b>券商系統設定「股息自動轉買」</b>：很多券商支援，買進時設定<br>
+          2. <b>手動：</b>除息後股息入帳，下個月定期定額時手動加碼<br>
+          3. <b>美股：</b>可開「DRIP（Dividend Reinvestment Plan）」自動買回
+        </div>
+      </div>
+
+      <div style="background:linear-gradient(135deg,var(--yelb)/10,var(--card));padding:18px 22px;border-radius:var(--r-sm);border-left:4px solid var(--yelb);">
+        <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--brown);letter-spacing:0.08em;margin-bottom:10px;">⏸️ 3 種例外情況可以考慮領出來</div>
+        <div style="font-size:13.5px;line-height:1.9;">
+          <b style="color:var(--blu);">1. 退休後</b>（60+ 歲）：這時你需要被動收入過生活，用股息支應日常<br>
+          <b style="color:var(--red);">2. 緊急預備金不足時</b>：先補滿 6 個月生活費再開始再投入<br>
+          <b style="color:var(--gold);">3. 遇到更好機會</b>：例如自住房頭期不夠、某個 ETF 大跌
+        </div>
+      </div>
+
+      <div style="margin-top:14px;padding:14px 18px;background:var(--purl);border-radius:var(--r-sm);text-align:center;font-size:14px;color:var(--brown);font-weight:600;border:1.5px dashed var(--pur);">
+        ⏳ <b>你目前的狀態：</b>還沒到投資階段，先把緊急預備金補滿再說。<br>
+        股息再投入是<b>很久以後</b>才要煩惱的事情，別超前。
+      </div>
+    </div>
+  </div>
+
   <!-- 整體概況 -->
   <div class="sg sg4">
     <div class="sc grn">
@@ -4077,6 +4423,36 @@ function modal(){
     <div class="fgrp"><label>到期日</label><input type="date" id="m6"></div>
     <div class="fgrp"><label>備註</label><textarea id="m7" rows="2" placeholder="保單編號、特殊條款…"></textarea></div>
     <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="saveInsurance()">✓ 新增</button></div>`;}
+
+  // ─── 💎 新增/編輯投資追蹤 ─────────────────────
+  if(m.t==='addInvest'||m.t==='editInvest'){
+    const isEdit=m.t==='editInvest';
+    const t=isEdit?((S.data.investTracks||[]).find(x=>x.id===m.x)||{}):{};
+    const ICONS=['📊','💰','💎','🚀','🌍','🇺🇸','🇹🇼','⚡','🌡️','🏭','🤖','🌱'];
+    const TYPES=['ETF','基金','個股','REITs','債券','其他'];
+    c=`<div class="mttl">${isEdit?'✏️ 編輯':'➕ 新增'}追蹤標的</div>
+    <div class="notice info" style="font-size:13px;margin-bottom:14px;">
+      💡 <b>參考價</b>：作為計算跌幅的「基準」。可以用最近的高點、買進均價、或自己設定的目標價。<br>
+      📌 跌幅 = (目前價 − 參考價) ÷ 參考價 × 100%
+    </div>
+    <div class="fg fg2">
+      <div class="fgrp" style="grid-column:1/-1"><label>圖示</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          ${ICONS.map(ic=>`<label style="cursor:pointer;padding:8px 12px;border:2px solid ${ic===(t.icon||'📊')?'var(--acc)':'var(--bdr)'};border-radius:10px;background:${ic===(t.icon||'📊')?'var(--accL)':'#fff'};font-size:22px;"><input type="radio" name="i_ico" value="${ic}" ${ic===(t.icon||'📊')?'checked':''} style="display:none;">${ic}</label>`).join('')}
+        </div>
+      </div>
+      <div class="fgrp"><label>名稱（必填）</label><input type="text" id="i_name" value="${(t.name||'').replace(/"/g,'&quot;')}" placeholder="如：元大台灣50"></div>
+      <div class="fgrp"><label>代號</label><input type="text" id="i_code" value="${(t.code||'').replace(/"/g,'&quot;')}" placeholder="如：0050"></div>
+      <div class="fgrp"><label>類型</label><select id="i_type">${TYPES.map(tp=>`<option ${tp===(t.type||'ETF')?'selected':''}>${tp}</option>`).join('')}</select></div>
+      <div class="fgrp"><label>參考價（基準價）</label><input type="number" step="0.01" id="i_ref" value="${t.refPrice||''}" placeholder="如：200"></div>
+      <div class="fgrp" style="grid-column:1/-1"><label>目前股價</label><input type="number" step="0.01" id="i_cur" value="${t.currentPrice||''}" placeholder="如：175（會自動算跌幅）"></div>
+      <div class="fgrp" style="grid-column:1/-1"><label>備註（買進策略、觀察重點）</label><textarea id="i_note" rows="3" placeholder="如：跌 10% 買 3 張，跌 20% 加買 5 張，跌 30% 全壓 10 張">${(t.note||'').replace(/</g,'&lt;')}</textarea></div>
+    </div>
+    <div class="mbtns">
+      <button class="btn btn-s" onclick="closeMod()">取消</button>
+      <button class="btn btn-p" onclick="saveInvest('${isEdit?t.id:''}')">${isEdit?'✓ 更新':'✓ 新增'}</button>
+    </div>`;
+  }
 
   if(m.t==='editInsurance'){const ins=(S.data.insurances||[]).find(x=>x.id===m.x)||{};const TYPES=['壽險','醫療險','意外險','癌症險','失能險','儲蓄險','投資型','其他'];c=`<div class="mttl">✏️ 編輯保單：${ins.name||''}</div>
     <div class="fg fg2">
@@ -5098,6 +5474,53 @@ window.removeStage=(i)=>{
 // ─── 信用卡對帳確認（逐筆對照銀行帳單）───────────────────
 // 切換展開／收合預備金分類明細（事件委派）
 // ─── 📈 複利試算器 ─────────────────────────────
+// ─── 💎 投資追蹤 ──────────────────────────────────
+window.saveInvest=async(id)=>{
+  const name=document.getElementById('i_name')?.value?.trim();
+  if(!name){alert('請填名稱');return;}
+  const iconRadio=document.querySelector('input[name="i_ico"]:checked');
+  const data={
+    icon:iconRadio?iconRadio.value:'📊',
+    name,
+    code:document.getElementById('i_code')?.value?.trim()||'',
+    type:document.getElementById('i_type')?.value||'ETF',
+    refPrice:toN(document.getElementById('i_ref')?.value),
+    currentPrice:toN(document.getElementById('i_cur')?.value),
+    note:document.getElementById('i_note')?.value||'',
+    updatedAt:Date.now()
+  };
+  let tracks=[...(S.data.investTracks||[])];
+  if(id){
+    tracks=tracks.map(t=>t.id===id?{...t,...data}:t);
+  }else{
+    tracks.push({id:'inv_'+Date.now(),createdAt:Date.now(),...data});
+  }
+  await saveMain({investTracks:tracks});
+  closeMod();
+  toast(id?'✅ 已更新':'✅ 已新增追蹤標的');
+};
+
+window.delInvest=async(id)=>{
+  if(!confirm('確認刪除此追蹤標的？'))return;
+  const tracks=(S.data.investTracks||[]).filter(t=>t.id!==id);
+  await saveMain({investTracks:tracks});
+  toast('已刪除');
+};
+
+window.updateInvestPrice=async(id)=>{
+  const newPrice=toN(document.getElementById(`ip_${id}`)?.value);
+  if(newPrice<=0){alert('請輸入正確股價');return;}
+  const tracks=(S.data.investTracks||[]).map(t=>t.id===id?{...t,currentPrice:newPrice,updatedAt:Date.now()}:t);
+  await saveMain({investTracks:tracks});
+  toast('✅ 股價已更新');
+};
+
+window.saveInvestNotes=async()=>{
+  const text=document.getElementById('invest-notes')?.value||'';
+  await saveMain({investNotes:{text,updatedAt:Date.now()}});
+  toast('✅ 筆記已儲存');
+};
+
 window.calcCompound=()=>{
   const monthly=toN(document.getElementById('ci_monthly')?.value);
   const rate=toN(document.getElementById('ci_rate')?.value);
