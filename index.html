@@ -390,6 +390,7 @@ const DEF_FIXED=[
 const PAGES=[
   {id:'home',     ico:'🏠',lbl:'首頁',group:'main'},
   {id:'monthly',  ico:'💰',lbl:'每月記帳',group:'main'},
+  {id:'accounts', ico:'💳',lbl:'帳戶總管',group:'main'},
   {id:'goals',    ico:'🎯',lbl:'目標 GPS',group:'main'},
   {id:'invest',   ico:'💎',lbl:'投資主軸',group:'main'},
   {id:'health',   ico:'📊',lbl:'健檢報告',group:'main'},
@@ -435,7 +436,9 @@ let S={
     allocLogs:{},
     members:[],goals:[],insurances:[],
     merchantCats:{},cardPayments:{},cardRewards:{},
-    investTracks:[],investNotes:{},importStaging:[]
+    investTracks:[],investNotes:{},
+    accounts:[],transferTasks:[],accountChecks:{},
+    importStaging:[]
   }
 };
 const getBanks=()=>S.data.banks&&S.data.banks.length?S.data.banks:[...DEF_BANKS];
@@ -473,6 +476,10 @@ function startSync(){
       S.data.cardPayments=d.cardPayments||{};
       S.data.cardRewards=d.cardRewards||{};
       S.data.investTracks=d.investTracks||[];
+      S.data.investNotes=d.investNotes||{};
+      S.data.accounts=d.accounts||[];
+      S.data.transferTasks=d.transferTasks||[];
+      S.data.accountChecks=d.accountChecks||{};
       S.data.investNotes=d.investNotes||{};
     }
     setSyncing('synced');
@@ -585,6 +592,7 @@ function page(){
     case'home':     return pgHome();
     case'health':   return pgHealth();
     case'invest':   return pgInvest();
+    case'accounts': return pgAccounts();
     case'settings': return pgSettings();
     // monthly 在新版是「每月記帳」，舊版的「逐月收支」改名為 monthlytab
     case'monthly':  return pgMonthlyEntry();
@@ -1622,6 +1630,204 @@ function pgInvest(){
         <span class="tm" style="font-size:11px;margin-right:14px;">最後更新：${notes.updatedAt?new Date(notes.updatedAt).toLocaleString('zh-TW'):'-'}</span>
         <button class="btn btn-p btn-sm" onclick="saveInvestNotes()">💾 儲存筆記</button>
       </div>
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// ──── 💳 帳戶總管（多帳戶分流管理）───────────────────────────
+// ═══════════════════════════════════════════════════════════
+function pgAccounts(){
+  const accounts=S.data.accounts||[];
+  const tasks=S.data.transferTasks||[];
+  const checks=(S.data.accountChecks||{})[mk()]||{};
+
+  // 統計
+  const totalBalance=accounts.reduce((s,a)=>s+toN(a.balance),0);
+  const byPurpose={};
+  accounts.forEach(a=>{const p=a.purpose||'其他';byPurpose[p]=(byPurpose[p]||0)+toN(a.balance);});
+
+  // 用途顏色
+  const purposeColor={
+    '薪轉戶':'var(--blu)','消費戶':'var(--acc)','緊急預備金':'var(--red)',
+    '年費預備金':'var(--gold)','投資戶':'var(--grn)','沐蜜事業':'#D8829E',
+    '高利儲蓄':'var(--pur)','其他':'var(--mut)'
+  };
+  const purposeIcon={
+    '薪轉戶':'💼','消費戶':'🛒','緊急預備金':'🆘',
+    '年費預備金':'📅','投資戶':'📈','沐蜜事業':'🌸',
+    '高利儲蓄':'🏦','其他':'📦'
+  };
+
+  return`
+  <div class="pg-ttl">💳 帳戶總管</div>
+  <div class="pg-sub">把帳戶分流管理　＋ 每月轉帳檢查表　＋ 無腦執行</div>
+
+  <!-- 💡 為什麼要分帳戶？ -->
+  <div class="card card-feature">
+    <div class="card-hd">
+      <span class="card-ttl">💡 為什麼要把錢分到不同帳戶？</span>
+      <button class="btn btn-s btn-sm" onclick="(function(b){const c=b.parentElement.parentElement.querySelector('.acc-why-body');c.style.display=c.style.display==='none'?'block':'none';b.textContent=c.style.display==='none'?'展開':'收起';})(this)">收起</button>
+    </div>
+    <div class="card-bd acc-why-body">
+      <div style="background:linear-gradient(135deg,var(--accL),var(--card));padding:18px 22px;border-radius:var(--r-sm);font-size:14px;line-height:2;letter-spacing:0.04em;">
+        <b style="color:var(--brown);font-family:'Noto Serif TC',serif;font-size:15px;">🎯 核心觀念：「看不見的錢，才不會花掉」</b><br><br>
+        把錢分到不同帳戶不是麻煩，而是<b>建立心理隔離</b>：
+        <div style="margin:10px 0 0 16px;">
+          🟢 <b>可動用</b>（消費戶）：每月生活費，這個帳戶就是讓你花的<br>
+          🟡 <b>計畫中</b>（預備金）：對應某些開銷，到期才扣<br>
+          🔴 <b>不可動用</b>（緊急金、投資）：放著別碰，碰了就破功<br>
+          🌸 <b>事業專戶</b>（沐蜜）：與家庭錢完全分開，才能算清楚事業有沒有賺<br>
+        </div>
+        <br>
+        <b>無腦原則：</b>每張帳戶有明確用途，每月固定金額自動轉。設定一次，之後不用思考。
+      </div>
+    </div>
+  </div>
+
+  <!-- 📊 帳戶總覽 -->
+  <div class="card card-feature">
+    <div class="card-hd">
+      <span class="card-ttl">📊 帳戶總覽　共 ${accounts.length} 個帳戶</span>
+      <button class="btn btn-p btn-sm" onclick="openM('addAccount')">＋ 新增帳戶</button>
+    </div>
+    <div class="card-bd">
+      ${accounts.length===0?`<div class="empty" style="padding:40px;">
+        <div style="font-size:56px;margin-bottom:12px;">💳</div>
+        <p style="font-size:16px;margin-bottom:6px;">還沒設定任何帳戶</p>
+        <p class="tm" style="font-size:13px;">先把你的 7+ 個帳戶都加進來，系統會幫你分類管理</p>
+        <button class="btn btn-p" style="margin-top:14px;" onclick="openM('addAccount')">立即新增第一個</button>
+      </div>`:`
+      <div style="background:linear-gradient(135deg,var(--accL),var(--card));padding:18px 22px;border-radius:var(--r-sm);margin-bottom:14px;text-align:center;">
+        <div class="tm" style="font-size:12px;letter-spacing:0.1em;">所有帳戶餘額總和（你最後更新的數字）</div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:36px;font-weight:700;color:var(--brown);letter-spacing:0.04em;margin-top:6px;">$${fmt(totalBalance)}</div>
+      </div>
+
+      <!-- 按用途分組的金額分佈 -->
+      <div style="margin-bottom:14px;">
+        <div style="font-size:13px;color:var(--mut);letter-spacing:0.06em;margin-bottom:8px;">📈 各用途分佈</div>
+        ${Object.entries(byPurpose).sort((a,b)=>b[1]-a[1]).map(([p,v])=>{
+          const pct=totalBalance>0?Math.round(v/totalBalance*100):0;
+          return`<div style="margin-bottom:8px;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:13px;margin-bottom:3px;">
+              <span><b style="color:var(--brown);">${purposeIcon[p]||'📦'} ${p}</b> <span class="tm" style="font-size:11px;">(${accounts.filter(a=>(a.purpose||'其他')===p).length} 戶)</span></span>
+              <span><b style="color:var(--brown);">$${fmt(v)}</b> <span class="tm">${pct}%</span></span>
+            </div>
+            <div style="height:8px;background:var(--bg2);border-radius:4px;overflow:hidden;">
+              <div style="height:100%;width:${pct}%;background:${purposeColor[p]||'var(--mut)'};"></div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`}
+    </div>
+  </div>
+
+  ${accounts.length>0?`
+  <!-- 🏦 帳戶清單（卡片式） -->
+  <div class="card">
+    <div class="card-hd">
+      <span class="card-ttl">🏦 我的所有帳戶</span>
+      <span class="tm" style="margin-left:auto;font-size:12px;">💡 點 ✏️ 編輯，點 🔄 更新餘額</span>
+    </div>
+    <div class="card-bd">
+      <div class="sg sg2">
+        ${accounts.sort((a,b)=>{
+          const order={'薪轉戶':1,'消費戶':2,'高利儲蓄':3,'緊急預備金':4,'年費預備金':5,'投資戶':6,'沐蜜事業':7,'其他':8};
+          return (order[a.purpose||'其他']||9)-(order[b.purpose||'其他']||9);
+        }).map(a=>{
+          const purpose=a.purpose||'其他';
+          const col=purposeColor[purpose]||'var(--mut)';
+          const ico=purposeIcon[purpose]||'📦';
+          const tagBg={'免費轉帳':'var(--blu)','高利率':'var(--grn)','不可動用':'var(--red)','薪轉專用':'var(--blu)','事業專戶':'#D8829E'};
+          return`<div style="border:2px solid ${col};border-left-width:6px;border-radius:var(--r-sm);padding:16px 20px;background:var(--card);">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+              <div style="flex:1;min-width:0;">
+                <div style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:var(--brown);letter-spacing:0.06em;">${ico} ${a.bank||'-'}</div>
+                <div class="tm" style="font-size:12px;margin-top:3px;">${a.nickname?`<b>${a.nickname}</b>　`:''}${a.lastDigits?`末 ${a.lastDigits}`:''}</div>
+              </div>
+              <div style="display:flex;gap:4px;">
+                <button class="bdel" style="color:#aaa;font-size:14px;" onclick="openM('editAccount','${a.id}')">✏️</button>
+                <button class="bdel" onclick="delAccount('${a.id}')">×</button>
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">
+              <span class="bdg" style="background:${col};color:#fff;font-size:11px;">${ico} ${purpose}</span>
+              ${(a.features||[]).map(f=>`<span class="bdg" style="background:${tagBg[f]||'var(--accL)'};color:${tagBg[f]?'#fff':'var(--brown)'};font-size:11px;">${f}</span>`).join('')}
+              ${a.interestRate>0?`<span class="bdg" style="background:var(--grn);color:#fff;font-size:11px;">💰 ${a.interestRate}%</span>`:''}
+            </div>
+            <div style="background:var(--bg2);padding:10px 14px;border-radius:8px;margin-bottom:8px;">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;">
+                <span class="tm" style="font-size:11px;">目前餘額</span>
+                <span style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:${col};">$${fmt(a.balance||0)}</span>
+              </div>
+              ${a.balanceUpdatedAt?`<div class="tm" style="font-size:10px;text-align:right;margin-top:2px;">更新於 ${new Date(a.balanceUpdatedAt).toLocaleDateString('zh-TW')}</div>`:''}
+            </div>
+            <div style="display:flex;gap:6px;">
+              <input type="number" step="0.01" placeholder="輸入新餘額" id="ab_${a.id}" style="flex:1;padding:7px 10px;border:1px solid var(--bdr);border-radius:6px;font-size:12.5px;">
+              <button class="btn btn-p btn-sm" onclick="updateAccountBalance('${a.id}')">🔄 更新</button>
+            </div>
+            ${a.note?`<div class="tm" style="margin-top:10px;font-size:12px;line-height:1.6;padding:8px 10px;background:var(--bg2);border-radius:6px;">📝 ${a.note}</div>`:''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  </div>`:''}
+
+  <!-- 📋 每月轉帳檢查表 -->
+  <div class="card card-feature">
+    <div class="card-hd">
+      <span class="card-ttl">📋 ${yr()}年${S.month}月　轉帳檢查表（無腦執行）</span>
+      <button class="btn btn-p btn-sm" onclick="openM('addTransfer')">＋ 新增轉帳任務</button>
+    </div>
+    <div class="card-bd">
+      ${tasks.length===0?`<div class="notice tip" style="margin-bottom:0;">
+        💡 <b>用法：</b>把你每個月固定要做的轉帳設定為「任務」（例如：「薪水進來後轉 20% 到緊急預備金」），系統每月會列出待辦清單，你照著做就好。
+        <br><br>
+        <b>常見任務範例：</b><br>
+        • 5 號薪水入帳 → 轉 12,000 到緊急預備金戶<br>
+        • 5 號 → 轉 5,833 到保險預備金戶<br>
+        • 10 號 → 沐蜜事業戶分潤入家庭 X,000<br>
+        • 15 號 → 確認券商定期定額扣款 5,000
+      </div>`:`
+      <div style="background:linear-gradient(135deg,var(--purl),var(--card));padding:14px 18px;border-radius:var(--r-sm);margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:10px;">
+          <div>
+            <b style="font-family:'Noto Serif TC',serif;font-size:15px;color:var(--brown);">本月進度</b>
+            <span class="tm" style="margin-left:8px;">${Object.values(checks).filter(Boolean).length} / ${tasks.length} 完成</span>
+          </div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:24px;font-weight:700;color:${Object.values(checks).filter(Boolean).length===tasks.length&&tasks.length>0?'var(--grn)':'var(--pur)'};">
+            ${tasks.length>0?Math.round(Object.values(checks).filter(Boolean).length/tasks.length*100):0}%
+          </div>
+        </div>
+        <div class="pb-lg" style="margin-top:8px;"><div class="pf" style="width:${tasks.length>0?Math.round(Object.values(checks).filter(Boolean).length/tasks.length*100):0}%;background:${Object.values(checks).filter(Boolean).length===tasks.length&&tasks.length>0?'var(--grn)':'linear-gradient(90deg,var(--pur),var(--acc))'};"></div></div>
+      </div>
+
+      ${tasks.sort((a,b)=>(a.dueDay||99)-(b.dueDay||99)).map(t=>{
+        const done=!!checks[t.id];
+        return`<div style="display:flex;gap:14px;align-items:center;padding:14px 18px;background:${done?'var(--grnl)':'var(--bg2)'};border-radius:var(--r-sm);margin-bottom:10px;border-left:4px solid ${done?'var(--grn)':'var(--acc)'};">
+          <label style="cursor:pointer;flex-shrink:0;">
+            <input type="checkbox" ${done?'checked':''} onchange="toggleTransferCheck('${t.id}',this.checked)" style="width:22px;height:22px;cursor:pointer;accent-color:var(--grn);">
+          </label>
+          <div style="flex:1;min-width:0;">
+            <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:${done?'var(--mut)':'var(--brown)'};letter-spacing:0.06em;text-decoration:${done?'line-through':'none'};">
+              ${t.dueDay?`<span class="bdg" style="background:var(--blu);color:#fff;font-size:11px;margin-right:6px;">${t.dueDay} 號</span>`:''}
+              ${t.name||'-'}
+            </div>
+            <div class="tm" style="font-size:12.5px;margin-top:3px;">
+              ${t.fromAccount||'?'} → ${t.toAccount||'?'}　${t.amount?`<b style="color:var(--brown);">$${fmt(t.amount)}</b>`:'金額不定'}
+            </div>
+          </div>
+          <div style="display:flex;gap:4px;">
+            <button class="bdel" style="color:#aaa;font-size:13px;" onclick="openM('editTransfer','${t.id}')">✏️</button>
+            <button class="bdel" onclick="delTransfer('${t.id}')">×</button>
+          </div>
+        </div>`;
+      }).join('')}
+
+      ${tasks.length>0?`<div style="text-align:center;margin-top:14px;padding-top:14px;border-top:1px dashed var(--bdr);">
+        <button class="btn btn-s btn-sm" onclick="resetMonthlyChecks()">🔄 清除本月勾選（新月份重新開始）</button>
+      </div>`:''}
+      `}
     </div>
   </div>`;
 }
@@ -4425,6 +4631,97 @@ function modal(){
     <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="saveInsurance()">✓ 新增</button></div>`;}
 
   // ─── 💎 新增/編輯投資追蹤 ─────────────────────
+  // ─── 💳 帳戶管理 modal ───
+  if(m.t==='addAccount'||m.t==='editAccount'){
+    const isEdit=m.t==='editAccount';
+    const a=isEdit?((S.data.accounts||[]).find(x=>x.id===m.x)||{}):{};
+    const PURPOSES=['薪轉戶','消費戶','高利儲蓄','緊急預備金','年費預備金','投資戶','沐蜜事業','其他'];
+    const FEATURES=['免費轉帳','高利率','薪轉專用','不可動用','事業專戶'];
+    c=`<div class="mttl">${isEdit?'✏️ 編輯':'➕ 新增'}帳戶</div>
+    <div class="notice info" style="font-size:13px;margin-bottom:14px;">
+      💡 把你每個銀行帳戶記下來，給它一個「用途」標籤。<br>
+      📌 同一個銀行可以有多個帳戶（例如國泰薪轉戶 + 國泰數位帳戶），各自記錄。
+    </div>
+    <div class="fg fg2">
+      <div class="fgrp"><label>銀行/券商名稱（必填）</label>
+        <input type="text" id="a_bank" value="${(a.bank||'').replace(/"/g,'&quot;')}" placeholder="如：國泰世華、玉山、台新 Richart">
+      </div>
+      <div class="fgrp"><label>帳號末 4 碼</label>
+        <input type="text" id="a_last" value="${(a.lastDigits||'').replace(/"/g,'&quot;')}" placeholder="如：1234（選填）">
+      </div>
+      <div class="fgrp" style="grid-column:1/-1"><label>暱稱（自己好認的名字）</label>
+        <input type="text" id="a_nick" value="${(a.nickname||'').replace(/"/g,'&quot;')}" placeholder="如：薪水戶、剁手戶、預備金戶（選填）">
+      </div>
+      <div class="fgrp" style="grid-column:1/-1"><label>📌 主要用途</label>
+        <select id="a_purpose">${PURPOSES.map(p=>`<option ${p===(a.purpose||'消費戶')?'selected':''}>${p}</option>`).join('')}</select>
+      </div>
+      <div class="fgrp" style="grid-column:1/-1"><label>🏷️ 帳戶特性（可多選）</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
+          ${FEATURES.map(f=>{const checked=(a.features||[]).includes(f);return`<label style="cursor:pointer;padding:7px 14px;border:1.5px solid ${checked?'var(--acc)':'var(--bdr)'};border-radius:18px;background:${checked?'var(--accL)':'#fff'};font-size:13px;color:${checked?'var(--brown)':'var(--mut)'};font-weight:${checked?'700':'500'};"><input type="checkbox" class="a_feat" value="${f}" ${checked?'checked':''} style="display:none;">${f}</label>`;}).join('')}
+        </div>
+      </div>
+      <div class="fgrp"><label>💰 年利率 % (選填)</label>
+        <input type="number" step="0.1" id="a_rate" value="${a.interestRate||''}" placeholder="如：2 (數位帳戶)">
+      </div>
+      <div class="fgrp"><label>💵 目前餘額</label>
+        <input type="number" step="0.01" id="a_bal" value="${a.balance||''}" placeholder="輸入目前金額">
+      </div>
+      <div class="fgrp" style="grid-column:1/-1"><label>📝 備註（特殊條件、優惠等）</label>
+        <textarea id="a_note" rows="2" placeholder="如：每月需有指定刷卡金額才能享高利率；免費跨行轉帳每月 X 次">${(a.note||'').replace(/</g,'&lt;')}</textarea>
+      </div>
+    </div>
+    <div class="mbtns" style="display:flex;gap:8px;">
+      <button class="btn btn-s" onclick="closeMod()">取消</button>
+      <button class="btn btn-p" onclick="saveAccount('${a.id||''}')">${isEdit?'✓ 更新':'✓ 新增'}</button>
+    </div>
+    `;
+    setTimeout(()=>{
+      document.querySelectorAll('.a_feat').forEach(cb=>cb.addEventListener('change',e=>{
+        const lbl=e.target.parentElement;
+        if(e.target.checked){lbl.style.borderColor='var(--acc)';lbl.style.background='var(--accL)';lbl.style.color='var(--brown)';lbl.style.fontWeight='700';}
+        else{lbl.style.borderColor='var(--bdr)';lbl.style.background='#fff';lbl.style.color='var(--mut)';lbl.style.fontWeight='500';}
+      }));
+    },50);
+  }
+
+  // ─── 📋 轉帳任務 modal ───
+  if(m.t==='addTransfer'||m.t==='editTransfer'){
+    const isEdit=m.t==='editTransfer';
+    const t=isEdit?((S.data.transferTasks||[]).find(x=>x.id===m.x)||{}):{};
+    const accs=(S.data.accounts||[]).map(a=>`${a.bank||''}${a.nickname?` (${a.nickname})`:''}`);
+    c=`<div class="mttl">${isEdit?'✏️ 編輯':'➕ 新增'}轉帳任務</div>
+    <div class="notice info" style="font-size:13px;margin-bottom:14px;">
+      💡 把「每月固定要做的轉帳」設定成任務。月初看清單，照著做就好，不用記。
+    </div>
+    <div class="fg fg2">
+      <div class="fgrp" style="grid-column:1/-1"><label>任務名稱（必填）</label>
+        <input type="text" id="t_name" value="${(t.name||'').replace(/"/g,'&quot;')}" placeholder="如：轉緊急預備金、轉沐蜜分潤入家庭">
+      </div>
+      <div class="fgrp"><label>從哪個帳戶</label>
+        <select id="t_from">
+          <option value="">不指定</option>
+          ${accs.map(a=>`<option ${a===(t.fromAccount||'')?'selected':''}>${a}</option>`).join('')}
+        </select>
+      </div>
+      <div class="fgrp"><label>轉到哪個帳戶</label>
+        <select id="t_to">
+          <option value="">不指定</option>
+          ${accs.map(a=>`<option ${a===(t.toAccount||'')?'selected':''}>${a}</option>`).join('')}
+        </select>
+      </div>
+      <div class="fgrp"><label>金額</label>
+        <input type="number" step="0.01" id="t_amount" value="${t.amount||''}" placeholder="0 = 金額不定">
+      </div>
+      <div class="fgrp"><label>建議在每月幾號做</label>
+        <input type="number" min="1" max="31" id="t_day" value="${t.dueDay||''}" placeholder="如：5（薪水入帳日）">
+      </div>
+    </div>
+    <div class="mbtns" style="display:flex;gap:8px;">
+      <button class="btn btn-s" onclick="closeMod()">取消</button>
+      <button class="btn btn-p" onclick="saveTransfer('${t.id||''}')">${isEdit?'✓ 更新':'✓ 新增'}</button>
+    </div>`;
+  }
+
   if(m.t==='addInvest'||m.t==='editInvest'){
     const isEdit=m.t==='editInvest';
     const t=isEdit?((S.data.investTracks||[]).find(x=>x.id===m.x)||{}):{};
@@ -5475,6 +5772,93 @@ window.removeStage=(i)=>{
 // 切換展開／收合預備金分類明細（事件委派）
 // ─── 📈 複利試算器 ─────────────────────────────
 // ─── 💎 投資追蹤 ──────────────────────────────────
+// ─── 💳 帳戶總管 actions ────────────────────────────
+window.saveAccount=async(id)=>{
+  const bank=document.getElementById('a_bank')?.value?.trim();
+  if(!bank){alert('請填寫銀行/券商名稱');return;}
+  const features=[];
+  document.querySelectorAll('.a_feat:checked').forEach(cb=>features.push(cb.value));
+  const data={
+    id:id||'acc_'+Date.now(),
+    bank,
+    lastDigits:document.getElementById('a_last')?.value?.trim()||'',
+    nickname:document.getElementById('a_nick')?.value?.trim()||'',
+    purpose:document.getElementById('a_purpose')?.value||'其他',
+    features,
+    interestRate:toN(document.getElementById('a_rate')?.value),
+    balance:toN(document.getElementById('a_bal')?.value),
+    note:document.getElementById('a_note')?.value?.trim()||'',
+    balanceUpdatedAt:Date.now()
+  };
+  let accounts=[...(S.data.accounts||[])];
+  const idx=accounts.findIndex(a=>a.id===data.id);
+  if(idx>=0)accounts[idx]={...accounts[idx],...data};
+  else accounts.push(data);
+  await saveMain({accounts});
+  toast(id?'✅ 已更新帳戶':'✅ 已新增帳戶');
+  closeMod();
+};
+
+window.delAccount=async(id)=>{
+  if(!confirm('確認刪除此帳戶？\n（不會影響到對應的預備金帳本或記錄）'))return;
+  await saveMain({accounts:(S.data.accounts||[]).filter(a=>a.id!==id)});
+  toast('已刪除');
+};
+
+window.updateAccountBalance=async(id)=>{
+  const input=document.getElementById(`ab_${id}`);
+  if(!input||!input.value){alert('請輸入新餘額');return;}
+  const newBal=toN(input.value);
+  const accounts=(S.data.accounts||[]).map(a=>a.id===id?{...a,balance:newBal,balanceUpdatedAt:Date.now()}:a);
+  await saveMain({accounts});
+  toast(`✅ 餘額已更新為 $${fmt(newBal)}`);
+};
+
+// ─── 📋 轉帳任務 actions ────────────────────────────
+window.saveTransfer=async(id)=>{
+  const name=document.getElementById('t_name')?.value?.trim();
+  if(!name){alert('請填寫任務名稱');return;}
+  const data={
+    id:id||'tsk_'+Date.now(),
+    name,
+    fromAccount:document.getElementById('t_from')?.value||'',
+    toAccount:document.getElementById('t_to')?.value||'',
+    amount:toN(document.getElementById('t_amount')?.value),
+    dueDay:toN(document.getElementById('t_day')?.value)||null
+  };
+  let transferTasks=[...(S.data.transferTasks||[])];
+  const idx=transferTasks.findIndex(t=>t.id===data.id);
+  if(idx>=0)transferTasks[idx]={...transferTasks[idx],...data};
+  else transferTasks.push(data);
+  await saveMain({transferTasks});
+  toast(id?'✅ 已更新':'✅ 已新增轉帳任務');
+  closeMod();
+};
+
+window.delTransfer=async(id)=>{
+  if(!confirm('確認刪除此轉帳任務？'))return;
+  await saveMain({transferTasks:(S.data.transferTasks||[]).filter(t=>t.id!==id)});
+  toast('已刪除');
+};
+
+window.toggleTransferCheck=async(id,checked)=>{
+  const mk0=mk();
+  const accountChecks={...(S.data.accountChecks||{})};
+  if(!accountChecks[mk0])accountChecks[mk0]={};
+  accountChecks[mk0][id]=checked;
+  await saveMain({accountChecks});
+  if(checked)toast('✓ 已完成');
+};
+
+window.resetMonthlyChecks=async()=>{
+  if(!confirm(`確認清除 ${yr()}年${S.month}月 的所有勾選？`))return;
+  const mk0=mk();
+  const accountChecks={...(S.data.accountChecks||{})};
+  delete accountChecks[mk0];
+  await saveMain({accountChecks});
+  toast('已清除');
+};
+
 window.saveInvest=async(id)=>{
   const name=document.getElementById('i_name')?.value?.trim();
   if(!name){alert('請填名稱');return;}
