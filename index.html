@@ -387,8 +387,180 @@ const DEF_FIXED=[
   {id:'f4',name:'房租',amount:12500,note:'每月固定'},
 ];
 // 主導航：5 大頁面（新介面）
+// ═══════════════════════════════════════════════════════════
+// ──── 🏆 家庭財富升級系統定義 ─────────────────────────────
+// ═══════════════════════════════════════════════════════════
+const LEVELS=[
+  {lv:1,ico:'🌱',name:'新手村',title:'剛踏上理財之路',color:'#A5C9A1',cond:'開始記帳',unlock:'記帳功能、預備金帳本',story:'每段旅程都從一小步開始。歡迎來到財富之旅。'},
+  {lv:2,ico:'🌿',name:'學徒',title:'學會記錄每一筆',color:'#8FB58B',cond:'緊急預備金 ≥ 1 個月支出',unlock:'目標 GPS、夢想清單',story:'你開始看見錢的流向，第一道安全網正在編織。'},
+  {lv:3,ico:'🌳',name:'探索者',title:'抗風險基礎已建立',color:'#7DA478',cond:'緊急預備金 ≥ 3 個月支出',unlock:'進階分析、現金流圖表',story:'三個月的緩衝，讓你睡得更安穩。'},
+  {lv:4,ico:'⛰️',name:'山徑',title:'準備好登高',color:'#B8896B',cond:'緊急預備金 ≥ 6 個月支出',unlock:'投資追蹤器、複利試算器、分批加碼提醒',story:'你贏得了「開始投資」的資格。複利的雪球即將滾動。'},
+  {lv:5,ico:'💎',name:'戰士',title:'資產開始累積',color:'#9985B0',cond:'已開始定期定額投資（投資組合 ≥ 10 萬）',unlock:'投資組合配置檢查、再平衡提醒',story:'第一筆投資已下，市場是你的盟友也是試煉。'},
+  {lv:6,ico:'🏛️',name:'領主',title:'資產 50 萬里程碑',color:'#7B8FA8',cond:'總資產（不含房）≥ 50 萬',unlock:'稅務優化提醒、資產配置雷達',story:'你不再是新手，你的決策影響著家庭的命運。'},
+  {lv:7,ico:'👑',name:'大師',title:'被動收入起航',color:'#C9A961',cond:'被動收入 ≥ 月支出 30%',unlock:'退休模擬、提早退休試算',story:'錢開始為你工作，這是質變的時刻。'},
+  {lv:8,ico:'🦅',name:'自由人',title:'財務自由達成',color:'#D4AF7A',cond:'被動收入 ≥ 月支出 100%',unlock:'全部功能 + 終極勳章',story:'你不再為錢工作，你選擇做的事，都是因為熱愛。'}
+];
+
+const BADGES=[
+  // 紀律類
+  {id:'first_record',ico:'📝',name:'第一筆記帳',cat:'起步',desc:'完成你的第一筆記帳'},
+  {id:'streak_30days',ico:'🔥',name:'連續 30 天',cat:'紀律',desc:'連續 30 天有記錄收支'},
+  {id:'streak_3mo_save',ico:'🥉',name:'三月之恆',cat:'紀律',desc:'連續 3 個月達成儲蓄目標'},
+  {id:'streak_6mo_save',ico:'🥈',name:'半年之志',cat:'紀律',desc:'連續 6 個月達成儲蓄目標'},
+  {id:'streak_12mo_save',ico:'🥇',name:'一年之毅',cat:'紀律',desc:'連續 12 個月達成儲蓄目標'},
+  // 消費控制類
+  {id:'resist_5k',ico:'💪',name:'初試自制',cat:'消費控制',desc:'累積忍住消費 $5,000'},
+  {id:'resist_10k',ico:'🛡️',name:'自制達人',cat:'消費控制',desc:'累積忍住消費 $10,000'},
+  {id:'resist_50k',ico:'⚔️',name:'自制大師',cat:'消費控制',desc:'累積忍住消費 $50,000'},
+  {id:'consult_5',ico:'🤔',name:'三思而行',cat:'消費控制',desc:'使用智能諮詢 5 次以上'},
+  {id:'no_overspend',ico:'🎯',name:'預算守護',cat:'消費控制',desc:'單月變動支出未超預算'},
+  // 累積類
+  {id:'em_1mo',ico:'🌱',name:'萌芽',cat:'累積',desc:'緊急預備金存到 1 個月'},
+  {id:'em_3mo',ico:'🌿',name:'抗風險',cat:'累積',desc:'緊急預備金存到 3 個月'},
+  {id:'em_6mo',ico:'🌳',name:'安全網',cat:'累積',desc:'緊急預備金存到 6 個月'},
+  {id:'em_12mo',ico:'🏔️',name:'銅牆鐵壁',cat:'累積',desc:'緊急預備金存到 12 個月'},
+  {id:'asset_100k',ico:'💰',name:'首破十萬',cat:'累積',desc:'總資產首次突破 $100,000'},
+  {id:'asset_500k',ico:'💎',name:'五十萬里程',cat:'累積',desc:'總資產達到 $500,000'},
+  {id:'asset_1m',ico:'🏆',name:'百萬俱樂部',cat:'累積',desc:'總資產達到 $1,000,000'},
+  // 投資類
+  {id:'first_invest',ico:'📈',name:'初次投資',cat:'投資',desc:'記錄你的第一筆投資'},
+  {id:'invest_dca',ico:'🎯',name:'紀律投資人',cat:'投資',desc:'連續 6 個月定期定額未中斷'},
+  {id:'dip_buy',ico:'🔻',name:'逆勢買家',cat:'投資',desc:'執行一次跌幅 -10% 加碼買進'}
+];
+
+const DAILY_TASKS=[
+  {id:'daily_record',ico:'📝',name:'記錄今天的支出',exp:5,freq:'daily',check:()=>{
+    const today=new Date().toISOString().slice(0,10);
+    return (S.data.expenses||[]).some(e=>e.date===today);
+  }},
+  {id:'daily_check',ico:'👀',name:'查看一次預備金狀態',exp:3,freq:'daily',check:()=>{
+    const key='checked_'+new Date().toISOString().slice(0,10);
+    return (S.data.taskChecks||{})[key]===true;
+  }}
+];
+
+const WEEKLY_TASKS=[
+  {id:'weekly_reconcile',ico:'✓',name:'對帳一張信用卡',exp:20,freq:'weekly',check:()=>{
+    const wk=getWeekKey();
+    return (S.data.taskChecks||{})['weekly_reconcile_'+wk]===true;
+  }},
+  {id:'weekly_consult',ico:'🤔',name:'使用「該不該買」諮詢一次',exp:15,freq:'weekly',check:()=>{
+    const wk=getWeekKey();
+    const startOfWeek=getStartOfWeek();
+    return (S.data.consultRecords||[]).some(r=>new Date(r.date)>=startOfWeek);
+  }}
+];
+
+const MONTHLY_TASKS=[
+  {id:'monthly_income',ico:'💰',name:'本月記錄收入',exp:30,freq:'monthly',check:()=>{
+    return (S.data.incomes||[]).some(i=>i.month===S.month&&i.year===yr());
+  }},
+  {id:'monthly_saving',ico:'🏦',name:'設定本月強制儲蓄',exp:50,freq:'monthly',check:()=>{
+    const bgt=(S.data.budgets||{})[mk()]||{};
+    return toN(bgt.__mandatory)>0;
+  }},
+  {id:'monthly_health',ico:'📊',name:'月底檢視四大健康指標',exp:30,freq:'monthly',check:()=>{
+    return (S.data.taskChecks||{})['health_'+mk()]===true;
+  }}
+];
+
+function getWeekKey(){
+  const d=new Date();
+  const onejan=new Date(d.getFullYear(),0,1);
+  const week=Math.ceil((((d-onejan)/86400000)+onejan.getDay()+1)/7);
+  return d.getFullYear()+'_w'+week;
+}
+function getStartOfWeek(){
+  const d=new Date();
+  const day=d.getDay()||7;
+  d.setDate(d.getDate()-day+1);
+  d.setHours(0,0,0,0);
+  return d;
+}
+
+// 計算用戶當前應達等級
+function calcUserLevel(){
+  const M=computeMonthly();
+  const months=toN(M.monthsCovered);
+  const liquidAssets=toN(M.liquidAssets);
+  const tracks=S.data.investTracks||[];
+  const totalAssets=(S.data.assets||[]).reduce((s,a)=>s+toN(a.amount),0);
+  const passiveIncome=(S.data.incomes||[]).filter(i=>i.isPassive&&i.month===S.month&&i.year===yr()).reduce((s,i)=>s+toN(i.amount),0);
+  const fixedTotal=M.fixedTotal||0;
+  const investTotal=tracks.reduce((s,t)=>s+toN(t.currentValue||t.totalCost||0),0);
+
+  let lv=1;
+  if(months>=1)lv=2;
+  if(months>=3)lv=3;
+  if(months>=6)lv=4;
+  if(months>=6&&investTotal>=100000)lv=5;
+  if(totalAssets>=500000)lv=Math.max(lv,6);
+  if(fixedTotal>0&&passiveIncome>=fixedTotal*0.3)lv=Math.max(lv,7);
+  if(fixedTotal>0&&passiveIncome>=fixedTotal)lv=8;
+  return lv;
+}
+
+// 計算已獲得徽章
+function calcEarnedBadges(){
+  const M=computeMonthly();
+  const months=toN(M.monthsCovered);
+  const totalResisted=(S.data.resistedList||[]).reduce((s,r)=>s+toN(r.amount),0);
+  const consultCount=(S.data.consultRecords||[]).length;
+  const totalAssets=(S.data.assets||[]).reduce((s,a)=>s+toN(a.amount),0);
+  const hasRecord=(S.data.expenses||[]).length>0||(S.data.incomes||[]).length>0;
+  const hasInvest=(S.data.investTracks||[]).length>0;
+
+  const earned=[];
+  if(hasRecord)earned.push('first_record');
+  if(totalResisted>=5000)earned.push('resist_5k');
+  if(totalResisted>=10000)earned.push('resist_10k');
+  if(totalResisted>=50000)earned.push('resist_50k');
+  if(consultCount>=5)earned.push('consult_5');
+  if(months>=1)earned.push('em_1mo');
+  if(months>=3)earned.push('em_3mo');
+  if(months>=6)earned.push('em_6mo');
+  if(months>=12)earned.push('em_12mo');
+  if(totalAssets>=100000)earned.push('asset_100k');
+  if(totalAssets>=500000)earned.push('asset_500k');
+  if(totalAssets>=1000000)earned.push('asset_1m');
+  if(hasInvest)earned.push('first_invest');
+  return earned;
+}
+
+// 偵測並自動晉級
+async function detectLevelUp(){
+  const targetLv=calcUserLevel();
+  const curLv=S.data.userLevel||1;
+  if(targetLv>curLv){
+    const updates={
+      userLevel:targetLv,
+      levelHistory:[...(S.data.levelHistory||[]),{lv:targetLv,date:new Date().toISOString()}]
+    };
+    // 也同步徽章
+    const earned=calcEarnedBadges();
+    const oldBadges=S.data.badges||[];
+    const newBadges=earned.filter(e=>!oldBadges.includes(e));
+    if(newBadges.length>0){
+      updates.badges=[...oldBadges,...newBadges];
+      S._newBadges=newBadges;
+    }
+    S._levelUp={from:curLv,to:targetLv};
+    await saveMain(updates);
+  }else{
+    // 只更新徽章
+    const earned=calcEarnedBadges();
+    const oldBadges=S.data.badges||[];
+    const newBadges=earned.filter(e=>!oldBadges.includes(e));
+    if(newBadges.length>0){
+      await saveMain({badges:[...oldBadges,...newBadges]});
+      S._newBadges=newBadges;
+    }
+  }
+}
+
 const PAGES=[
   {id:'home',     ico:'🏠',lbl:'首頁',group:'main'},
+  {id:'levelup',  ico:'🏆',lbl:'升級攻略',group:'main'},
   {id:'monthly',  ico:'💰',lbl:'每月記帳',group:'main'},
   {id:'accounts', ico:'💳',lbl:'帳戶總管',group:'main'},
   {id:'goals',    ico:'🎯',lbl:'目標 GPS',group:'main'},
@@ -439,6 +611,7 @@ let S={
     investTracks:[],investNotes:{},
     accounts:[],transferTasks:[],accountChecks:{},
     consultRecords:[],resistedList:[],coolingQueue:[],consultThreshold:500,
+    userLevel:1,badges:[],expPoints:0,taskChecks:{},levelHistory:[],
     importStaging:[]
   }
 };
@@ -485,6 +658,11 @@ function startSync(){
       S.data.resistedList=d.resistedList||[];
       S.data.coolingQueue=d.coolingQueue||[];
       S.data.consultThreshold=d.consultThreshold!==undefined?d.consultThreshold:500;
+      S.data.userLevel=d.userLevel||1;
+      S.data.badges=d.badges||[];
+      S.data.expPoints=d.expPoints||0;
+      S.data.taskChecks=d.taskChecks||{};
+      S.data.levelHistory=d.levelHistory||[];
       S.data.investNotes=d.investNotes||{};
     }
     setSyncing('synced');
@@ -550,9 +728,53 @@ function render(){
     <div class="layout">${sidebar()}<main class="content">${page()}</main></div>
     ${mobNav()}
   </div>
-  ${S.modal?modal():''}`;
+  ${S.modal?modal():''}
+  ${S._levelUp?levelUpModal():''}`;
   // render 後觸發複利計算（如果儲蓄頁）
   if(S.page==='savings'){setTimeout(()=>{if(typeof calcCompound==='function')calcCompound();},50);}
+  // 自動偵測等級晉升（防遞迴：不在彈窗顯示時偵測）
+  if(!S._levelUp&&!S._checkingLevel){
+    S._checkingLevel=true;
+    setTimeout(async()=>{
+      try{await detectLevelUp();}finally{S._checkingLevel=false;}
+      if(S._levelUp)render();
+    },300);
+  }
+}
+
+function levelUpModal(){
+  const lvData=LEVELS.find(l=>l.lv===S._levelUp.to)||LEVELS[0];
+  const newBadges=(S._newBadges||[]).map(id=>BADGES.find(b=>b.id===id)).filter(Boolean);
+  return`<div class="mbk" onclick="dismissLevelUpModal()" style="background:rgba(61,45,36,0.65);backdrop-filter:blur(4px);">
+    <div class="mbox" style="max-width:520px;text-align:center;background:linear-gradient(135deg,${lvData.color}33,var(--card));border:3px solid ${lvData.color};padding:42px 38px;animation:lvUp .6s cubic-bezier(.34,1.56,.64,1);">
+      <div style="font-size:14px;color:var(--mut);letter-spacing:0.3em;font-weight:600;">★ LEVEL UP ★</div>
+      <div style="font-size:96px;line-height:1;margin:20px 0 12px;filter:drop-shadow(0 4px 20px ${lvData.color}88);animation:lvIco 1s ease-in-out infinite alternate;">${lvData.ico}</div>
+      <div style="font-family:'Noto Serif TC',serif;font-size:14px;color:var(--mut);letter-spacing:0.2em;">LV.${lvData.lv}</div>
+      <div style="font-family:'Noto Serif TC',serif;font-size:38px;font-weight:700;color:${lvData.color};letter-spacing:0.15em;margin-top:4px;">${lvData.name}</div>
+      <div style="font-size:15px;color:var(--brown);font-weight:600;margin-top:8px;letter-spacing:0.08em;">${lvData.title}</div>
+
+      <div style="margin:24px 0 18px;padding:18px 22px;background:var(--card);border-radius:14px;font-family:'Noto Serif TC',serif;font-size:15px;color:var(--brown);letter-spacing:0.08em;line-height:1.9;font-style:italic;border-left:3px solid ${lvData.color};border-right:3px solid ${lvData.color};">「${lvData.story}」</div>
+
+      <div style="display:grid;grid-template-columns:1fr;gap:10px;text-align:left;margin-bottom:20px;">
+        <div style="padding:12px 16px;background:var(--bg2);border-radius:10px;">
+          <div class="tm" style="font-size:11px;letter-spacing:0.1em;">🎁 新解鎖</div>
+          <div style="font-size:13.5px;color:var(--brown);font-weight:600;margin-top:3px;">${lvData.unlock}</div>
+        </div>
+        ${newBadges.length>0?`<div style="padding:12px 16px;background:linear-gradient(135deg,var(--gold)22,var(--card));border-radius:10px;">
+          <div class="tm" style="font-size:11px;letter-spacing:0.1em;">🏅 同時獲得 ${newBadges.length} 枚徽章</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
+            ${newBadges.map(b=>`<span class="bdg" style="background:var(--gold);color:#fff;font-size:11.5px;padding:5px 10px;">${b.ico} ${b.name}</span>`).join('')}
+          </div>
+        </div>`:''}
+      </div>
+
+      <button class="btn btn-p" onclick="dismissLevelUpModal()" style="background:${lvData.color};border-color:${lvData.color};font-size:15px;padding:14px 36px;letter-spacing:0.1em;">✦ 繼續旅程 ✦</button>
+    </div>
+  </div>
+  <style>
+    @keyframes lvUp{from{opacity:0;transform:scale(0.85) translateY(20px);}to{opacity:1;transform:scale(1) translateY(0);}}
+    @keyframes lvIco{from{transform:translateY(0);}to{transform:translateY(-8px);}}
+  </style>`;
 }
 function renderLogin(){
   document.getElementById('LS').style.display='none';
@@ -599,6 +821,7 @@ function page(){
     case'invest':   return pgInvest();
     case'accounts': return pgAccounts();
     case'resisted': return pgResisted();
+    case'levelup':  return pgLevelUp();
     case'settings': return pgSettings();
     // monthly 在新版是「每月記帳」，舊版的「逐月收支」改名為 monthlytab
     case'monthly':  return pgMonthlyEntry();
@@ -781,6 +1004,89 @@ function pgHome(){
   return`
   <div class="pg-ttl">${greet}，${userName}　🏡</div>
   <div class="pg-sub">${yr()}年 ${MOS[S.month-1]}　第 ${Math.ceil(S.month/3)} 季　／　今天是 ${todayD.getMonth()+1}/${todayD.getDate()}</div>
+
+  <!-- 🗺️ 財富升級地圖 -->
+  ${(()=>{
+    const curLv=S.data.userLevel||1;
+    const curLvData=LEVELS.find(l=>l.lv===curLv)||LEVELS[0];
+    const nextLvData=LEVELS.find(l=>l.lv===curLv+1);
+    const M=computeMonthly();
+    const months=toN(M.monthsCovered);
+    let progress=0,toGoal='';
+    if(nextLvData){
+      if(curLv<4){
+        const target=curLv+1===2?1:curLv+1===3?3:6;
+        progress=Math.min(100,Math.round(months/target*100));
+        toGoal=`緊急預備金 ${months.toFixed(1)}/${target} 個月`;
+      }else if(curLv===4){
+        const invest=(S.data.investTracks||[]).reduce((s,t)=>s+toN(t.currentValue||t.totalCost||0),0);
+        progress=Math.min(100,Math.round(invest/100000*100));
+        toGoal=`投資組合 $${fmt(invest)}/$100,000`;
+      }else if(curLv===5){
+        const ta=(S.data.assets||[]).reduce((s,a)=>s+toN(a.amount),0);
+        progress=Math.min(100,Math.round(ta/500000*100));
+        toGoal=`總資產 $${fmt(ta)}/$500,000`;
+      }else if(curLv===6){
+        const pi=(S.data.incomes||[]).filter(i=>i.isPassive&&i.month===S.month&&i.year===yr()).reduce((s,i)=>s+toN(i.amount),0);
+        const ft=M.fixedTotal||1;
+        progress=Math.min(100,Math.round(pi/(ft*0.3)*100));
+        toGoal=`被動收入 $${fmt(pi)}/$${fmt(ft*0.3)}（月支出 30%）`;
+      }else if(curLv===7){
+        const pi=(S.data.incomes||[]).filter(i=>i.isPassive&&i.month===S.month&&i.year===yr()).reduce((s,i)=>s+toN(i.amount),0);
+        const ft=M.fixedTotal||1;
+        progress=Math.min(100,Math.round(pi/ft*100));
+        toGoal=`被動收入 $${fmt(pi)}/$${fmt(ft)}（月支出 100%）`;
+      }
+    }
+    const badgeCount=(S.data.badges||[]).length;
+    return`<div class="card card-feature" style="margin-bottom:20px;cursor:pointer;background:linear-gradient(135deg,${curLvData.color}22,var(--card));border:2px solid ${curLvData.color};" onclick="setP('levelup')">
+      <div class="card-bd" style="padding:22px 26px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;margin-bottom:14px;">
+          <div style="display:flex;align-items:center;gap:14px;">
+            <div style="font-size:48px;line-height:1;">${curLvData.ico}</div>
+            <div>
+              <div class="tm" style="font-size:11px;letter-spacing:0.15em;">LV.${curLv}　現在的你</div>
+              <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:${curLvData.color};letter-spacing:0.08em;line-height:1.2;">${curLvData.name}</div>
+              <div class="tm" style="font-size:12px;margin-top:2px;">${curLvData.title}</div>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div class="tm" style="font-size:11px;letter-spacing:0.1em;">已獲得徽章</div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:26px;font-weight:700;color:var(--gold);">🏅 ${badgeCount}</div>
+          </div>
+        </div>
+
+        <!-- 路徑 -->
+        <div style="display:flex;align-items:center;gap:4px;margin-bottom:14px;overflow-x:auto;padding-bottom:4px;">
+          ${LEVELS.map((l,i)=>{
+            const passed=l.lv<curLv;
+            const current=l.lv===curLv;
+            const future=l.lv>curLv;
+            return`<div style="display:flex;align-items:center;flex-shrink:0;">
+              <div style="display:flex;flex-direction:column;align-items:center;min-width:50px;opacity:${future?0.35:1};">
+                <div style="font-size:${current?28:22}px;line-height:1;filter:${current?'drop-shadow(0 2px 6px rgba(184,137,107,0.5))':'none'};">${l.ico}</div>
+                <div class="tm" style="font-size:9px;margin-top:3px;color:${current?l.color:'var(--mut)'};font-weight:${current?'700':'500'};">Lv.${l.lv}</div>
+              </div>
+              ${i<LEVELS.length-1?`<div style="width:18px;height:2px;background:${l.lv<curLv?l.color:'var(--bdr)'};margin:0 2px;align-self:center;margin-top:-8px;"></div>`:''}
+            </div>`;
+          }).join('')}
+        </div>
+
+        ${nextLvData?`<div style="background:var(--card);padding:14px 18px;border-radius:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+            <span style="font-size:13px;color:var(--mut);letter-spacing:0.06em;">→ 下一關：<b style="color:${nextLvData.color};">${nextLvData.ico} ${nextLvData.name}</b></span>
+            <span style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:${nextLvData.color};">${progress}%</span>
+          </div>
+          <div class="pb-lg" style="height:10px;"><div class="pf" style="width:${progress}%;background:linear-gradient(90deg,${curLvData.color},${nextLvData.color});"></div></div>
+          <div class="tm" style="margin-top:8px;font-size:12px;text-align:center;">${toGoal}</div>
+        </div>`:`<div style="text-align:center;padding:14px;background:linear-gradient(135deg,var(--gold)33,var(--card));border-radius:12px;">
+          <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--gold);letter-spacing:0.1em;">🏆 你已抵達終點　財務自由達成 🦅</div>
+        </div>`}
+
+        <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--mut);letter-spacing:0.06em;">點擊進入升級攻略 → 查看任務、徽章、晉級條件</div>
+      </div>
+    </div>`;
+  })()}
 
   <!-- 🤔 我要買東西大按鈕（核心衝動消費防護）-->
   <div style="margin-bottom:24px;">
@@ -1866,6 +2172,154 @@ function pgAccounts(){
 // ═══════════════════════════════════════════════════════════
 // ──── 💪 我忍住了帳本（正向回饋）─────────────────────────────
 // ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
+// ──── 🏆 升級攻略頁面 ────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+function pgLevelUp(){
+  const curLv=S.data.userLevel||1;
+  const curLvData=LEVELS.find(l=>l.lv===curLv)||LEVELS[0];
+  const earnedBadges=S.data.badges||[];
+
+  // 各任務狀態
+  const dailyDone=DAILY_TASKS.filter(t=>{try{return t.check();}catch{return false;}}).length;
+  const weeklyDone=WEEKLY_TASKS.filter(t=>{try{return t.check();}catch{return false;}}).length;
+  const monthlyDone=MONTHLY_TASKS.filter(t=>{try{return t.check();}catch{return false;}}).length;
+
+  return`
+  <div class="pg-ttl">🏆 升級攻略</div>
+  <div class="pg-sub">把理財變成闖關　＋ 用升級的成就感取代焦慮</div>
+
+  <!-- 當前等級大卡 -->
+  <div class="card card-feature" style="background:linear-gradient(135deg,${curLvData.color}33,var(--card));border:2.5px solid ${curLvData.color};">
+    <div class="card-bd" style="padding:28px 32px;text-align:center;">
+      <div style="font-size:80px;line-height:1;margin-bottom:8px;">${curLvData.ico}</div>
+      <div class="tm" style="font-size:12px;letter-spacing:0.2em;">LV.${curLv}</div>
+      <div style="font-family:'Noto Serif TC',serif;font-size:32px;font-weight:700;color:${curLvData.color};letter-spacing:0.12em;margin-top:4px;">${curLvData.name}</div>
+      <div style="font-size:14px;color:var(--brown);font-weight:600;margin-top:6px;letter-spacing:0.06em;">${curLvData.title}</div>
+      <div style="margin-top:16px;padding:14px 20px;background:var(--card);border-radius:12px;font-family:'Noto Serif TC',serif;font-size:14px;color:var(--brown);letter-spacing:0.08em;line-height:1.8;font-style:italic;">「${curLvData.story}」</div>
+    </div>
+  </div>
+
+  <!-- 8 關卡完整路線 -->
+  <div class="card">
+    <div class="card-hd"><span class="card-ttl">🗺️ 八關升級路線</span></div>
+    <div class="card-bd">
+      ${LEVELS.map(l=>{
+        const passed=l.lv<curLv;
+        const current=l.lv===curLv;
+        const future=l.lv>curLv;
+        return`<div style="display:flex;gap:16px;padding:18px;background:${current?l.color+'22':future?'var(--bg2)':'var(--card)'};border-radius:12px;margin-bottom:10px;border-left:4px solid ${current?l.color:passed?l.color:'var(--bdr)'};opacity:${future?0.6:1};">
+          <div style="font-size:42px;line-height:1;flex-shrink:0;">${l.ico}</div>
+          <div style="flex:1;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;">
+              <div>
+                <span class="tm" style="font-size:11px;letter-spacing:0.15em;">LV.${l.lv}</span>
+                <span style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:${l.color};letter-spacing:0.08em;margin-left:8px;">${l.name}</span>
+              </div>
+              <span class="bdg" style="background:${passed?'var(--grn)':current?l.color:'var(--mut)'};color:#fff;font-size:11px;">${passed?'✓ 已通過':current?'★ 進行中':'🔒 未解鎖'}</span>
+            </div>
+            <div style="font-size:13px;color:var(--brown);margin-top:4px;font-weight:500;">${l.title}</div>
+            <div style="font-size:12.5px;color:var(--mut);margin-top:6px;line-height:1.7;">
+              <b>📍 解鎖條件：</b>${l.cond}<br>
+              <b>🎁 解鎖獎勵：</b>${l.unlock}
+            </div>
+            <div style="margin-top:8px;padding:8px 12px;background:var(--card);border-radius:8px;font-family:'Noto Serif TC',serif;font-size:12.5px;color:var(--brown);font-style:italic;">「${l.story}」</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>
+
+  <!-- 徽章收集 -->
+  <div class="card">
+    <div class="card-hd">
+      <span class="card-ttl">🏅 徽章收藏 ${earnedBadges.length} / ${BADGES.length}</span>
+    </div>
+    <div class="card-bd">
+      ${['起步','紀律','消費控制','累積','投資'].map(cat=>{
+        const inCat=BADGES.filter(b=>b.cat===cat);
+        if(inCat.length===0)return'';
+        return`<div style="margin-bottom:18px;">
+          <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:600;color:var(--brown);letter-spacing:0.1em;margin-bottom:10px;">— ${cat} 類 —</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;">
+            ${inCat.map(b=>{
+              const has=earnedBadges.includes(b.id);
+              return`<div style="background:${has?'linear-gradient(135deg,'+'var(--gold)'+'33,var(--card))':'var(--bg2)'};border:1.5px solid ${has?'var(--gold)':'var(--bdr)'};border-radius:12px;padding:14px;text-align:center;opacity:${has?1:0.45};">
+                <div style="font-size:32px;line-height:1;filter:${has?'none':'grayscale(1)'};margin-bottom:6px;">${b.ico}</div>
+                <div style="font-family:'Noto Serif TC',serif;font-size:13px;font-weight:700;color:${has?'var(--gold)':'var(--mut)'};letter-spacing:0.06em;">${b.name}</div>
+                <div class="tm" style="font-size:10.5px;margin-top:4px;line-height:1.5;">${b.desc}</div>
+                ${has?'<div style="margin-top:6px;font-size:10px;color:var(--gold);font-weight:700;">✓ 已獲得</div>':''}
+              </div>`;
+            }).join('')}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>
+
+  <!-- 任務系統 -->
+  <div class="card">
+    <div class="card-hd">
+      <span class="card-ttl">📋 每日／每週／每月任務</span>
+      <span class="tm" style="margin-left:auto;font-size:12px;">完成任務累積經驗值（純鼓勵，不扣分）</span>
+    </div>
+    <div class="card-bd">
+      <div style="margin-bottom:18px;">
+        <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:600;color:var(--brown);letter-spacing:0.1em;margin-bottom:10px;">☀️ 每日任務（${dailyDone}/${DAILY_TASKS.length} 完成）</div>
+        ${DAILY_TASKS.map(t=>{
+          let done=false;try{done=t.check();}catch{}
+          return`<div style="display:flex;align-items:center;gap:14px;padding:12px 16px;background:${done?'var(--grnl)':'var(--bg2)'};border-radius:10px;margin-bottom:8px;border-left:3px solid ${done?'var(--grn)':'var(--bdr)'};">
+            <span style="font-size:20px;">${done?'✅':t.ico}</span>
+            <span style="flex:1;font-size:14px;color:${done?'var(--mut)':'var(--brown)'};text-decoration:${done?'line-through':'none'};">${t.name}</span>
+            <span class="bdg" style="background:var(--gold);color:#fff;font-size:11px;">+${t.exp} EXP</span>
+          </div>`;
+        }).join('')}
+      </div>
+      <div style="margin-bottom:18px;">
+        <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:600;color:var(--brown);letter-spacing:0.1em;margin-bottom:10px;">📅 每週任務（${weeklyDone}/${WEEKLY_TASKS.length} 完成）</div>
+        ${WEEKLY_TASKS.map(t=>{
+          let done=false;try{done=t.check();}catch{}
+          return`<div style="display:flex;align-items:center;gap:14px;padding:12px 16px;background:${done?'var(--grnl)':'var(--bg2)'};border-radius:10px;margin-bottom:8px;border-left:3px solid ${done?'var(--grn)':'var(--bdr)'};">
+            <span style="font-size:20px;">${done?'✅':t.ico}</span>
+            <span style="flex:1;font-size:14px;color:${done?'var(--mut)':'var(--brown)'};text-decoration:${done?'line-through':'none'};">${t.name}</span>
+            <span class="bdg" style="background:var(--gold);color:#fff;font-size:11px;">+${t.exp} EXP</span>
+          </div>`;
+        }).join('')}
+      </div>
+      <div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:600;color:var(--brown);letter-spacing:0.1em;margin-bottom:10px;">🌙 每月任務（${monthlyDone}/${MONTHLY_TASKS.length} 完成）</div>
+        ${MONTHLY_TASKS.map(t=>{
+          let done=false;try{done=t.check();}catch{}
+          return`<div style="display:flex;align-items:center;gap:14px;padding:12px 16px;background:${done?'var(--grnl)':'var(--bg2)'};border-radius:10px;margin-bottom:8px;border-left:3px solid ${done?'var(--grn)':'var(--bdr)'};">
+            <span style="font-size:20px;">${done?'✅':t.ico}</span>
+            <span style="flex:1;font-size:14px;color:${done?'var(--mut)':'var(--brown)'};text-decoration:${done?'line-through':'none'};">${t.name}</span>
+            <span class="bdg" style="background:var(--gold);color:#fff;font-size:11px;">+${t.exp} EXP</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  </div>
+
+  ${(S.data.levelHistory||[]).length>0?`<div class="card">
+    <div class="card-hd"><span class="card-ttl">📜 升級紀錄</span></div>
+    <div class="card-bd">
+      ${(S.data.levelHistory||[]).slice().reverse().map(h=>{
+        const lvData=LEVELS.find(l=>l.lv===h.lv);
+        return`<div style="display:flex;gap:12px;align-items:center;padding:10px 14px;background:var(--bg2);border-radius:10px;margin-bottom:6px;">
+          <span style="font-size:24px;">${lvData?lvData.ico:'🏆'}</span>
+          <div style="flex:1;">
+            <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:600;color:var(--brown);">晉升 Lv.${h.lv} ${lvData?lvData.name:''}</div>
+            <div class="tm" style="font-size:11px;">${new Date(h.date).toLocaleDateString('zh-TW')}</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`:''}
+  <div style="text-align:center;margin:24px 0;">
+    <button class="btn btn-s" onclick="manualCheckLevel()">🔄 重新檢查等級與徽章</button>
+  </div>`;
+}
+
 function pgResisted(){
   const resisted=S.data.resistedList||[];
   const cooling=S.data.coolingQueue||[];
@@ -6202,6 +6656,19 @@ window.runConsult=()=>{
 
   S.consultResult={item,amount,ledgerId,ledgerName:ledger.name,urgency,totalScore,verdict,verdictSub,dimensions,date:today()};
   S.modal={t:'consultResult'};
+  render();
+};
+
+// ─── 🏆 升級系統 actions ─────────────────────────────
+window.manualCheckLevel=async()=>{
+  await detectLevelUp();
+  toast('✓ 已檢查');
+  render();
+};
+
+window.dismissLevelUpModal=()=>{
+  S._levelUp=null;
+  S._newBadges=null;
   render();
 };
 
