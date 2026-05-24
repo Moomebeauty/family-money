@@ -558,11 +558,131 @@ async function detectLevelUp(){
   }
 }
 
+// ═══════════════════════════════════════════════════════════
+// ──── 💳 信用卡攻略表 資料 ─────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+const DEFAULT_CARDS=[
+  {
+    id:'lp',name:'聯邦賴點卡',bank:'聯邦',shortName:'聯邦 LINE Pay',
+    color:'#06C755',type:'LINE Pay 聯名卡',annualFee:'免年費',annualFeeWaive:'本身免年費',
+    bestFor:'國內偶數日指定通路',
+    rewards:[
+      {scene:'偶數日 LINE Pay 指定通路',rate:'6%',detail:'王品/星巴克/麥當勞/屈臣氏/IKEA/NIKE 等',limit:'月上限 150 點（刷 3000 內最划算）'},
+      {scene:'LINE Pay 一般消費',rate:'2%',detail:'單筆 100 元以上',limit:'無上限'},
+      {scene:'國外消費',rate:'3%',detail:'含歐洲指定國家實體店',limit:'無上限'},
+      {scene:'國內一般消費',rate:'1%',detail:'非 LINE Pay 場景',limit:'無上限'}
+    ],
+    pitfalls:['需綁定 LINE Pay 才有加碼','需申辦電子帳單才有資格','奇數日只有 2%'],
+    actionItems:['月初確認 LINE Pay 綁定狀態'],
+    iAm:'oldUser'
+  },
+  {
+    id:'eco',name:'星展 eco 永續極簡卡',bank:'星展',shortName:'星展 eco',
+    color:'#3D6B5A',type:'環保聯名卡',annualFee:'NT$3,000',annualFeeWaive:'達標免年費',
+    bestFor:'保費/超商街口/出國日韓泰新美',
+    rewards:[
+      {scene:'eco 消費',rate:'10%',detail:'Gogoro 電池/Tesla 充電/星展社企（鮮乳坊/茶籽堂等）',limit:'每期 300 點（刷 3333 內）'},
+      {scene:'國外指定地區',rate:'5%',detail:'日本/韓國/泰國/新加坡/美洲實體店（極簡卡不含歐洲）',limit:'每期 600 點（刷 15000 內）'},
+      {scene:'國內外一般消費',rate:'1%',detail:'保費、超商街口支付同享',limit:'無上限 ⭐'},
+      {scene:'威秀電影票',rate:'6 折起',detail:'平日 6 折、假日 85 折',limit:'-'}
+    ],
+    pitfalls:['2026 起一般消費從 1.2% 降到 1%','極簡卡歐洲無加碼（要原版 eco 卡才有）','回饋上限以「每期帳單」計算，非每月'],
+    actionItems:['出國前確認海外功能開啟'],
+    iAm:'oldUser'
+  },
+  {
+    id:'fbj',name:'富邦 J 卡',bank:'富邦',shortName:'富邦 J 卡',
+    color:'#1B4F8B',type:'LINE Points 旅日卡',annualFee:'NT$1,500',annualFeeWaive:'一年刷 6 萬或 12 次免',
+    bestFor:'日韓泰旅遊 + 台灣大眾運輸',
+    rewards:[
+      {scene:'日本 Suica/PASMO/ICOCA 儲值',rate:'10%',detail:'用 Apple Pay 綁卡，單筆滿 2,000 元',limit:'季限量需登錄'},
+      {scene:'日本/韓國/泰國 實體消費',rate:'6%',detail:'單筆滿額條件，需每季登錄',limit:'每季有上限'},
+      {scene:'台灣大眾運輸（一卡通功能）',rate:'2%',detail:'捷運/輕軌/台鐵/公車/Ubike/渡輪，月累積滿 100',limit:'無上限 ⭐'},
+      {scene:'LINE Pay 一般消費（舊戶）',rate:'2%',detail:'限 LINE Pay 通路',limit:'無上限'},
+      {scene:'國內一般消費',rate:'1%',detail:'-',limit:'無上限'}
+    ],
+    pitfalls:['日韓泰 6% 需每季登錄（沒登錄只有 1%）','登錄要在 Fubon+ APP → 優惠 → 活動登錄','出國前一定要登錄'],
+    actionItems:['每季初登錄日韓泰活動','出國前用 J 卡刷機票（拿 1500 萬旅平險）'],
+    iAm:'oldUser'
+  },
+  {
+    id:'lpc',name:'中信 LINE Pay 卡',bank:'中信',shortName:'中信 LINE Pay',
+    color:'#00B900',type:'LINE Pay 聯名卡',annualFee:'NT$1,800',annualFeeWaive:'達標可免',
+    bestFor:'美/日/韓/港/澳實體店',
+    rewards:[
+      {scene:'美/日/韓/港/澳實體消費',rate:'最高 5%',detail:'需週二搶登錄（每週 3000 名）',limit:'加碼月上限 450 點'},
+      {scene:'國外實體消費（其他國家）',rate:'2.8%',detail:'1% 基本 + 1.8% 加碼',limit:'無上限'},
+      {scene:'一卡通搭大眾運輸',rate:'1%',detail:'月累積滿 100 元',limit:'無上限'},
+      {scene:'國內外一般消費',rate:'1%',detail:'LINE POINTS',limit:'無上限'}
+    ],
+    pitfalls:['⚠️ 分期交易完全沒回饋','需每週二搶登錄海外加碼','LINE POINTS 180 天效期'],
+    actionItems:['週二搶登錄海外加碼活動','評估是否值得 1800 年費'],
+    iAm:'oldUser'
+  },
+  {
+    id:'mop',name:'永豐三井 OUTLET 聯名卡',bank:'永豐',shortName:'永豐三井',
+    color:'#C9A961',type:'三井聯名卡',annualFee:'NT$3,000',annualFeeWaive:'申請電子帳單即免年費 ⭐',
+    bestFor:'日本三井 OUTLET 購物',
+    rewards:[
+      {scene:'日本三井 OUTLET 購物',rate:'外國人 10% + 免稅 10% + 500日圓券',detail:'限指定館（札幌/幕張/橫濱/長島/神戶等）',limit:'加碼期可拿 4 張 500 日圓券'},
+      {scene:'館外餐飲 + 全盈+PAY',rate:'7% 刷卡金',detail:'需登錄 + 設自動扣繳 + 當期滿 3000',limit:'每期上限 100 元'},
+      {scene:'JCB 限定：日韓泰實體店',rate:'2000元/季',detail:'每季滿 3 萬，限量 3000 名',limit:'每季限一次'},
+      {scene:'台灣三井 OUTLET 館內',rate:'1% + 85 折 + 免費停車',detail:'林口/台中港/台南三館',limit:'-'},
+      {scene:'國內外一般消費',rate:'1% 豐點',detail:'-',limit:'無上限'}
+    ],
+    pitfalls:['⚠️ 分期交易完全沒回饋','館內餐飲只有 1%（7% 是館外餐飲）','日本 OUTLET 必須先去外國旅客服務中心兌換'],
+    actionItems:['申請電子帳單免年費','去日本三井前列印 QR Code'],
+    iAm:'oldUser'
+  },
+  {
+    id:'cube',name:'國泰 CUBE 卡',bank:'國泰',shortName:'國泰 CUBE',
+    color:'#005EB8',type:'多選一權益卡',annualFee:'NT$1,800',annualFeeWaive:'申請電子帳單即免年費 ⭐',
+    bestFor:'數位訂閱 + 慶生月',
+    rewards:[
+      {scene:'🎂 慶生月（生日當月）',rate:'最高 10%',detail:'餐廳/KTV/樂園/百貨',limit:'壽星限定'},
+      {scene:'切「玩數位」方案',rate:'3%',detail:'Netflix/Spotify/ChatGPT/數位訂閱',limit:'無上限'},
+      {scene:'切「樂饗購」方案',rate:'3%',detail:'蝦皮/momo/UberEats/百貨',limit:'無上限'},
+      {scene:'切「趣旅行」方案',rate:'3%',detail:'Booking/Agoda/Klook',limit:'無上限'},
+      {scene:'切「集精選」方案',rate:'3%',detail:'購票/票券/外送',limit:'無上限'},
+      {scene:'切「來支付」方案',rate:'3%',detail:'街口/全支付/LINE Pay',limit:'無上限'},
+      {scene:'❌ 沒切換方案',rate:'0.3%',detail:'差 10 倍以上！',limit:'-'}
+    ],
+    pitfalls:['⚠️ 每天記得切換方案（差 10 倍）','⚠️ 分期 0.3% 沒加碼','水電/停車/繳稅完全沒回饋'],
+    actionItems:['每天打開 CUBE APP 切換方案','申請電子帳單免年費','生日當月一定切「慶生月」'],
+    iAm:'oldUser'
+  }
+];
+
+// 場景對照表
+const CARD_SCENARIOS=[
+  {ico:'🛍️',label:'國內偶數日去王品/星巴克/屈臣氏/IKEA',cardId:'lp',rate:'6%',note:'限指定通路'},
+  {ico:'📦',label:'網購（蝦皮/momo/PChome）',cardId:'cube',rate:'3%',note:'記得切「樂饗購」方案'},
+  {ico:'🍱',label:'外送（UberEats/foodpanda）',cardId:'cube',rate:'3%',note:'切「樂饗購」'},
+  {ico:'📺',label:'訂閱（Netflix/Spotify/ChatGPT）',cardId:'cube',rate:'3%',note:'切「玩數位」'},
+  {ico:'🎂',label:'生日當月吃大餐/KTV/樂園',cardId:'cube',rate:'10%',note:'切「慶生月」⭐ 你的卡神時刻'},
+  {ico:'🇯🇵',label:'去日本/韓國/泰國旅遊一般消費',cardId:'fbj',rate:'6%',note:'⚠️ 出國前一定要季登錄！'},
+  {ico:'🚇',label:'日本搭電車（Suica 儲值）',cardId:'fbj',rate:'10%',note:'用 Apple Pay 綁卡，單筆 2000 以上'},
+  {ico:'🛒',label:'日本三井 OUTLET 購物',cardId:'mop',rate:'20%+',note:'外國人 10% + 免稅 10% + 500日圓券'},
+  {ico:'✈️',label:'訂機票/訂房（國際旅遊）',cardId:'fbj',rate:'1500萬旅平險',note:'刷機票拿保險（不是看回饋率）'},
+  {ico:'🏨',label:'訂房平台 Booking/Agoda（非日韓）',cardId:'cube',rate:'3%',note:'切「趣旅行」'},
+  {ico:'🌍',label:'去歐洲/新加坡',cardId:'eco',rate:'5%',note:'極簡卡歐洲沒加碼，但其他國家有'},
+  {ico:'🇺🇸',label:'去美國/香港/澳門',cardId:'lpc',rate:'5%',note:'記得週二搶登錄'},
+  {ico:'🚌',label:'台灣搭捷運/公車/台鐵',cardId:'fbj',rate:'2%',note:'用 J 卡一卡通功能'},
+  {ico:'⚡',label:'Gogoro 電池/Tesla 充電',cardId:'eco',rate:'10%',note:'-'},
+  {ico:'🌱',label:'社企消費（鮮乳坊/茶籽堂/綠藤）',cardId:'eco',rate:'10%',note:'-'},
+  {ico:'🏥',label:'繳保費',cardId:'eco',rate:'1%',note:'無上限，沒被排除 ⭐'},
+  {ico:'🏪',label:'超商街口支付',cardId:'eco',rate:'1%',note:'無上限'},
+  {ico:'📱',label:'LINE Pay 非偶數日/非指定通路',cardId:'fbj',rate:'2%',note:'富邦 J 卡舊戶優惠'},
+  {ico:'💸',label:'大額無腦消費（不知道刷哪張）',cardId:'eco',rate:'1%',note:'1% 無上限是底線'},
+  {ico:'⛔',label:'要分期付款',cardId:'NONE',rate:'⚠️ 警告',note:'中信 LINE Pay、永豐三井、國泰 CUBE 分期都沒回饋！用聯邦/星展/富邦'}
+];
+
 const PAGES=[
   {id:'home',     ico:'🏠',lbl:'首頁',group:'main'},
   {id:'levelup',  ico:'🏆',lbl:'升級攻略',group:'main'},
   {id:'monthly',  ico:'💰',lbl:'每月記帳',group:'main'},
   {id:'accounts', ico:'💳',lbl:'帳戶總管',group:'main'},
+  {id:'cards',    ico:'🎴',lbl:'信用卡攻略',group:'main'},
   {id:'goals',    ico:'🎯',lbl:'目標 GPS',group:'main'},
   {id:'invest',   ico:'💎',lbl:'投資主軸',group:'main'},
   {id:'health',   ico:'📊',lbl:'健檢報告',group:'main'},
@@ -612,6 +732,7 @@ let S={
     accounts:[],transferTasks:[],accountChecks:{},
     consultRecords:[],resistedList:[],coolingQueue:[],consultThreshold:500,
     userLevel:1,badges:[],expPoints:0,taskChecks:{},levelHistory:[],
+    cardGuides:[],cardLogs:{},
     importStaging:[]
   }
 };
@@ -663,6 +784,8 @@ function startSync(){
       S.data.expPoints=d.expPoints||0;
       S.data.taskChecks=d.taskChecks||{};
       S.data.levelHistory=d.levelHistory||[];
+      S.data.cardGuides=d.cardGuides||[];
+      S.data.cardLogs=d.cardLogs||{};
       S.data.investNotes=d.investNotes||{};
     }
     setSyncing('synced');
@@ -822,6 +945,7 @@ function page(){
     case'accounts': return pgAccounts();
     case'resisted': return pgResisted();
     case'levelup':  return pgLevelUp();
+    case'cards':    return pgCards();
     case'settings': return pgSettings();
     // monthly 在新版是「每月記帳」，舊版的「逐月收支」改名為 monthlytab
     case'monthly':  return pgMonthlyEntry();
@@ -2175,6 +2299,186 @@ function pgAccounts(){
 // ═══════════════════════════════════════════════════════════
 // ──── 🏆 升級攻略頁面 ────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
+// ──── 🎴 信用卡攻略表 ──────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+function pgCards(){
+  // 取得用戶的卡（如果沒設定，用預設）
+  const userCards=S.data.cardGuides||[];
+  const cards=userCards.length>0?userCards:DEFAULT_CARDS;
+
+  return`
+  <div class="pg-ttl">🎴 信用卡攻略表</div>
+  <div class="pg-sub">6 張卡無腦對照　＋ 場景查詢　＋ 登錄/年費提醒</div>
+
+  <!-- 💡 怎麼用這頁 -->
+  <div class="card card-feature">
+    <div class="card-hd">
+      <span class="card-ttl">💡 怎麼用這頁？</span>
+      <button class="btn btn-s btn-sm" onclick="(function(b){const c=b.parentElement.parentElement.querySelector('.cards-help-body');c.style.display=c.style.display==='none'?'block':'none';b.textContent=c.style.display==='none'?'展開':'收起';})(this)">收起</button>
+    </div>
+    <div class="card-bd cards-help-body">
+      <div style="background:linear-gradient(135deg,var(--accL),var(--card));padding:18px 22px;border-radius:var(--r-sm);font-size:14px;line-height:2;letter-spacing:0.04em;">
+        <b style="color:var(--brown);font-family:'Noto Serif TC',serif;font-size:15px;">🎯 三個使用情境：</b><br><br>
+        <b>1. 出門前不知道刷哪張</b> → 滑到「🎯 場景對照表」找你要做的事<br>
+        <b>2. 想了解某張卡的詳細優惠</b> → 滑到下方「📋 卡片清單」展開該卡<br>
+        <b>3. 每月初檢查待辦</b> → 看「⏰ 本月待辦」（季登錄、週登錄等）<br><br>
+        <b style="color:var(--red);">⚠️ 大原則：</b><br>
+        • 分期不要用中信/三井/CUBE（沒回饋）<br>
+        • 出國前先檢查富邦 J 卡是否已季登錄<br>
+        • 國泰 CUBE 每天記得切換方案
+      </div>
+    </div>
+  </div>
+
+  <!-- ⏰ 本月待辦提醒 -->
+  <div class="card card-feature">
+    <div class="card-hd"><span class="card-ttl">⏰ 本月待辦提醒</span></div>
+    <div class="card-bd">
+      <div style="display:grid;grid-template-columns:1fr;gap:10px;">
+        ${(()=>{
+          const items=[];
+          // 富邦 J 卡每季登錄
+          const quarter=Math.ceil(S.month/3);
+          items.push({icon:'🇯🇵',text:`富邦 J 卡 Q${quarter} 日韓泰活動登錄了嗎？`,act:'Fubon+ App → 優惠 → 活動登錄',color:'#1B4F8B'});
+          // 中信每週二
+          items.push({icon:'🇺🇸',text:'中信 LINE Pay 卡：本週二登錄海外加碼了嗎？',act:'每週二 3,000 名先搶先贏',color:'#00B900'});
+          // CUBE 每日切換
+          items.push({icon:'🎴',text:'國泰 CUBE 卡：今天切換方案了嗎？',act:'打開國泰世華 APP → 切換方案',color:'#005EB8'});
+          // 生日月
+          items.push({icon:'🎂',text:'生日當月切「慶生月」方案享 10%',act:'壽星限定 - 餐廳/KTV/樂園/百貨',color:'#D8829E'});
+          // 電子帳單免年費
+          items.push({icon:'📧',text:'永豐三井卡、國泰 CUBE 卡：申請電子帳單免年費',act:'設定一次就終身免年費（年省 4,800）',color:'#C9A961'});
+          return items.map(i=>`<div style="display:flex;gap:14px;align-items:center;padding:14px 18px;background:var(--bg2);border-radius:var(--r-sm);border-left:4px solid ${i.color};">
+            <span style="font-size:26px;line-height:1;">${i.icon}</span>
+            <div style="flex:1;">
+              <div style="font-size:14px;color:var(--brown);font-weight:600;letter-spacing:0.04em;">${i.text}</div>
+              <div class="tm" style="font-size:12px;margin-top:3px;">${i.act}</div>
+            </div>
+          </div>`).join('');
+        })()}
+      </div>
+    </div>
+  </div>
+
+  <!-- 🎯 場景對照表（核心功能） -->
+  <div class="card card-feature">
+    <div class="card-hd">
+      <span class="card-ttl">🎯 場景對照表　「我現在要 OO，刷哪張？」</span>
+      <input type="text" id="scenarioSearch" placeholder="🔍 搜尋..." oninput="filterScenarios(this.value)" style="margin-left:auto;padding:6px 12px;border:1px solid var(--bdr);border-radius:8px;font-size:13px;width:160px;">
+    </div>
+    <div class="card-bd">
+      <div id="scenarioList" style="display:grid;grid-template-columns:1fr;gap:10px;">
+        ${CARD_SCENARIOS.map(s=>{
+          const card=cards.find(c=>c.id===s.cardId);
+          const isWarning=s.cardId==='NONE';
+          const cardColor=card?card.color:'var(--red)';
+          return`<div class="scenario-item" data-search="${(s.label+s.note).toLowerCase()}" style="display:flex;gap:14px;align-items:center;padding:14px 18px;background:${isWarning?'var(--redl)':'var(--card)'};border:1.5px solid ${cardColor}33;border-radius:var(--r-sm);border-left:4px solid ${cardColor};">
+            <span style="font-size:28px;line-height:1;flex-shrink:0;">${s.ico}</span>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:14px;color:var(--brown);font-weight:600;letter-spacing:0.04em;">${s.label}</div>
+              <div class="tm" style="font-size:12px;margin-top:3px;line-height:1.5;">${s.note}</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0;min-width:90px;">
+              ${card?`<div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:${cardColor};letter-spacing:0.04em;">${card.shortName}</div>`:`<div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--red);">⚠️ 注意</div>`}
+              <div class="bdg" style="background:${cardColor};color:#fff;font-size:11px;margin-top:4px;">${s.rate}</div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  </div>
+
+  <!-- 📋 我的 6 張卡清單 -->
+  <div class="card">
+    <div class="card-hd">
+      <span class="card-ttl">📋 我的卡片清單　${cards.length} 張</span>
+    </div>
+    <div class="card-bd">
+      ${cards.map(c=>`<div style="margin-bottom:14px;border:2px solid ${c.color}33;border-left:6px solid ${c.color};border-radius:var(--r-sm);overflow:hidden;background:var(--card);">
+        <div onclick="(function(d){const b=d.parentElement.querySelector('.card-detail');b.style.display=b.style.display==='none'?'block':'none';d.querySelector('.toggle-ico').textContent=b.style.display==='none'?'▼':'▲';})(this)" style="padding:16px 20px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,${c.color}11,var(--card));">
+          <div style="flex:1;min-width:0;">
+            <div style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:${c.color};letter-spacing:0.08em;">${c.name}</div>
+            <div class="tm" style="font-size:12px;margin-top:3px;">${c.type}　／　${c.bestFor}</div>
+            <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
+              <span class="bdg" style="background:${c.color};color:#fff;font-size:11px;">${c.bank}</span>
+              <span class="bdg" style="background:var(--bg2);color:var(--brown);font-size:11px;">年費 ${c.annualFee}</span>
+              <span class="bdg" style="background:var(--grnl);color:var(--grn);font-size:11px;">${c.annualFeeWaive}</span>
+            </div>
+          </div>
+          <span class="toggle-ico" style="font-size:14px;color:var(--mut);margin-left:12px;">▼</span>
+        </div>
+        <div class="card-detail" style="display:none;padding:18px 22px;border-top:1px dashed ${c.color}44;background:var(--bg2);">
+          <!-- 回饋表 -->
+          <div style="margin-bottom:16px;">
+            <b style="font-family:'Noto Serif TC',serif;font-size:14px;color:var(--brown);letter-spacing:0.08em;">🎁 回饋一覽</b>
+            <div style="margin-top:10px;">
+              ${c.rewards.map(r=>`<div style="display:flex;gap:14px;padding:10px 14px;background:var(--card);border-radius:8px;margin-bottom:6px;border-left:3px solid ${c.color};">
+                <div style="flex:1;">
+                  <div style="font-size:13.5px;color:var(--brown);font-weight:600;">${r.scene}</div>
+                  <div class="tm" style="font-size:11.5px;margin-top:3px;line-height:1.5;">${r.detail}</div>
+                  ${r.limit?`<div class="tm" style="font-size:11px;margin-top:3px;color:var(--mut);">📏 ${r.limit}</div>`:''}
+                </div>
+                <div style="text-align:right;flex-shrink:0;">
+                  <span class="bdg" style="background:${c.color};color:#fff;font-size:12px;font-weight:700;">${r.rate}</span>
+                </div>
+              </div>`).join('')}
+            </div>
+          </div>
+          <!-- 大坑 -->
+          ${c.pitfalls&&c.pitfalls.length>0?`<div style="margin-bottom:16px;">
+            <b style="font-family:'Noto Serif TC',serif;font-size:14px;color:var(--red);letter-spacing:0.08em;">⚠️ 注意事項 / 大坑</b>
+            <div style="margin-top:8px;padding:12px 16px;background:var(--redl);border-radius:8px;font-size:12.5px;color:var(--brown);line-height:1.8;">
+              ${c.pitfalls.map(p=>`• ${p}`).join('<br>')}
+            </div>
+          </div>`:''}
+          <!-- 行動項目 -->
+          ${c.actionItems&&c.actionItems.length>0?`<div>
+            <b style="font-family:'Noto Serif TC',serif;font-size:14px;color:var(--grn);letter-spacing:0.08em;">✅ 該做的事</b>
+            <div style="margin-top:8px;padding:12px 16px;background:var(--grnl);border-radius:8px;font-size:12.5px;color:var(--brown);line-height:1.8;">
+              ${c.actionItems.map(a=>`☐ ${a}`).join('<br>')}
+            </div>
+          </div>`:''}
+        </div>
+      </div>`).join('')}
+    </div>
+  </div>
+
+  <!-- 📊 我的綜合建議 -->
+  <div class="card">
+    <div class="card-hd"><span class="card-ttl">📊 給你的綜合建議</span></div>
+    <div class="card-bd">
+      <div style="background:linear-gradient(135deg,var(--purl),var(--card));padding:18px 22px;border-radius:var(--r-sm);font-size:13.5px;line-height:2;letter-spacing:0.04em;">
+        <b style="color:var(--brown);font-family:'Noto Serif TC',serif;font-size:15px;">🎯 你的卡片組合分析</b><br><br>
+        <b>✅ 核心兩張（最常用）：</b><br>
+        • 聯邦 LINE Pay 卡 → 國內偶數日王者<br>
+        • 星展 eco → 海外保底 + 保費/超商<br><br>
+        <b>✅ 場景型三張：</b><br>
+        • 富邦 J 卡 → 日韓泰旅行 + 台灣大眾運輸<br>
+        • 永豐三井 → 去日本三井 OUTLET 必帶<br>
+        • 國泰 CUBE → 數位訂閱 + 生日當月<br><br>
+        <b>⚠️ 評估剪掉的卡：</b><br>
+        • 中信 LINE Pay 卡（年費 1,800，功能跟 J 卡重疊）<br>
+        　若你出國頻率低、不去美/港/澳，可考慮剪卡省年費<br><br>
+        <b style="color:var(--gold);">💡 立即行動：</b><br>
+        1. 設定 <b>永豐三井 + 國泰 CUBE 電子帳單</b> → 年省 $4,800 年費<br>
+        2. 季初登入 <b>Fubon+ APP 登錄日韓泰活動</b><br>
+        3. 養成 <b>每天開 CUBE APP 切換方案</b>的習慣
+      </div>
+    </div>
+  </div>`;
+}
+
+// 場景過濾
+window.filterScenarios=(q)=>{
+  const items=document.querySelectorAll('.scenario-item');
+  const k=(q||'').toLowerCase();
+  items.forEach(i=>{
+    const m=i.dataset.search||'';
+    i.style.display=(!k||m.includes(k))?'flex':'none';
+  });
+};
+
 function pgLevelUp(){
   const curLv=S.data.userLevel||1;
   const curLvData=LEVELS.find(l=>l.lv===curLv)||LEVELS[0];
