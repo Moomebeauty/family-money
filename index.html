@@ -1808,35 +1808,38 @@ function pgExpensesNew(){
   <div class="card">
     <div class="card-hd">
       <span class="card-ttl">📒 預備金帳本（每月攤提準備）</span>
-      <button class="btn btn-p btn-sm" onclick="openM('addLE')">＋ 記一筆</button>
+      <button class="btn btn-s btn-sm" onclick="setP('ledger')">→ 詳細頁</button>
     </div>
     <div class="card-bd">
       <div class="notice tip" style="font-size:13px;margin-bottom:12px;">
         💡 不定期但會花的錢（交通：加油+保險+保養稅金；美麗：頭髮+保養）<br>
-        每月先「攤提」存進去，真的要花時就有錢，不會臨時掏錢手忙腳亂。
+        每月先「攤提」存進去，真的要花時就有錢，不會臨時掏錢手忙腳亂。<br>
+        <b>👇 點下方任一帳本的「＋ 記一筆」可以直接記到那本</b>
       </div>
       ${ALL_LEDGERS.length===0?'<div class="empty" style="padding:20px;">還沒設定預備金帳本</div>':`
       <div style="display:grid;grid-template-columns:1fr;gap:8px;">
-        ${ALL_LEDGERS.map(l=>{
+        ${ALL_LEDGERS.map((l,idx)=>{
           const entries=getLedgerAll(l.id);
           const cumBalance=entries.reduce((s,e)=>s+toN(e.amount),0);
-          const cfg=getLedgerCfg(l.id);
+          const monthEntries=entries.filter(e=>e.month===S.month&&e.year===yr());
+          const monthBalance=monthEntries.reduce((s,e)=>s+toN(e.amount),0);
           const budget=toN((S.data.ledgerBudgets||{})[l.id])||toN(l.budget)||0;
-          return`<div onclick="setP('ledger');setTimeout(()=>{const f=document.getElementById('ledgerFilter');if(f){f.value='${l.id}';f.dispatchEvent(new Event('change'));}},100);" style="padding:12px 16px;background:var(--bg2);border-radius:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;">
-            <div style="flex:1;">
+          return`<div style="padding:12px 16px;background:var(--bg2);border-radius:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:180px;">
               <div style="font-size:14px;font-weight:600;color:var(--brown);">${l.name}</div>
-              <div class="tm" style="font-size:11px;">每月攤提 $${fmt(budget)}</div>
+              <div class="tm" style="font-size:11px;">每月攤提 $${fmt(budget)}　／　本月變動 ${monthBalance>=0?'+':''}$${fmt(monthBalance)}</div>
             </div>
             <div style="text-align:right;">
               <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:${cumBalance>=0?'var(--grn)':'var(--red)'};">$${fmt(cumBalance)}</div>
               <div class="tm" style="font-size:10px;">累積</div>
             </div>
+            <div style="display:flex;gap:4px;">
+              <button class="btn btn-p btn-sm" onclick="openLedgerEntry(${idx})" style="font-size:11px;padding:6px 10px;">＋ 記一筆</button>
+              <button class="btn btn-s btn-sm" onclick="setP('ledger');setTimeout(()=>{const f=document.getElementById('ledgerFilter');if(f){f.value='${l.id}';f.dispatchEvent(new Event('change'));}},100);" style="font-size:11px;padding:6px 10px;">明細</button>
+            </div>
           </div>`;
         }).join('')}
       </div>`}
-      <div style="text-align:center;margin-top:12px;">
-        <button class="btn btn-s btn-sm" onclick="setP('ledger')">→ 進入預備金帳本詳細頁</button>
-      </div>
     </div>
   </div>`;
 }
@@ -7263,6 +7266,13 @@ window.setP=p=>{S.page=p;S.subTab=0;S.modal=null;render();};
 window.setMo=m=>{S.month=m;render();};
 window.setT=t=>{S.subTab=t;render();};
 window.setLI=i=>{S.ledgerIdx=i;S.openLedgerCat=null;render();};
+// 用於從別頁直接打開「該帳本的新增記錄」modal
+window.openLedgerEntry=(idx)=>{
+  S.ledgerIdx=idx;
+  S.openLedgerCat=null;
+  S.modal={t:'addLE'};
+  render();
+};
 window.openM=(t,x)=>{S.modal={t,x};render();};
 window.closeMod=()=>{S.modal=null;render();};
 window.bkClose=e=>{if(e.target===e.currentTarget)closeMod();};
