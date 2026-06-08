@@ -679,8 +679,8 @@ const CARD_SCENARIOS=[
 
 const PAGES=[
   {id:'home',     ico:'🏠',lbl:'首頁',group:'main'},
-  {id:'levelup',  ico:'🏆',lbl:'升級攻略',group:'main'},
-  {id:'monthly',  ico:'💰',lbl:'每月記帳',group:'main'},
+  {id:'allocate', ico:'💰',lbl:'月初分配',group:'main'},
+  {id:'monthly',  ico:'📝',lbl:'每月記帳',group:'main'},
   {id:'accounts', ico:'💳',lbl:'帳戶總管',group:'main'},
   {id:'cards',    ico:'🎴',lbl:'信用卡攻略',group:'main'},
   {id:'goals',    ico:'🎯',lbl:'目標 GPS',group:'main'},
@@ -733,6 +733,7 @@ let S={
     consultRecords:[],resistedList:[],coolingQueue:[],consultThreshold:500,
     userLevel:1,badges:[],expPoints:0,taskChecks:{},levelHistory:[],
     cardGuides:[],cardLogs:{},
+    allocConfig:null,allocLogs:{},
     importStaging:[]
   }
 };
@@ -786,6 +787,8 @@ function startSync(){
       S.data.levelHistory=d.levelHistory||[];
       S.data.cardGuides=d.cardGuides||[];
       S.data.cardLogs=d.cardLogs||{};
+      S.data.allocConfig=d.allocConfig||null;
+      S.data.allocLogs=d.allocLogs||{};
       S.data.investNotes=d.investNotes||{};
     }
     setSyncing('synced');
@@ -851,54 +854,11 @@ function render(){
     <div class="layout">${sidebar()}<main class="content">${page()}</main></div>
     ${mobNav()}
   </div>
-  ${S.modal?modal():''}
-  ${S._levelUp?levelUpModal():''}`;
+  ${S.modal?modal():''}`;
   // render 後觸發複利計算（如果儲蓄頁）
   if(S.page==='savings'){setTimeout(()=>{if(typeof calcCompound==='function')calcCompound();},50);}
-  // 自動偵測等級晉升（防遞迴：不在彈窗顯示時偵測）
-  if(!S._levelUp&&!S._checkingLevel){
-    S._checkingLevel=true;
-    setTimeout(async()=>{
-      try{await detectLevelUp();}finally{S._checkingLevel=false;}
-      if(S._levelUp)render();
-    },300);
-  }
 }
 
-function levelUpModal(){
-  const lvData=LEVELS.find(l=>l.lv===S._levelUp.to)||LEVELS[0];
-  const newBadges=(S._newBadges||[]).map(id=>BADGES.find(b=>b.id===id)).filter(Boolean);
-  return`<div class="mbk" onclick="dismissLevelUpModal()" style="background:rgba(61,45,36,0.65);backdrop-filter:blur(4px);">
-    <div class="mbox" style="max-width:520px;text-align:center;background:linear-gradient(135deg,${lvData.color}33,var(--card));border:3px solid ${lvData.color};padding:42px 38px;animation:lvUp .6s cubic-bezier(.34,1.56,.64,1);">
-      <div style="font-size:14px;color:var(--mut);letter-spacing:0.3em;font-weight:600;">★ LEVEL UP ★</div>
-      <div style="font-size:96px;line-height:1;margin:20px 0 12px;filter:drop-shadow(0 4px 20px ${lvData.color}88);animation:lvIco 1s ease-in-out infinite alternate;">${lvData.ico}</div>
-      <div style="font-family:'Noto Serif TC',serif;font-size:14px;color:var(--mut);letter-spacing:0.2em;">LV.${lvData.lv}</div>
-      <div style="font-family:'Noto Serif TC',serif;font-size:38px;font-weight:700;color:${lvData.color};letter-spacing:0.15em;margin-top:4px;">${lvData.name}</div>
-      <div style="font-size:15px;color:var(--brown);font-weight:600;margin-top:8px;letter-spacing:0.08em;">${lvData.title}</div>
-
-      <div style="margin:24px 0 18px;padding:18px 22px;background:var(--card);border-radius:14px;font-family:'Noto Serif TC',serif;font-size:15px;color:var(--brown);letter-spacing:0.08em;line-height:1.9;font-style:italic;border-left:3px solid ${lvData.color};border-right:3px solid ${lvData.color};">「${lvData.story}」</div>
-
-      <div style="display:grid;grid-template-columns:1fr;gap:10px;text-align:left;margin-bottom:20px;">
-        <div style="padding:12px 16px;background:var(--bg2);border-radius:10px;">
-          <div class="tm" style="font-size:11px;letter-spacing:0.1em;">🎁 新解鎖</div>
-          <div style="font-size:13.5px;color:var(--brown);font-weight:600;margin-top:3px;">${lvData.unlock}</div>
-        </div>
-        ${newBadges.length>0?`<div style="padding:12px 16px;background:linear-gradient(135deg,var(--gold)22,var(--card));border-radius:10px;">
-          <div class="tm" style="font-size:11px;letter-spacing:0.1em;">🏅 同時獲得 ${newBadges.length} 枚徽章</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;">
-            ${newBadges.map(b=>`<span class="bdg" style="background:var(--gold);color:#fff;font-size:11.5px;padding:5px 10px;">${b.ico} ${b.name}</span>`).join('')}
-          </div>
-        </div>`:''}
-      </div>
-
-      <button class="btn btn-p" onclick="dismissLevelUpModal()" style="background:${lvData.color};border-color:${lvData.color};font-size:15px;padding:14px 36px;letter-spacing:0.1em;">✦ 繼續旅程 ✦</button>
-    </div>
-  </div>
-  <style>
-    @keyframes lvUp{from{opacity:0;transform:scale(0.85) translateY(20px);}to{opacity:1;transform:scale(1) translateY(0);}}
-    @keyframes lvIco{from{transform:translateY(0);}to{transform:translateY(-8px);}}
-  </style>`;
-}
 function renderLogin(){
   document.getElementById('LS').style.display='none';
   const app=document.getElementById('APP');
@@ -944,7 +904,8 @@ function page(){
     case'invest':   return pgInvest();
     case'accounts': return pgAccounts();
     case'resisted': return pgResisted();
-    case'levelup':  return pgLevelUp();
+    case'levelup':  return pgAllocate();
+    case'allocate': return pgAllocate();
     case'cards':    return pgCards();
     case'settings': return pgSettings();
     // monthly 在新版是「每月記帳」，舊版的「逐月收支」改名為 monthlytab
@@ -1129,87 +1090,62 @@ function pgHome(){
   <div class="pg-ttl">${greet}，${userName}　🏡</div>
   <div class="pg-sub">${yr()}年 ${MOS[S.month-1]}　第 ${Math.ceil(S.month/3)} 季　／　今天是 ${todayD.getMonth()+1}/${todayD.getDate()}</div>
 
-  <!-- 🗺️ 財富升級地圖 -->
+  <!-- 💰 月初分配提醒 -->
   ${(()=>{
-    const curLv=S.data.userLevel||1;
-    const curLvData=LEVELS.find(l=>l.lv===curLv)||LEVELS[0];
-    const nextLvData=LEVELS.find(l=>l.lv===curLv+1);
-    const M=computeMonthly();
-    const months=toN(M.monthsCovered);
-    let progress=0,toGoal='';
-    if(nextLvData){
-      if(curLv<4){
-        const target=curLv+1===2?1:curLv+1===3?3:6;
-        progress=Math.min(100,Math.round(months/target*100));
-        toGoal=`緊急預備金 ${months.toFixed(1)}/${target} 個月`;
-      }else if(curLv===4){
-        const invest=(S.data.investTracks||[]).reduce((s,t)=>s+toN(t.currentValue||t.totalCost||0),0);
-        progress=Math.min(100,Math.round(invest/100000*100));
-        toGoal=`投資組合 $${fmt(invest)}/$100,000`;
-      }else if(curLv===5){
-        const ta=(S.data.assets||[]).reduce((s,a)=>s+toN(a.amount),0);
-        progress=Math.min(100,Math.round(ta/500000*100));
-        toGoal=`總資產 $${fmt(ta)}/$500,000`;
-      }else if(curLv===6){
-        const pi=(S.data.incomes||[]).filter(i=>i.isPassive&&i.month===S.month&&i.year===yr()).reduce((s,i)=>s+toN(i.amount),0);
-        const ft=M.fixedTotal||1;
-        progress=Math.min(100,Math.round(pi/(ft*0.3)*100));
-        toGoal=`被動收入 $${fmt(pi)}/$${fmt(ft*0.3)}（月支出 30%）`;
-      }else if(curLv===7){
-        const pi=(S.data.incomes||[]).filter(i=>i.isPassive&&i.month===S.month&&i.year===yr()).reduce((s,i)=>s+toN(i.amount),0);
-        const ft=M.fixedTotal||1;
-        progress=Math.min(100,Math.round(pi/ft*100));
-        toGoal=`被動收入 $${fmt(pi)}/$${fmt(ft)}（月支出 100%）`;
-      }
-    }
-    const badgeCount=(S.data.badges||[]).length;
-    return`<div class="card card-feature" style="margin-bottom:20px;cursor:pointer;background:linear-gradient(135deg,${curLvData.color}22,var(--card));border:2px solid ${curLvData.color};" onclick="setP('levelup')">
-      <div class="card-bd" style="padding:22px 26px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;margin-bottom:14px;">
+    const today=new Date();
+    const dayOfMonth=today.getDate();
+    const cfg=S.data.allocConfig||{};
+    const logs=S.data.allocLogs||{};
+    const mk0=mk();
+    const thisMonthDone=!!logs[mk0];
+    const isEarlyMonth=dayOfMonth<=10;
+
+    if(thisMonthDone){
+      // 已完成本月分配，顯示溫和的提示
+      const log=logs[mk0];
+      return`<div class="card card-feature" style="margin-bottom:20px;background:linear-gradient(135deg,var(--grnl),var(--card));border:2px solid var(--grn);cursor:pointer;" onclick="setP('allocate')">
+        <div class="card-bd" style="padding:18px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;">
           <div style="display:flex;align-items:center;gap:14px;">
-            <div style="font-size:48px;line-height:1;">${curLvData.ico}</div>
+            <div style="font-size:36px;">✅</div>
             <div>
-              <div class="tm" style="font-size:11px;letter-spacing:0.15em;">LV.${curLv}　現在的你</div>
-              <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:${curLvData.color};letter-spacing:0.08em;line-height:1.2;">${curLvData.name}</div>
-              <div class="tm" style="font-size:12px;margin-top:2px;">${curLvData.title}</div>
+              <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--grn);letter-spacing:0.08em;">本月薪水已分配</div>
+              <div class="tm" style="font-size:12px;margin-top:3px;">月初薪水 $${fmt(log.salary||0)}　已分到 ${log.accountCount||5} 個帳戶</div>
             </div>
           </div>
-          <div style="text-align:right;">
-            <div class="tm" style="font-size:11px;letter-spacing:0.1em;">已獲得徽章</div>
-            <div style="font-family:'Noto Serif TC',serif;font-size:26px;font-weight:700;color:var(--gold);">🏅 ${badgeCount}</div>
-          </div>
+          <button class="btn btn-s btn-sm">查看 / 重新分配 →</button>
         </div>
-
-        <!-- 路徑 -->
-        <div style="display:flex;align-items:center;gap:4px;margin-bottom:14px;overflow-x:auto;padding-bottom:4px;">
-          ${LEVELS.map((l,i)=>{
-            const passed=l.lv<curLv;
-            const current=l.lv===curLv;
-            const future=l.lv>curLv;
-            return`<div style="display:flex;align-items:center;flex-shrink:0;">
-              <div style="display:flex;flex-direction:column;align-items:center;min-width:50px;opacity:${future?0.35:1};">
-                <div style="font-size:${current?28:22}px;line-height:1;filter:${current?'drop-shadow(0 2px 6px rgba(184,137,107,0.5))':'none'};">${l.ico}</div>
-                <div class="tm" style="font-size:9px;margin-top:3px;color:${current?l.color:'var(--mut)'};font-weight:${current?'700':'500'};">Lv.${l.lv}</div>
+      </div>`;
+    }else if(isEarlyMonth){
+      // 月初 1-10 日，強提醒
+      return`<div class="card card-feature" style="margin-bottom:20px;background:linear-gradient(135deg,#F4E4C7,var(--card));border:2.5px solid var(--gold);cursor:pointer;animation:pulse-allocate 2.5s ease-in-out infinite;" onclick="setP('allocate')">
+        <div class="card-bd" style="padding:22px 26px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;">
+            <div style="display:flex;align-items:center;gap:16px;">
+              <div style="font-size:48px;">💰</div>
+              <div>
+                <div class="tm" style="font-size:11px;letter-spacing:0.15em;color:var(--gold);">★ 月初儀式 ★</div>
+                <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--brown);letter-spacing:0.08em;margin-top:2px;">這個月的薪水分配了嗎？</div>
+                <div class="tm" style="font-size:12.5px;margin-top:4px;line-height:1.6;">薪水進來第二天，先把錢分到不同帳戶 → 讓機制代替意志力</div>
               </div>
-              ${i<LEVELS.length-1?`<div style="width:18px;height:2px;background:${l.lv<curLv?l.color:'var(--bdr)'};margin:0 2px;align-self:center;margin-top:-8px;"></div>`:''}
-            </div>`;
-          }).join('')}
-        </div>
-
-        ${nextLvData?`<div style="background:var(--card);padding:14px 18px;border-radius:12px;">
-          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
-            <span style="font-size:13px;color:var(--mut);letter-spacing:0.06em;">→ 下一關：<b style="color:${nextLvData.color};">${nextLvData.ico} ${nextLvData.name}</b></span>
-            <span style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:${nextLvData.color};">${progress}%</span>
+            </div>
+            <button class="btn btn-p" style="background:var(--gold);border-color:var(--gold);">開始分配 →</button>
           </div>
-          <div class="pb-lg" style="height:10px;"><div class="pf" style="width:${progress}%;background:linear-gradient(90deg,${curLvData.color},${nextLvData.color});"></div></div>
-          <div class="tm" style="margin-top:8px;font-size:12px;text-align:center;">${toGoal}</div>
-        </div>`:`<div style="text-align:center;padding:14px;background:linear-gradient(135deg,var(--gold)33,var(--card));border-radius:12px;">
-          <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--gold);letter-spacing:0.1em;">🏆 你已抵達終點　財務自由達成 🦅</div>
-        </div>`}
-
-        <div style="text-align:center;margin-top:12px;font-size:12px;color:var(--mut);letter-spacing:0.06em;">點擊進入升級攻略 → 查看任務、徽章、晉級條件</div>
+        </div>
       </div>
-    </div>`;
+      <style>@keyframes pulse-allocate{0%,100%{box-shadow:0 0 0 0 rgba(201,169,97,0.4);}50%{box-shadow:0 0 0 8px rgba(201,169,97,0);}}</style>`;
+    }else{
+      // 月中之後弱提醒
+      return`<div class="card" style="margin-bottom:20px;cursor:pointer;" onclick="setP('allocate')">
+        <div class="card-bd" style="padding:14px 20px;display:flex;align-items:center;gap:14px;">
+          <div style="font-size:28px;">💰</div>
+          <div style="flex:1;">
+            <div style="font-size:14px;font-weight:600;color:var(--brown);">月初分配還沒做？</div>
+            <div class="tm" style="font-size:12px;margin-top:2px;">這個月薪水還沒分配到各帳戶（點擊開始）</div>
+          </div>
+          <button class="btn btn-s btn-sm">→</button>
+        </div>
+      </div>`;
+    }
   })()}
 
   <!-- 🤔 我要買東西大按鈕（核心衝動消費防護）-->
@@ -2479,150 +2415,330 @@ window.filterScenarios=(q)=>{
   });
 };
 
-function pgLevelUp(){
-  const curLv=S.data.userLevel||1;
-  const curLvData=LEVELS.find(l=>l.lv===curLv)||LEVELS[0];
-  const earnedBadges=S.data.badges||[];
+function pgAllocate(){
+  const cfg=S.data.allocConfig||{};
+  const logs=S.data.allocLogs||{};
+  const mk0=mk();
+  const thisLog=logs[mk0]||null;
+  const isConfigured=cfg.salary&&cfg.percentages;
 
-  // 各任務狀態
-  const dailyDone=DAILY_TASKS.filter(t=>{try{return t.check();}catch{return false;}}).length;
-  const weeklyDone=WEEKLY_TASKS.filter(t=>{try{return t.check();}catch{return false;}}).length;
-  const monthlyDone=MONTHLY_TASKS.filter(t=>{try{return t.check();}catch{return false;}}).length;
+  // 計算各帳戶金額
+  const calcAmounts=(salary,pct)=>{
+    return {
+      living:Math.round(salary*pct.living/100),
+      emergency:Math.round(salary*pct.emergency/100),
+      shortTerm:Math.round(salary*pct.shortTerm/100),
+      house:Math.round(salary*pct.house/100),
+      invest:Math.round(salary*pct.invest/100)
+    };
+  };
 
   return`
-  <div class="pg-ttl">🏆 升級攻略</div>
-  <div class="pg-sub">把理財變成闖關　＋ 用升級的成就感取代焦慮</div>
+  <div class="pg-ttl">💰 月初分配儀式</div>
+  <div class="pg-sub">薪水進來第二天，先把錢分到不同帳戶　→ 讓機制代替意志力</div>
 
-  <!-- 當前等級大卡 -->
-  <div class="card card-feature" style="background:linear-gradient(135deg,${curLvData.color}33,var(--card));border:2.5px solid ${curLvData.color};">
-    <div class="card-bd" style="padding:28px 32px;text-align:center;">
-      <div style="font-size:80px;line-height:1;margin-bottom:8px;">${curLvData.ico}</div>
-      <div class="tm" style="font-size:12px;letter-spacing:0.2em;">LV.${curLv}</div>
-      <div style="font-family:'Noto Serif TC',serif;font-size:32px;font-weight:700;color:${curLvData.color};letter-spacing:0.12em;margin-top:4px;">${curLvData.name}</div>
-      <div style="font-size:14px;color:var(--brown);font-weight:600;margin-top:6px;letter-spacing:0.06em;">${curLvData.title}</div>
-      <div style="margin-top:16px;padding:14px 20px;background:var(--card);border-radius:12px;font-family:'Noto Serif TC',serif;font-size:14px;color:var(--brown);letter-spacing:0.08em;line-height:1.8;font-style:italic;">「${curLvData.story}」</div>
+  <!-- 💡 觀念說明 -->
+  <div class="card card-feature">
+    <div class="card-hd">
+      <span class="card-ttl">💡 為什麼要分帳戶？</span>
+      <button class="btn btn-s btn-sm" onclick="(function(b){const c=b.parentElement.parentElement.querySelector('.alloc-why');c.style.display=c.style.display==='none'?'block':'none';b.textContent=c.style.display==='none'?'展開':'收起';})(this)">收起</button>
+    </div>
+    <div class="card-bd alloc-why">
+      <div style="background:linear-gradient(135deg,var(--accL),var(--card));padding:18px 22px;border-radius:var(--r-sm);font-size:14px;line-height:2;letter-spacing:0.04em;">
+        <b style="color:var(--brown);font-family:'Noto Serif TC',serif;font-size:15px;">🎯 核心：「看不見的錢，才不會花掉」</b><br><br>
+        如果薪水進來是「一坨錢」，大腦會自然覺得「都是我的，可以花」。<br>
+        就算你很自律，<b>意志力會疲勞</b>。<br><br>
+        正確做法是：<b>錢進來第二天，就分到「不同的家」，眼不見為淨。</b><br>
+        這樣你「能花的錢」變少，自然就花得少。<br>
+        這不是省吃儉用，是<b style="color:var(--gold);">讓機制幫你</b>。
+      </div>
     </div>
   </div>
 
-  <!-- 8 關卡完整路線 -->
-  <div class="card">
-    <div class="card-hd"><span class="card-ttl">🗺️ 八關升級路線</span></div>
+  ${!isConfigured?`
+  <!-- Step 1: 初次設定 -->
+  <div class="card card-feature">
+    <div class="card-hd"><span class="card-ttl">📝 Step 1　初次設定（只要設一次）</span></div>
     <div class="card-bd">
-      ${LEVELS.map(l=>{
-        const passed=l.lv<curLv;
-        const current=l.lv===curLv;
-        const future=l.lv>curLv;
-        return`<div style="display:flex;gap:16px;padding:18px;background:${current?l.color+'22':future?'var(--bg2)':'var(--card)'};border-radius:12px;margin-bottom:10px;border-left:4px solid ${current?l.color:passed?l.color:'var(--bdr)'};opacity:${future?0.6:1};">
-          <div style="font-size:42px;line-height:1;flex-shrink:0;">${l.ico}</div>
-          <div style="flex:1;">
-            <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;">
-              <div>
-                <span class="tm" style="font-size:11px;letter-spacing:0.15em;">LV.${l.lv}</span>
-                <span style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:${l.color};letter-spacing:0.08em;margin-left:8px;">${l.name}</span>
+      <div class="notice tip" style="font-size:13px;margin-bottom:14px;">
+        💡 先告訴我你的月薪，系統會用「兩大一小家庭」推薦的比例幫你分配。<br>
+        之後每個月只要點「執行分配」就好，不用重新設定。
+      </div>
+      <div class="fg fg2">
+        <div class="fgrp" style="grid-column:1/-1"><label>💵 你的月薪（NT$）</label>
+          <input type="number" id="al_salary" placeholder="如：80000" style="font-size:18px;font-weight:700;">
+        </div>
+      </div>
+      <div style="margin:14px 0;">
+        <b style="font-family:'Noto Serif TC',serif;font-size:14px;color:var(--brown);">推薦分配比例（兩大一小家庭・8 萬以上月薪）</b>
+        <div style="margin-top:10px;display:grid;grid-template-columns:1fr;gap:8px;">
+          <div style="padding:10px 14px;background:var(--bg2);border-radius:8px;border-left:3px solid var(--brown);">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;">
+              <span style="font-size:13px;color:var(--brown);font-weight:600;">🏠 生活費</span>
+              <span><input type="number" id="al_p_living" value="55" style="width:50px;text-align:center;border:1px solid var(--bdr);border-radius:4px;padding:3px;font-weight:700;color:var(--brown);"> %</span>
+            </div>
+            <div class="tm" style="font-size:11px;margin-top:3px;">房租房貸、水電、伙食、保險、信用卡費（綁在主帳戶）</div>
+          </div>
+          <div style="padding:10px 14px;background:var(--bg2);border-radius:8px;border-left:3px solid var(--red);">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;">
+              <span style="font-size:13px;color:var(--brown);font-weight:600;">🆘 緊急預備金</span>
+              <span><input type="number" id="al_p_emergency" value="10" style="width:50px;text-align:center;border:1px solid var(--bdr);border-radius:4px;padding:3px;font-weight:700;color:var(--red);"> %</span>
+            </div>
+            <div class="tm" style="font-size:11px;margin-top:3px;">存到 6 個月生活費就停止。⚠️ 不可動！</div>
+          </div>
+          <div style="padding:10px 14px;background:var(--bg2);border-radius:8px;border-left:3px solid var(--acc);">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;">
+              <span style="font-size:13px;color:var(--brown);font-weight:600;">🎁 短期目標</span>
+              <span><input type="number" id="al_p_shortTerm" value="15" style="width:50px;text-align:center;border:1px solid var(--bdr);border-radius:4px;padding:3px;font-weight:700;color:var(--acc);"> %</span>
+            </div>
+            <div class="tm" style="font-size:11px;margin-top:3px;">旅遊、孝親、家庭添購（系統內帳本分流）</div>
+          </div>
+          <div style="padding:10px 14px;background:var(--bg2);border-radius:8px;border-left:3px solid var(--gold);">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;">
+              <span style="font-size:13px;color:var(--brown);font-weight:600;">🏡 買房頭期款</span>
+              <span><input type="number" id="al_p_house" value="10" style="width:50px;text-align:center;border:1px solid var(--bdr);border-radius:4px;padding:3px;font-weight:700;color:var(--gold);"> %</span>
+            </div>
+            <div class="tm" style="font-size:11px;margin-top:3px;">放高利數位帳戶或定存，不要碰股票</div>
+          </div>
+          <div style="padding:10px 14px;background:var(--bg2);border-radius:8px;border-left:3px solid var(--grn);">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;">
+              <span style="font-size:13px;color:var(--brown);font-weight:600;">📈 長期投資</span>
+              <span><input type="number" id="al_p_invest" value="10" style="width:50px;text-align:center;border:1px solid var(--bdr);border-radius:4px;padding:3px;font-weight:700;color:var(--grn);"> %</span>
+            </div>
+            <div class="tm" style="font-size:11px;margin-top:3px;">0050/006208 定期定額，10 年+ 不要動</div>
+          </div>
+        </div>
+        <div id="al_total" style="text-align:right;margin-top:10px;font-size:12px;color:var(--mut);">合計：100%</div>
+      </div>
+      <div style="text-align:center;margin-top:18px;">
+        <button class="btn btn-p" onclick="saveAllocConfig()" style="padding:14px 36px;font-size:15px;">✓ 儲存設定</button>
+      </div>
+    </div>
+  </div>
+  `:`
+  <!-- 已設定：顯示分配計算 -->
+  <div class="card card-feature">
+    <div class="card-hd">
+      <span class="card-ttl">💰 ${yr()}年${S.month}月　${thisLog?'已分配 ✅':'待分配'}</span>
+      <button class="btn btn-s btn-sm" onclick="resetAllocConfig()">⚙️ 修改設定</button>
+    </div>
+    <div class="card-bd">
+      <div style="background:linear-gradient(135deg,var(--accL),var(--card));padding:18px 22px;border-radius:var(--r-sm);margin-bottom:18px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:10px;">
+          <div>
+            <div class="tm" style="font-size:12px;letter-spacing:0.08em;">本月薪水</div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:32px;font-weight:700;color:var(--brown);margin-top:3px;">$<input type="number" id="al_current_salary" value="${thisLog?thisLog.salary:cfg.salary}" onchange="recalcAlloc()" style="font-family:'Noto Serif TC',serif;font-size:32px;font-weight:700;color:var(--brown);border:none;border-bottom:1.5px dashed var(--bdr);background:transparent;width:140px;outline:none;"></div>
+          </div>
+          <div style="text-align:right;">
+            <div class="tm" style="font-size:11px;">需要轉出</div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:24px;font-weight:700;color:var(--acc);" id="al_out_total">$${fmt((cfg.salary||0)*(100-(cfg.percentages?.living||55))/100)}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5 個帳戶分配 -->
+      <div id="al_breakdown" style="display:grid;grid-template-columns:1fr;gap:10px;">
+        ${(()=>{
+          const sal=thisLog?thisLog.salary:cfg.salary;
+          const p=cfg.percentages;
+          const accounts=[
+            {ico:'🏠',name:'生活費',pkey:'living',color:'var(--brown)',note:'留在主帳戶 → 信用卡費從這出'},
+            {ico:'🆘',name:'緊急預備金',pkey:'emergency',color:'var(--red)',note:'高利數位帳戶（Richart/將來）'},
+            {ico:'🎁',name:'短期目標',pkey:'shortTerm',color:'var(--acc)',note:'旅遊/孝親/家庭添購'},
+            {ico:'🏡',name:'買房頭期款',pkey:'house',color:'var(--gold)',note:'高利數位或定存'},
+            {ico:'📈',name:'長期投資',pkey:'invest',color:'var(--grn)',note:'券商定期定額 0050'}
+          ];
+          return accounts.map(a=>{
+            const amt=Math.round(sal*p[a.pkey]/100);
+            return`<div style="padding:14px 18px;background:var(--card);border:1.5px solid ${a.color}33;border-left:4px solid ${a.color};border-radius:10px;display:flex;align-items:center;gap:14px;">
+              <span style="font-size:26px;">${a.ico}</span>
+              <div style="flex:1;">
+                <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:${a.color};letter-spacing:0.06em;">${a.name}</div>
+                <div class="tm" style="font-size:11.5px;margin-top:2px;">${a.note}</div>
               </div>
-              <span class="bdg" style="background:${passed?'var(--grn)':current?l.color:'var(--mut)'};color:#fff;font-size:11px;">${passed?'✓ 已通過':current?'★ 進行中':'🔒 未解鎖'}</span>
+              <div style="text-align:right;">
+                <div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:${a.color};" class="al_amt" data-key="${a.pkey}">$${fmt(amt)}</div>
+                <div class="tm" style="font-size:11px;">${p[a.pkey]}%</div>
+              </div>
+            </div>`;
+          }).join('');
+        })()}
+      </div>
+
+      ${!thisLog?`
+      <div style="text-align:center;margin-top:20px;">
+        <button class="btn btn-p" onclick="executeAlloc()" style="padding:14px 36px;font-size:15px;background:var(--gold);border-color:var(--gold);">✓ 執行本月分配</button>
+        <div class="tm" style="font-size:11px;margin-top:8px;">系統會產生「轉帳檢查表」，照著做就好</div>
+      </div>
+      `:`
+      <!-- 轉帳檢查表 -->
+      <div style="margin-top:20px;padding-top:18px;border-top:2px dashed var(--bdr);">
+        <b style="font-family:'Noto Serif TC',serif;font-size:15px;color:var(--brown);">📋 本月轉帳檢查表</b>
+        <div class="tm" style="font-size:12px;margin-top:4px;margin-bottom:12px;">照著做就好，做完打勾</div>
+        <div style="display:grid;grid-template-columns:1fr;gap:8px;">
+          ${(()=>{
+            const sal=thisLog.salary;
+            const p=cfg.percentages;
+            const checks=thisLog.checks||{};
+            const accounts=[
+              {ico:'🆘',name:'緊急預備金',pkey:'emergency',color:'var(--red)'},
+              {ico:'🎁',name:'短期目標',pkey:'shortTerm',color:'var(--acc)'},
+              {ico:'🏡',name:'買房頭期款',pkey:'house',color:'var(--gold)'},
+              {ico:'📈',name:'長期投資',pkey:'invest',color:'var(--grn)'}
+            ];
+            return accounts.map(a=>{
+              const amt=Math.round(sal*p[a.pkey]/100);
+              const done=!!checks[a.pkey];
+              return`<label style="display:flex;align-items:center;gap:14px;padding:14px 18px;background:${done?'var(--grnl)':'var(--bg2)'};border-radius:10px;cursor:pointer;border-left:4px solid ${done?'var(--grn)':a.color};">
+                <input type="checkbox" ${done?'checked':''} onchange="toggleAllocCheck('${a.pkey}',this.checked)" style="width:22px;height:22px;accent-color:var(--grn);cursor:pointer;">
+                <span style="font-size:22px;">${a.ico}</span>
+                <div style="flex:1;">
+                  <div style="font-size:14px;font-weight:700;color:${done?'var(--mut)':'var(--brown)'};text-decoration:${done?'line-through':'none'};">轉 $${fmt(amt)} 到「${a.name}」帳戶</div>
+                </div>
+              </label>`;
+            }).join('');
+          })()}
+          <label style="display:flex;align-items:center;gap:14px;padding:14px 18px;background:var(--bg2);border-radius:10px;border-left:4px solid var(--brown);">
+            <span style="font-size:22px;margin-left:36px;">🏠</span>
+            <div style="flex:1;">
+              <div style="font-size:14px;color:var(--brown);">主帳戶留下 $${fmt(Math.round(thisLog.salary*cfg.percentages.living/100))}　作為生活費</div>
+              <div class="tm" style="font-size:11.5px;margin-top:2px;">信用卡費從這扣（月中 20 號左右）</div>
             </div>
-            <div style="font-size:13px;color:var(--brown);margin-top:4px;font-weight:500;">${l.title}</div>
-            <div style="font-size:12.5px;color:var(--mut);margin-top:6px;line-height:1.7;">
-              <b>📍 解鎖條件：</b>${l.cond}<br>
-              <b>🎁 解鎖獎勵：</b>${l.unlock}
-            </div>
-            <div style="margin-top:8px;padding:8px 12px;background:var(--card);border-radius:8px;font-family:'Noto Serif TC',serif;font-size:12.5px;color:var(--brown);font-style:italic;">「${l.story}」</div>
-          </div>
-        </div>`;
-      }).join('')}
+          </label>
+        </div>
+        <div style="text-align:center;margin-top:16px;">
+          <button class="btn btn-s btn-sm" onclick="undoAlloc()">↺ 重新分配（清除本月）</button>
+        </div>
+      </div>
+      `}
     </div>
   </div>
 
-  <!-- 徽章收集 -->
+  <!-- 📊 帳戶用途說明 -->
   <div class="card">
-    <div class="card-hd">
-      <span class="card-ttl">🏅 徽章收藏 ${earnedBadges.length} / ${BADGES.length}</span>
-    </div>
+    <div class="card-hd"><span class="card-ttl">📊 5 個帳戶的角色分工</span></div>
     <div class="card-bd">
-      ${['起步','紀律','消費控制','累積','投資'].map(cat=>{
-        const inCat=BADGES.filter(b=>b.cat===cat);
-        if(inCat.length===0)return'';
-        return`<div style="margin-bottom:18px;">
-          <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:600;color:var(--brown);letter-spacing:0.1em;margin-bottom:10px;">— ${cat} 類 —</div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;">
-            ${inCat.map(b=>{
-              const has=earnedBadges.includes(b.id);
-              return`<div style="background:${has?'linear-gradient(135deg,'+'var(--gold)'+'33,var(--card))':'var(--bg2)'};border:1.5px solid ${has?'var(--gold)':'var(--bdr)'};border-radius:12px;padding:14px;text-align:center;opacity:${has?1:0.45};">
-                <div style="font-size:32px;line-height:1;filter:${has?'none':'grayscale(1)'};margin-bottom:6px;">${b.ico}</div>
-                <div style="font-family:'Noto Serif TC',serif;font-size:13px;font-weight:700;color:${has?'var(--gold)':'var(--mut)'};letter-spacing:0.06em;">${b.name}</div>
-                <div class="tm" style="font-size:10.5px;margin-top:4px;line-height:1.5;">${b.desc}</div>
-                ${has?'<div style="margin-top:6px;font-size:10px;color:var(--gold);font-weight:700;">✓ 已獲得</div>':''}
-              </div>`;
-            }).join('')}
-          </div>
-        </div>`;
-      }).join('')}
+      <div style="display:grid;grid-template-columns:1fr;gap:12px;">
+        <div style="padding:14px 18px;background:var(--bg2);border-radius:10px;border-left:4px solid var(--brown);">
+          <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--brown);">🏠 1. 主帳戶（薪轉戶）　${cfg.percentages?.living||55}%</div>
+          <div class="tm" style="font-size:12.5px;margin-top:6px;line-height:1.7;">📍 薪水進來的中轉站<br>📍 月初分配完後，留下這個比例當生活費<br>📍 <b>信用卡都綁在這個帳戶</b>　→ 月中 20 號自動扣款</div>
+        </div>
+        <div style="padding:14px 18px;background:var(--bg2);border-radius:10px;border-left:4px solid var(--red);">
+          <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--red);">🆘 2. 緊急預備金　${cfg.percentages?.emergency||10}%</div>
+          <div class="tm" style="font-size:12.5px;margin-top:6px;line-height:1.7;">📍 目標：6 個月生活費<br>📍 推薦：將來銀行/Richart（年息 1.5-2%）<br>📍 <b>⚠️ 不可動！</b>存滿後改存「買房頭期款」</div>
+        </div>
+        <div style="padding:14px 18px;background:var(--bg2);border-radius:10px;border-left:4px solid var(--acc);">
+          <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--acc);">🎁 3. 短期目標　${cfg.percentages?.shortTerm||15}%</div>
+          <div class="tm" style="font-size:12.5px;margin-top:6px;line-height:1.7;">📍 旅遊基金、孝親基金、家庭添購、孩子教育<br>📍 系統內用「預備金帳本」分流管理<br>📍 想花這些錢時 → 從這帳戶出 → 不會有罪惡感</div>
+        </div>
+        <div style="padding:14px 18px;background:var(--bg2);border-radius:10px;border-left:4px solid var(--gold);">
+          <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--gold);">🏡 4. 買房頭期款　${cfg.percentages?.house||10}%</div>
+          <div class="tm" style="font-size:12.5px;margin-top:6px;line-height:1.7;">📍 緊急預備金存滿 6 個月後，這個才開始累積<br>📍 推薦：定存或高利數位帳戶<br>📍 <b>⚠️ 不要碰股票！</b>3-5 年內要用的錢不能放股市</div>
+        </div>
+        <div style="padding:14px 18px;background:var(--bg2);border-radius:10px;border-left:4px solid var(--grn);">
+          <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--grn);">📈 5. 長期投資　${cfg.percentages?.invest||10}%</div>
+          <div class="tm" style="font-size:12.5px;margin-top:6px;line-height:1.7;">📍 0050 / 006208 定期定額<br>📍 為退休/孩子大學費用準備<br>📍 <b>10 年以上不動</b>，讓複利長大</div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- 任務系統 -->
+  <!-- 🌸 給你的話 -->
   <div class="card">
-    <div class="card-hd">
-      <span class="card-ttl">📋 每日／每週／每月任務</span>
-      <span class="tm" style="margin-left:auto;font-size:12px;">完成任務累積經驗值（純鼓勵，不扣分）</span>
-    </div>
+    <div class="card-hd"><span class="card-ttl">🌸 給你的話</span></div>
     <div class="card-bd">
-      <div style="margin-bottom:18px;">
-        <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:600;color:var(--brown);letter-spacing:0.1em;margin-bottom:10px;">☀️ 每日任務（${dailyDone}/${DAILY_TASKS.length} 完成）</div>
-        ${DAILY_TASKS.map(t=>{
-          let done=false;try{done=t.check();}catch{}
-          return`<div style="display:flex;align-items:center;gap:14px;padding:12px 16px;background:${done?'var(--grnl)':'var(--bg2)'};border-radius:10px;margin-bottom:8px;border-left:3px solid ${done?'var(--grn)':'var(--bdr)'};">
-            <span style="font-size:20px;">${done?'✅':t.ico}</span>
-            <span style="flex:1;font-size:14px;color:${done?'var(--mut)':'var(--brown)'};text-decoration:${done?'line-through':'none'};">${t.name}</span>
-            <span class="bdg" style="background:var(--gold);color:#fff;font-size:11px;">+${t.exp} EXP</span>
-          </div>`;
-        }).join('')}
-      </div>
-      <div style="margin-bottom:18px;">
-        <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:600;color:var(--brown);letter-spacing:0.1em;margin-bottom:10px;">📅 每週任務（${weeklyDone}/${WEEKLY_TASKS.length} 完成）</div>
-        ${WEEKLY_TASKS.map(t=>{
-          let done=false;try{done=t.check();}catch{}
-          return`<div style="display:flex;align-items:center;gap:14px;padding:12px 16px;background:${done?'var(--grnl)':'var(--bg2)'};border-radius:10px;margin-bottom:8px;border-left:3px solid ${done?'var(--grn)':'var(--bdr)'};">
-            <span style="font-size:20px;">${done?'✅':t.ico}</span>
-            <span style="flex:1;font-size:14px;color:${done?'var(--mut)':'var(--brown)'};text-decoration:${done?'line-through':'none'};">${t.name}</span>
-            <span class="bdg" style="background:var(--gold);color:#fff;font-size:11px;">+${t.exp} EXP</span>
-          </div>`;
-        }).join('')}
-      </div>
-      <div>
-        <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:600;color:var(--brown);letter-spacing:0.1em;margin-bottom:10px;">🌙 每月任務（${monthlyDone}/${MONTHLY_TASKS.length} 完成）</div>
-        ${MONTHLY_TASKS.map(t=>{
-          let done=false;try{done=t.check();}catch{}
-          return`<div style="display:flex;align-items:center;gap:14px;padding:12px 16px;background:${done?'var(--grnl)':'var(--bg2)'};border-radius:10px;margin-bottom:8px;border-left:3px solid ${done?'var(--grn)':'var(--bdr)'};">
-            <span style="font-size:20px;">${done?'✅':t.ico}</span>
-            <span style="flex:1;font-size:14px;color:${done?'var(--mut)':'var(--brown)'};text-decoration:${done?'line-through':'none'};">${t.name}</span>
-            <span class="bdg" style="background:var(--gold);color:#fff;font-size:11px;">+${t.exp} EXP</span>
-          </div>`;
-        }).join('')}
+      <div style="background:linear-gradient(135deg,var(--purl),var(--card));padding:18px 22px;border-radius:var(--r-sm);font-size:13.5px;line-height:2;letter-spacing:0.04em;font-family:'Noto Serif TC',serif;">
+        <b style="color:var(--brown);font-size:15px;">這不是「省吃儉用」，是「先存後花」。</b><br><br>
+        當你把錢分到不同帳戶，<b>看不見的錢就不會花掉</b>。<br>
+        你的生活費還是有 ${cfg.percentages?.living||55}%，依然可以該吃吃、該玩玩。<br><br>
+        差別只是：<br>
+        ✅ 你不會「不小心花到」緊急金、買房錢、投資錢<br>
+        ✅ 月底也不會驚訝「咦薪水怎麼又花完了」<br>
+        ✅ 一年後回頭看，會發現 4 個帳戶都長大了 🌱
       </div>
     </div>
   </div>
-
-  ${(S.data.levelHistory||[]).length>0?`<div class="card">
-    <div class="card-hd"><span class="card-ttl">📜 升級紀錄</span></div>
-    <div class="card-bd">
-      ${(S.data.levelHistory||[]).slice().reverse().map(h=>{
-        const lvData=LEVELS.find(l=>l.lv===h.lv);
-        return`<div style="display:flex;gap:12px;align-items:center;padding:10px 14px;background:var(--bg2);border-radius:10px;margin-bottom:6px;">
-          <span style="font-size:24px;">${lvData?lvData.ico:'🏆'}</span>
-          <div style="flex:1;">
-            <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:600;color:var(--brown);">晉升 Lv.${h.lv} ${lvData?lvData.name:''}</div>
-            <div class="tm" style="font-size:11px;">${new Date(h.date).toLocaleDateString('zh-TW')}</div>
-          </div>
-        </div>`;
-      }).join('')}
-    </div>
-  </div>`:''}
-  <div style="text-align:center;margin:24px 0;">
-    <button class="btn btn-s" onclick="manualCheckLevel()">🔄 重新檢查等級與徽章</button>
-  </div>`;
+  `}
+  `;
 }
+
+// ─── 月初分配 actions ─────────────────────────
+window.saveAllocConfig=async()=>{
+  const salary=toN(document.getElementById('al_salary')?.value);
+  if(salary<=0){alert('請填寫月薪');return;}
+  const p={
+    living:toN(document.getElementById('al_p_living')?.value),
+    emergency:toN(document.getElementById('al_p_emergency')?.value),
+    shortTerm:toN(document.getElementById('al_p_shortTerm')?.value),
+    house:toN(document.getElementById('al_p_house')?.value),
+    invest:toN(document.getElementById('al_p_invest')?.value)
+  };
+  const total=p.living+p.emergency+p.shortTerm+p.house+p.invest;
+  if(Math.abs(total-100)>0.1){alert(`比例合計必須等於 100%，目前 ${total}%`);return;}
+  await saveMain({allocConfig:{salary,percentages:p,createdAt:Date.now()}});
+  toast('✅ 設定完成！');
+  render();
+};
+
+window.resetAllocConfig=()=>{
+  if(!confirm('確認要修改分配設定？\n（不會影響已執行的分配記錄）'))return;
+  saveMain({allocConfig:null}).then(()=>{toast('已重置設定');render();});
+};
+
+window.recalcAlloc=()=>{
+  const sal=toN(document.getElementById('al_current_salary')?.value);
+  const cfg=S.data.allocConfig||{};
+  const p=cfg.percentages||{};
+  document.querySelectorAll('.al_amt').forEach(el=>{
+    const k=el.dataset.key;
+    el.textContent='$'+fmt(Math.round(sal*p[k]/100));
+  });
+  const outAmt=Math.round(sal*(100-(p.living||55))/100);
+  const outEl=document.getElementById('al_out_total');
+  if(outEl)outEl.textContent='$'+fmt(outAmt);
+};
+
+window.executeAlloc=async()=>{
+  const sal=toN(document.getElementById('al_current_salary')?.value);
+  if(sal<=0){alert('請填寫本月薪水');return;}
+  const mk0=mk();
+  const cfg=S.data.allocConfig||{};
+  const log={
+    salary:sal,
+    percentages:{...cfg.percentages},
+    accountCount:5,
+    checks:{},
+    executedAt:Date.now()
+  };
+  const allocLogs={...(S.data.allocLogs||{}),[mk0]:log};
+  await saveMain({allocLogs});
+  toast('✅ 本月分配執行！');
+  render();
+};
+
+window.toggleAllocCheck=async(key,checked)=>{
+  const mk0=mk();
+  const log=(S.data.allocLogs||{})[mk0];
+  if(!log)return;
+  const checks={...(log.checks||{}),[key]:checked};
+  const allocLogs={...(S.data.allocLogs||{}),[mk0]:{...log,checks}};
+  await saveMain({allocLogs});
+  if(checked)toast('✓ 完成一筆');
+  // 檢查是否全部完成
+  const allDone=['emergency','shortTerm','house','invest'].every(k=>checks[k]);
+  if(allDone&&checked)toast('🎉 本月分配全部完成！');
+};
+
+window.undoAlloc=async()=>{
+  if(!confirm('確認要清除本月分配記錄？\n（可以重新執行分配）'))return;
+  const mk0=mk();
+  const allocLogs={...(S.data.allocLogs||{})};
+  delete allocLogs[mk0];
+  await saveMain({allocLogs});
+  toast('已清除本月記錄');
+  render();
+};
+
 
 function pgResisted(){
   const resisted=S.data.resistedList||[];
@@ -6960,19 +7076,6 @@ window.runConsult=()=>{
 
   S.consultResult={item,amount,ledgerId,ledgerName:ledger.name,urgency,totalScore,verdict,verdictSub,dimensions,date:today()};
   S.modal={t:'consultResult'};
-  render();
-};
-
-// ─── 🏆 升級系統 actions ─────────────────────────────
-window.manualCheckLevel=async()=>{
-  await detectLevelUp();
-  toast('✓ 已檢查');
-  render();
-};
-
-window.dismissLevelUpModal=()=>{
-  S._levelUp=null;
-  S._newBadges=null;
   render();
 };
 
