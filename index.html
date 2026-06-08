@@ -1639,14 +1639,17 @@ function pgSavingsNew(){
 // ──── 💸 每月支出 ─────────────────────────────────
 function pgExpensesNew(){
   const exp=(S.data.expenses||[]).filter(e=>e.month===S.month&&e.year===yr());
+  // realExp 用於計算「沒重複」的變動支出（排除連動預備金的部分）
   const realExp=exp.filter(e=>!e.fromLedger&&!e.excludeFromBudget);
+  // expForShow 用於顯示明細（包含全部，不排除）
+  const expForShow=exp;
   const fixedItems=S.data.fixedItems||[];
   const fixedTotal=fixedItems.reduce((s,f)=>s+toN(f.amount),0);
   const variableTotal=realExp.reduce((s,e)=>s+toN(e.amount),0);
 
-  // 按類別分組
+  // 按類別分組（用顯示的全部）
   const byCat={};
-  realExp.forEach(e=>{const c=e.cat||'其他';byCat[c]=(byCat[c]||0)+toN(e.amount);});
+  expForShow.forEach(e=>{const c=e.category||e.cat||'其他';byCat[c]=(byCat[c]||0)+toN(e.amount);});
 
   // 預備金帳本（攤提）
   const ALL_LEDGERS=getAllLedgers();
@@ -1809,8 +1812,9 @@ function pgExpensesNew(){
     </div>
     <div class="card-bd">
       ${(()=>{
-        const ccExp=realExp.filter(e=>e.payMethod==='信用卡');
+        const ccExp=expForShow.filter(e=>e.payMethod==='信用卡');
         const ccTotal=ccExp.reduce((s,e)=>s+toN(e.amount),0);
+        const ccFromLedger=ccExp.filter(e=>e.fromLedger||e.excludeFromBudget).length;
         // 按銀行分組
         const byBank={};ccExp.forEach(e=>{const b=e.cardBank||'其他';byBank[b]=(byBank[b]||0)+toN(e.amount);});
         if(ccExp.length===0)return'<div class="empty" style="padding:30px;"><div style="font-size:48px;">💳</div><p>本月還沒有信用卡支出</p></div>';
@@ -1820,8 +1824,12 @@ function pgExpensesNew(){
             <span class="tm" style="font-size:12px;">本月信用卡總額</span>
             <span style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--brown);margin-left:8px;">$${fmt(ccTotal)}</span>
           </div>
-          <div style="font-size:12px;color:var(--mut);">${ccExp.length} 筆</div>
+          <div style="font-size:12px;color:var(--mut);">${ccExp.length} 筆${ccFromLedger>0?`　／　⛓️ ${ccFromLedger} 筆已連動預備金`:''}</div>
         </div>
+        ${ccFromLedger>0?`<div class="notice tip" style="font-size:12.5px;margin-bottom:12px;background:var(--purl);">
+          💡 標記 ⛓️ 的記錄已連動到預備金帳本，避免重複計算到「變動支出」。<br>
+          它們的實際扣款發生在預備金帳本內，不算在「本月總支出」裡。
+        </div>`:''}
         <div style="margin-bottom:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;">
           ${Object.entries(byBank).sort((a,b)=>b[1]-a[1]).map(([b,v])=>`<div style="padding:8px 12px;background:var(--bg2);border-radius:8px;text-align:center;">
             <div class="tm" style="font-size:10px;">${b}</div>
@@ -1830,14 +1838,16 @@ function pgExpensesNew(){
         </div>
         <div class="tw"><table>
           <thead><tr><th>日期</th><th>銀行</th><th>項目</th><th>類別</th><th style="text-align:right;">金額</th><th></th></tr></thead>
-          <tbody>${ccExp.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(e=>`<tr>
+          <tbody>${ccExp.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(e=>{
+            const isLinked=e.fromLedger||e.excludeFromBudget;
+            return`<tr style="${isLinked?'background:linear-gradient(90deg,rgba(167,149,179,0.08),transparent);':''}">
             <td>${e.date?e.date.slice(5,10):''}</td>
             <td><span class="bdg" style="background:var(--blu);color:#fff;font-size:11px;">${e.cardBank||'-'}</span></td>
-            <td><b>${e.item||'-'}</b>${e.note?`<br><span class="tm" style="font-size:11px;">${e.note}</span>`:''}</td>
+            <td>${isLinked?'<span class="bdg" style="background:var(--pur);color:#fff;font-size:10px;margin-right:5px;">⛓️</span>':''}<b>${e.item||'-'}</b>${e.note?`<br><span class="tm" style="font-size:11px;">${e.note}</span>`:''}</td>
             <td>${e.category||e.cat||'-'}</td>
             <td class="an" style="color:var(--red);">$${fmt(toN(e.amount))}</td>
             <td style="text-align:right;"><button class="bdel" style="color:#aaa;" onclick="openM('editExp','${e.id}')">✏️</button><button class="bdel" onclick="delExp('${e.id}')">×</button></td>
-          </tr>`).join('')}</tbody>
+          </tr>`;}).join('')}</tbody>
         </table></div>
         <div style="text-align:center;margin-top:10px;">
           <button class="btn btn-s btn-sm" onclick="setP('cc')">→ 進入信用卡詳細頁（對帳、批次操作）</button>
