@@ -1719,7 +1719,10 @@ function pgExpensesNew(){
   <div class="card">
     <div class="card-hd">
       <span class="card-ttl">💳 信用卡支出</span>
-      <button class="btn btn-p btn-sm" onclick="openM('addExp')">＋ 新增</button>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-p btn-sm" onclick="openM('batchEntry')">📝 批次輸入</button>
+        <button class="btn btn-s btn-sm" onclick="openM('addExp')">＋ 單筆</button>
+      </div>
     </div>
     <div class="card-bd">
       ${(()=>{
