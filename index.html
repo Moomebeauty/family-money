@@ -1657,6 +1657,10 @@ function pgExpensesNew(){
 
   <div class="card">
     <div class="card-bd">
+      ${(()=>{
+        const ccTotal=realExp.filter(e=>e.payMethod==='信用卡').reduce((s,e)=>s+toN(e.amount),0);
+        const cashTotal=realExp.filter(e=>e.payMethod!=='信用卡').reduce((s,e)=>s+toN(e.amount),0);
+        return`
       <div class="sg sg2">
         <div class="sc red">
           <div class="sl">本月總支出</div>
@@ -1668,17 +1672,18 @@ function pgExpensesNew(){
           <div class="sv gold">$${fmt(fixedTotal)}</div>
           <div class="ss">${fixedItems.length} 筆</div>
         </div>
-        <div class="sc pur">
-          <div class="sl">變動支出（含信用卡）</div>
-          <div class="sv pur">$${fmt(variableTotal)}</div>
-          <div class="ss">${realExp.length} 筆</div>
+        <div class="sc blu">
+          <div class="sl">💳 信用卡</div>
+          <div class="sv blu">$${fmt(ccTotal)}</div>
+          <div class="ss">${realExp.filter(e=>e.payMethod==='信用卡').length} 筆</div>
         </div>
         <div class="sc pur">
-          <div class="sl">預備金攤提</div>
-          <div class="sv pur">${ALL_LEDGERS.length} <span style="font-size:14px;">本帳本</span></div>
-          <div class="ss">為定期/不定期支出準備</div>
+          <div class="sl">💵 現金/轉帳</div>
+          <div class="sv pur">$${fmt(cashTotal)}</div>
+          <div class="ss">${realExp.filter(e=>e.payMethod!=='信用卡').length} 筆</div>
         </div>
-      </div>
+      </div>`;
+      })()}
     </div>
   </div>
 
@@ -1707,31 +1712,82 @@ function pgExpensesNew(){
     </div>
   </div>
 
-  <!-- 變動支出 -->
+  <!-- 信用卡支出 -->
   <div class="card">
     <div class="card-hd">
-      <span class="card-ttl">💳 變動支出（信用卡 + 現金/轉帳）</span>
+      <span class="card-ttl">💳 信用卡支出</span>
       <button class="btn btn-p btn-sm" onclick="openM('addExp')">＋ 新增</button>
     </div>
     <div class="card-bd">
-      ${realExp.length===0?'<div class="empty" style="padding:30px;"><div style="font-size:48px;">💸</div><p>本月還沒有支出</p></div>':`
-      <div style="margin-bottom:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;">
-        ${Object.entries(byCat).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`<div style="padding:8px 12px;background:var(--bg2);border-radius:8px;font-size:12px;">
-          <div class="tm" style="font-size:10px;">${c}</div>
-          <div style="font-family:'Noto Serif TC',serif;font-weight:700;color:var(--brown);">$${fmt(v)}</div>
-        </div>`).join('')}
-      </div>
-      <div class="tw"><table>
-        <thead><tr><th>日期</th><th>類別</th><th>備註</th><th style="text-align:right;">金額</th><th></th></tr></thead>
-        <tbody>${realExp.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,30).map(e=>`<tr>
-          <td>${e.date?e.date.slice(5,10):''}</td>
-          <td><span class="bdg" style="background:var(--mut);color:#fff;font-size:11px;">${e.cat||'-'}</span></td>
-          <td>${e.note||'-'}</td>
-          <td class="an" style="color:var(--red);">$${fmt(toN(e.amount))}</td>
-          <td style="text-align:right;"><button class="bdel" onclick="delExp('${e.id}')">×</button></td>
-        </tr>`).join('')}</tbody>
-      </table></div>
-      ${realExp.length>30?`<div class="tm" style="text-align:center;padding:8px;">僅顯示最近 30 筆</div>`:''}`}
+      ${(()=>{
+        const ccExp=realExp.filter(e=>e.payMethod==='信用卡');
+        const ccTotal=ccExp.reduce((s,e)=>s+toN(e.amount),0);
+        // 按銀行分組
+        const byBank={};ccExp.forEach(e=>{const b=e.cardBank||'其他';byBank[b]=(byBank[b]||0)+toN(e.amount);});
+        if(ccExp.length===0)return'<div class="empty" style="padding:30px;"><div style="font-size:48px;">💳</div><p>本月還沒有信用卡支出</p></div>';
+        return`
+        <div style="margin-bottom:14px;padding:12px 16px;background:var(--accL);border-radius:10px;display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:10px;">
+          <div>
+            <span class="tm" style="font-size:12px;">本月信用卡總額</span>
+            <span style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--brown);margin-left:8px;">$${fmt(ccTotal)}</span>
+          </div>
+          <div style="font-size:12px;color:var(--mut);">${ccExp.length} 筆</div>
+        </div>
+        <div style="margin-bottom:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;">
+          ${Object.entries(byBank).sort((a,b)=>b[1]-a[1]).map(([b,v])=>`<div style="padding:8px 12px;background:var(--bg2);border-radius:8px;text-align:center;">
+            <div class="tm" style="font-size:10px;">${b}</div>
+            <div style="font-family:'Noto Serif TC',serif;font-weight:700;color:var(--brown);font-size:14px;">$${fmt(v)}</div>
+          </div>`).join('')}
+        </div>
+        <div class="tw"><table>
+          <thead><tr><th>日期</th><th>銀行</th><th>項目</th><th>類別</th><th style="text-align:right;">金額</th><th></th></tr></thead>
+          <tbody>${ccExp.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(e=>`<tr>
+            <td>${e.date?e.date.slice(5,10):''}</td>
+            <td><span class="bdg" style="background:var(--blu);color:#fff;font-size:11px;">${e.cardBank||'-'}</span></td>
+            <td><b>${e.item||'-'}</b>${e.note?`<br><span class="tm" style="font-size:11px;">${e.note}</span>`:''}</td>
+            <td>${e.category||e.cat||'-'}</td>
+            <td class="an" style="color:var(--red);">$${fmt(toN(e.amount))}</td>
+            <td style="text-align:right;"><button class="bdel" style="color:#aaa;" onclick="openM('editExp','${e.id}')">✏️</button><button class="bdel" onclick="delExp('${e.id}')">×</button></td>
+          </tr>`).join('')}</tbody>
+        </table></div>
+        <div style="text-align:center;margin-top:10px;">
+          <button class="btn btn-s btn-sm" onclick="setP('cc')">→ 進入信用卡詳細頁（對帳、批次操作）</button>
+        </div>`;
+      })()}
+    </div>
+  </div>
+
+  <!-- 現金/轉帳支出 -->
+  <div class="card">
+    <div class="card-hd">
+      <span class="card-ttl">💵 現金 / 轉帳支出</span>
+      <button class="btn btn-p btn-sm" onclick="openM('addExp')">＋ 新增</button>
+    </div>
+    <div class="card-bd">
+      ${(()=>{
+        const cashExp=realExp.filter(e=>e.payMethod!=='信用卡');
+        const cashTotal=cashExp.reduce((s,e)=>s+toN(e.amount),0);
+        if(cashExp.length===0)return'<div class="empty" style="padding:30px;"><div style="font-size:48px;">💵</div><p>本月還沒有現金/轉帳支出</p></div>';
+        return`
+        <div style="margin-bottom:14px;padding:12px 16px;background:var(--bg2);border-radius:10px;display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:10px;">
+          <div>
+            <span class="tm" style="font-size:12px;">本月現金/轉帳總額</span>
+            <span style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--brown);margin-left:8px;">$${fmt(cashTotal)}</span>
+          </div>
+          <div style="font-size:12px;color:var(--mut);">${cashExp.length} 筆</div>
+        </div>
+        <div class="tw"><table>
+          <thead><tr><th>日期</th><th>付款</th><th>項目</th><th>類別</th><th style="text-align:right;">金額</th><th></th></tr></thead>
+          <tbody>${cashExp.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(e=>`<tr>
+            <td>${e.date?e.date.slice(5,10):''}</td>
+            <td><span class="bdg" style="background:var(--mut);color:#fff;font-size:11px;">${e.payMethod||'其他'}</span></td>
+            <td><b>${e.item||'-'}</b>${e.note?`<br><span class="tm" style="font-size:11px;">${e.note}</span>`:''}</td>
+            <td>${e.category||e.cat||'-'}</td>
+            <td class="an" style="color:var(--red);">$${fmt(toN(e.amount))}</td>
+            <td style="text-align:right;"><button class="bdel" style="color:#aaa;" onclick="openM('editExp','${e.id}')">✏️</button><button class="bdel" onclick="delExp('${e.id}')">×</button></td>
+          </tr>`).join('')}</tbody>
+        </table></div>`;
+      })()}
     </div>
   </div>
 
