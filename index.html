@@ -1712,6 +1712,95 @@ function pgExpensesNew(){
     </div>
   </div>
 
+  <!-- 🔍 資料除錯訊息（幫你檢查資料） -->
+  ${(()=>{
+    const allExp=S.data.expenses||[];
+    const monthExp=allExp.filter(e=>e.month===S.month&&e.year===yr());
+    const monthCC=monthExp.filter(e=>e.payMethod==='信用卡');
+    const monthCash=monthExp.filter(e=>e.payMethod==='現金'||e.payMethod==='轉帳');
+    const monthOther=monthExp.filter(e=>!e.payMethod||(e.payMethod!=='信用卡'&&e.payMethod!=='現金'&&e.payMethod!=='轉帳'));
+    const monthFromLedger=monthExp.filter(e=>e.fromLedger||e.excludeFromBudget);
+
+    // 列出所有 payMethod 出現過的值
+    const payMethods={};
+    monthExp.forEach(e=>{const m=e.payMethod||'(空白)';payMethods[m]=(payMethods[m]||0)+1;});
+
+    // 月份分佈：看 expenses 集合中各月份有多少筆
+    const monthDist={};
+    allExp.forEach(e=>{
+      const k=`${e.year||'??'}/${e.month||'??'}`;
+      monthDist[k]=(monthDist[k]||0)+1;
+    });
+
+    // 全資料中 payMethod=信用卡 的有多少
+    const allCC=allExp.filter(e=>e.payMethod==='信用卡');
+    const allCCThisYear=allCC.filter(e=>e.year===yr());
+
+    // 隨機抽 3 筆信用卡資料看看
+    const samples=allCC.slice(0,3).map(e=>({
+      id:(e.id||'').slice(0,12),
+      date:e.date,
+      month:e.month,
+      year:e.year,
+      payMethod:e.payMethod,
+      item:e.item,
+      amount:e.amount,
+      cardBank:e.cardBank
+    }));
+
+    return`<div class="card" style="background:linear-gradient(135deg,#FFF8E1,var(--card));border:1.5px solid var(--gold);">
+      <div class="card-hd">
+        <span class="card-ttl">🔍 資料檢查（目前選 ${yr()}年${S.month}月）</span>
+      </div>
+      <div class="card-bd">
+        <div style="font-size:13px;line-height:1.9;color:var(--brown);">
+          <b style="font-size:14px;">📊 整體 expenses 統計</b><br>
+          ・全部支出筆數：<b>${allExp.length}</b><br>
+          ・全部信用卡筆數（payMethod=信用卡）：<b style="color:${allCC.length>0?'var(--grn)':'var(--red)'};">${allCC.length}</b><br>
+          ・今年（${yr()}）信用卡筆數：<b>${allCCThisYear.length}</b><br>
+          <hr style="margin:8px 0;border:none;border-top:1px dashed var(--bdr);">
+
+          <b style="font-size:14px;">📅 各月份分佈（年/月）</b><br>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin:6px 0;">
+            ${Object.entries(monthDist).sort().map(([k,v])=>{
+              const isCurrentMonth=k===`${yr()}/${S.month}`;
+              return`<span style="padding:4px 10px;background:${isCurrentMonth?'var(--gold)':'var(--bg2)'};color:${isCurrentMonth?'#fff':'var(--brown)'};border-radius:6px;font-size:11px;font-weight:${isCurrentMonth?'700':'400'};">${k}: ${v} 筆</span>`;
+            }).join('')}
+          </div>
+          <hr style="margin:8px 0;border:none;border-top:1px dashed var(--bdr);">
+
+          <b style="font-size:14px;">🎯 本月（${yr()}/${S.month}）詳細</b><br>
+          ・本月支出總筆數：<b>${monthExp.length}</b><br>
+          ・💳 信用卡：<b style="color:${monthCC.length>0?'var(--grn)':'var(--red)'};">${monthCC.length} 筆 / $${fmt(monthCC.reduce((s,e)=>s+toN(e.amount),0))}</b><br>
+          ・💵 現金/轉帳：${monthCash.length} 筆 / $${fmt(monthCash.reduce((s,e)=>s+toN(e.amount),0))}<br>
+          ・❓ 其他 payMethod 或空白：<b style="color:${monthOther.length>0?'var(--red)':'var(--mut)'};">${monthOther.length} 筆 / $${fmt(monthOther.reduce((s,e)=>s+toN(e.amount),0))}</b><br>
+          ・⛓️ 來自預備金（excludeFromBudget=true，會被排除）：${monthFromLedger.length} 筆<br>
+
+          <b>本月所有 payMethod 值統計：</b><br>
+          ${Object.entries(payMethods).map(([k,v])=>`・「${k}」：${v} 筆`).join('<br>')}
+
+          ${allCC.length>0?`<hr style="margin:8px 0;border:none;border-top:1px dashed var(--bdr);">
+          <b style="font-size:14px;">🔬 你的信用卡資料樣本（前 3 筆）</b><br>
+          <pre style="font-size:11px;background:var(--bg2);padding:8px;border-radius:6px;overflow-x:auto;">${JSON.stringify(samples,null,2)}</pre>
+          <div style="font-size:12px;color:var(--mut);margin-top:4px;">↑ 請檢查 <b>month/year</b> 欄位是否正確</div>`:''}
+
+          ${monthCC.length===0&&allCC.length>0?`<br><div style="padding:10px 14px;background:var(--redl);border-radius:8px;color:var(--red);font-weight:600;">
+            ⚠️ <b>你的全部信用卡資料有 ${allCC.length} 筆，但本月（${yr()}/${S.month}）抓到 0 筆。</b><br>
+            最可能的原因是「month/year 欄位寫到別的月份」。<br>
+            請看上面「📅 各月份分佈」，哪個月份有資料就切到哪個月。
+          </div>`:''}
+          ${monthCC.length===0&&allCC.length===0?`<br><div style="padding:10px 14px;background:var(--redl);border-radius:8px;color:var(--red);font-weight:600;">
+            ⚠️ <b>整個 expenses 集合中 payMethod='信用卡' 的有 0 筆。</b><br>
+            可能的原因：<br>
+            1. 你的批次輸入沒有真正存到 Firebase（檢查是否點了「儲存」）<br>
+            2. 資料寫在別的 collection（非 expenses）<br>
+            3. payMethod 欄位被寫成別的值（看上面 payMethod 統計）
+          </div>`:''}
+        </div>
+      </div>
+    </div>`;
+  })()}
+
   <!-- 信用卡支出 -->
   <div class="card">
     <div class="card-hd">
