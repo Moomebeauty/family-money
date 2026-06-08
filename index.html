@@ -7064,6 +7064,7 @@ function modal(){
         amount:0,
         category:'其他',
         cardBank:banks[0]||'',
+        ledgerId:'',
         keep:true
       }));
     }
@@ -7082,29 +7083,31 @@ function modal(){
       </div>
     </div>
     <div class="notice info" style="font-size:13.5px;margin-bottom:10px;">
-      💡 <b>使用步驟：</b>1) 輸入每筆 → 2) 自動猜類別 → 3) 點右上方「同步到預備金」按鈕（可選）→ 4) 確認儲存<br>
+      💡 <b>使用步驟：</b>1) 輸入每筆 → 2) 自動猜類別 → 3) <b>每筆可單獨指定預備金帳本</b> → 4) 確認儲存<br>
       📌 <b>退款</b>請按金額欄左邊「+/−」按鈕切換為負數（綠色 = 退款）<br>
-      📌 <b>同步到預備金帳本：</b>若這筆是飲食、美麗基金等預備金支出，可勾選對應帳本，系統會自動扣除預備金。
+      📌 <b>單筆指定預備金</b>：每行最右邊有預備金欄位下拉，可一筆飲食、一筆美麗，混搭自由
     </div>
 
-    <!-- 一鍵同步到預備金帳本 -->
+    <!-- 一鍵套用全部 -->
     <div style="background:linear-gradient(135deg,var(--purl),var(--card));padding:12px 16px;border-radius:var(--r-sm);margin-bottom:14px;border:1.5px solid var(--pur);display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-      <span style="font-weight:700;color:var(--pur);font-size:13.5px;">⛓️ 全部同步到預備金帳本：</span>
+      <span style="font-weight:700;color:var(--pur);font-size:13.5px;">⛓️ 快速套用：</span>
       <select id="batch-sync-ledger" style="padding:7px 12px;border:1px solid var(--pur);border-radius:8px;font-size:13px;background:#fff;">
         <option value="">不同步（純信用卡明細）</option>
         ${ALL_LED.map(l=>`<option value="${l.id}">${l.name}</option>`).join('')}
       </select>
-      <span class="tm" style="font-size:12px;flex:1;min-width:200px;">⚠️ 選擇後，所有勾選的明細都會同時記錄到該預備金帳本（不會重複計入變動支出）</span>
+      <button class="btn btn-s btn-sm" onclick="applyLedgerToAll()" style="border-color:var(--pur);color:var(--pur);">↓ 套用到全部</button>
+      <span class="tm" style="font-size:11px;flex:1;min-width:160px;">選一個帳本，按「套用到全部」會把所有行的預備金欄位設成這個</span>
     </div>
     <div style="max-height:55vh;overflow-y:auto;border:1px solid var(--bdr);border-radius:var(--r-sm);">
       <table style="width:100%;font-size:13px;">
         <thead style="position:sticky;top:0;z-index:5;background:var(--bg2);">
           <tr>
-            <th style="width:120px;">日期</th>
+            <th style="width:110px;">日期</th>
             <th>商家／品項</th>
-            <th style="width:130px;">類別</th>
-            <th style="width:110px;text-align:right;">金額</th>
-            <th style="width:120px;">信用卡</th>
+            <th style="width:115px;">類別</th>
+            <th style="width:100px;text-align:right;">金額</th>
+            <th style="width:105px;">信用卡</th>
+            <th style="width:130px;">📒 預備金</th>
             <th style="width:40px;"></th>
           </tr>
         </thead>
@@ -7117,6 +7120,10 @@ function modal(){
             <input type="number" value="${s.amount||''}" placeholder="0" oninput="updateStage(${i},'amount',this.value)" style="font-size:13px;padding:6px;width:100%;text-align:right;border:1px solid var(--bdr);border-radius:6px;color:${toN(s.amount)<0?'var(--grn)':'var(--brown)'};font-weight:${toN(s.amount)<0?'700':'500'};">
           </div></td>
           <td><select onchange="updateStage(${i},'cardBank',this.value)" style="font-size:12.5px;padding:6px;width:100%;border:1px solid var(--bdr);border-radius:6px;">${banks.map(b=>`<option value="${b}" ${b===s.cardBank?'selected':''}>${b}</option>`).join('')}</select></td>
+          <td><select onchange="updateStage(${i},'ledgerId',this.value)" style="font-size:12px;padding:6px;width:100%;border:1.5px solid ${s.ledgerId?'var(--pur)':'var(--bdr)'};border-radius:6px;background:${s.ledgerId?'var(--purl)':'#fff'};color:${s.ledgerId?'var(--pur)':'var(--mut)'};font-weight:${s.ledgerId?'700':'500'};">
+            <option value="">不同步</option>
+            ${ALL_LED.map(l=>`<option value="${l.id}" ${l.id===s.ledgerId?'selected':''}>${l.name.replace(/[📒💰📚🚗🎓💊🎁💎🏖️🐈🐶🍼💼⚽🎮🧧🏢💡🍜💄🏠🌸✈️]/g,'').trim()}</option>`).join('')}
+          </select></td>
           <td><button class="bdel" onclick="removeStage(${i})" style="font-size:18px;">×</button></td>
         </tr>`).join('')}</tbody>
       </table>
@@ -7995,6 +8002,7 @@ window.addBatchRows=(n)=>{
     amount:0,
     category:'其他',
     cardBank:banks[0]||'',
+    ledgerId:'',
     keep:true
   }));
   S.importStaging=[...(S.importStaging||[]),...newRows];
@@ -8095,6 +8103,14 @@ window.updateStage=(i,field,val)=>{
 window.removeStage=(i)=>{
   S.importStaging.splice(i,1);
   render();
+};
+// 📒 批次輸入：套用預備金到全部
+window.applyLedgerToAll=()=>{
+  const lid=document.getElementById('batch-sync-ledger')?.value||'';
+  if(!S.importStaging||S.importStaging.length===0)return;
+  S.importStaging.forEach(s=>{s.ledgerId=lid;});
+  render();
+  toast(lid?'✅ 已套用到全部':'✅ 已清除全部預備金設定');
 };
 // 🗑 一鍵刪除本月所有信用卡明細（給測試或重新輸入用）
 // ─── 信用卡多筆勾選刪除 ─────────────────────────────
@@ -8789,10 +8805,22 @@ window.confirmImport=async()=>{
   const items=(S.importStaging||[]).filter(s=>s.keep&&toN(s.amount)!==0&&s.merchant&&s.merchant.trim());
   if(items.length===0){alert('沒有可儲存的項目（商家不可空、金額不可為 0；負數代表退款）');return;}
 
-  // 檢查是否要同步到預備金
-  const syncLedgerId=document.getElementById('batch-sync-ledger')?.value||'';
-  const syncLedger=syncLedgerId?getAllLedgers().find(l=>l.id===syncLedgerId):null;
-  const syncMsg=syncLedger?`\n\n⛓️ 將同步到「${syncLedger.name}」預備金帳本`:'';
+  // 統計每筆的預備金分布（用於確認訊息）
+  const ALL=getAllLedgers();
+  const ledgerStats={};
+  let noLedgerCount=0;
+  items.forEach(it=>{
+    if(it.ledgerId){
+      const l=ALL.find(x=>x.id===it.ledgerId);
+      const name=l?l.name:'未知';
+      ledgerStats[name]=(ledgerStats[name]||0)+1;
+    }else noLedgerCount++;
+  });
+  let syncMsg='';
+  if(Object.keys(ledgerStats).length>0){
+    syncMsg='\n\n⛓️ 預備金分布：\n'+Object.entries(ledgerStats).map(([n,c])=>`  • ${n}：${c} 筆`).join('\n');
+    if(noLedgerCount>0)syncMsg+=`\n  • 不同步：${noLedgerCount} 筆`;
+  }
 
   if(!confirm(`確認儲存 ${items.length} 筆刷卡記錄？${syncMsg}`))return;
 
@@ -8805,34 +8833,36 @@ window.confirmImport=async()=>{
         if(!isNaN(dt)){y=dt.getFullYear();mo=dt.getMonth()+1;}
       }
       const amount=toN(it.amount);
-      const linkId=syncLedger?'lnk_'+Date.now()+'_'+Math.random().toString(36).slice(2,6):null;
+      // 用每筆自己的 ledgerId
+      const itLedger=it.ledgerId?ALL.find(l=>l.id===it.ledgerId):null;
+      const linkId=itLedger?'lnk_'+Date.now()+'_'+Math.random().toString(36).slice(2,6):null;
 
       const newExp={
         date:it.date||today(),
         amount,
         category:it.category||'其他',
         item:it.merchant,
-        note:syncLedger?`⛓️ 來自預備金 - ${syncLedger.name}`:'',
+        note:itLedger?`⛓️ 來自預備金 - ${itLedger.name}`:'',
         payMethod:'信用卡',
         cardBank:it.cardBank||'',
         user:S.user,
         month:mo,year:y,
         _at:Date.now()
       };
-      if(syncLedger){
-        newExp.fromLedger=syncLedger.id;
+      if(itLedger){
+        newExp.fromLedger=itLedger.id;
         newExp.linkId=linkId;
         newExp.excludeFromBudget=true;
       }
       await addDoc(collection(db,'families',FID,'expenses'),newExp);
 
-      // 同步到預備金帳本（消費 -> 支出，退款 -> 存入）
-      if(syncLedger){
+      // 同步到該筆指定的預備金帳本
+      if(itLedger){
         await addDoc(collection(db,'families',FID,'ledgerEntries'),{
-          lid:syncLedger.id,
+          lid:itLedger.id,
           date:it.date||today(),
-          amount:-amount,  // 反向：信用卡 +100 消費 = 預備金 -100 支出
-          cat:amount>0?(syncLedger.cats.find(c=>c!=='存入')||'其他'):'存入',
+          amount:-amount,
+          cat:amount>0?(itLedger.cats.find(c=>c!=='存入')||'其他'):'存入',
           user:S.user,
           note:`${it.merchant} 💳 ${it.cardBank||''}${amount<0?' 退款':''}`,
           month:mo,year:y,
@@ -8848,7 +8878,8 @@ window.confirmImport=async()=>{
     setSyncing('synced');
     S.importStaging=[];
     closeMod();
-    toast(`✅ 已儲存 ${items.length} 筆${syncLedger?`，同步到 ${syncLedger.name}`:''}`);
+    const syncCount=items.filter(it=>it.ledgerId).length;
+    toast(`✅ 已儲存 ${items.length} 筆${syncCount>0?`（${syncCount} 筆連動預備金）`:''}`);
   }catch(err){
     console.error(err);
     setSyncing('error');
