@@ -678,33 +678,39 @@ const CARD_SCENARIOS=[
 ];
 
 const PAGES=[
-  {id:'home',     ico:'🏠',lbl:'首頁',group:'main'},
-  {id:'allocate', ico:'💰',lbl:'月初分配',group:'main'},
-  {id:'monthly',  ico:'📝',lbl:'每月記帳',group:'main'},
-  {id:'accounts', ico:'💳',lbl:'帳戶總管',group:'main'},
-  {id:'cards',    ico:'🎴',lbl:'信用卡攻略',group:'main'},
-  {id:'goals',    ico:'🎯',lbl:'目標 GPS',group:'main'},
-  {id:'invest',   ico:'💎',lbl:'投資主軸',group:'main'},
-  {id:'health',   ico:'📊',lbl:'健檢報告',group:'main'},
+  {id:'home',     ico:'📊',lbl:'總覽',group:'main'},
+  {id:'incomes',  ico:'💵',lbl:'收入記帳',group:'main'},
+  {id:'savings2', ico:'🏦',lbl:'每月存款',group:'main'},
+  {id:'expenses2',ico:'💸',lbl:'每月支出',group:'main'},
+  {id:'stocks',   ico:'📈',lbl:'本月股票現值',group:'main'},
+  {id:'networth2',ico:'💰',lbl:'每月總資產',group:'main'},
   {id:'settings', ico:'⚙️',lbl:'設定',group:'main'},
-  // 進階子頁（從設定／首頁進去）
-  {id:'overview', ico:'📊',lbl:'詳細總覽',group:'advanced'},
-  {id:'advisor',  ico:'🧠',lbl:'財務建議',group:'advanced'},
-  {id:'family',   ico:'👨‍👩‍👧',lbl:'家庭成員',group:'advanced'},
-  {id:'insurance',ico:'🛡️',lbl:'保險規劃',group:'advanced'},
-  {id:'networth', ico:'💎',lbl:'資產負債',group:'advanced'},
-  {id:'cashflow', ico:'💵',lbl:'收入現金流',group:'advanced'},
-  {id:'expenses', ico:'🧾',lbl:'支出記帳',group:'advanced'},
-  {id:'fixed',    ico:'📌',lbl:'固定支出',group:'advanced'},
-  {id:'budget',   ico:'📋',lbl:'預算',group:'advanced'},
-  {id:'cc',       ico:'💳',lbl:'信用卡',group:'advanced'},
-  {id:'ledger',   ico:'📒',lbl:'預備金帳本',group:'advanced'},
-  {id:'monthlytab',ico:'📅',lbl:'逐月收支',group:'advanced'},
-  {id:'savings',  ico:'🏦',lbl:'儲蓄計畫',group:'advanced'},
-  {id:'dreams',   ico:'🌟',lbl:'夢想計畫',group:'advanced'},
-  {id:'reports',  ico:'📈',lbl:'年報',group:'advanced'},
+  // 以下為隱藏的舊頁（直接從 URL 或設定進入，不顯示在側邊欄）
+  {id:'allocate', ico:'💰',lbl:'月初分配',group:'hidden'},
+  {id:'monthly',  ico:'📝',lbl:'每月記帳',group:'hidden'},
+  {id:'accounts', ico:'💳',lbl:'帳戶總管',group:'hidden'},
+  {id:'cards',    ico:'🎴',lbl:'信用卡攻略',group:'hidden'},
+  {id:'goals',    ico:'🎯',lbl:'目標 GPS',group:'hidden'},
+  {id:'invest',   ico:'💎',lbl:'投資主軸',group:'hidden'},
+  {id:'health',   ico:'📊',lbl:'健檢報告',group:'hidden'},
+  {id:'resisted', ico:'💪',lbl:'撐住了',group:'hidden'},
+  {id:'overview', ico:'📊',lbl:'詳細總覽',group:'hidden'},
+  {id:'advisor',  ico:'🧠',lbl:'財務建議',group:'hidden'},
+  {id:'family',   ico:'👨‍👩‍👧',lbl:'家庭成員',group:'hidden'},
+  {id:'insurance',ico:'🛡️',lbl:'保險規劃',group:'hidden'},
+  {id:'networth', ico:'💎',lbl:'資產負債',group:'hidden'},
+  {id:'cashflow', ico:'💵',lbl:'收入現金流',group:'hidden'},
+  {id:'expenses', ico:'🧾',lbl:'支出記帳',group:'hidden'},
+  {id:'fixed',    ico:'📌',lbl:'固定支出',group:'hidden'},
+  {id:'budget',   ico:'📋',lbl:'預算',group:'hidden'},
+  {id:'cc',       ico:'💳',lbl:'信用卡',group:'hidden'},
+  {id:'ledger',   ico:'📒',lbl:'預備金帳本',group:'hidden'},
+  {id:'monthlytab',ico:'📅',lbl:'逐月收支',group:'hidden'},
+  {id:'savings',  ico:'🏦',lbl:'儲蓄計畫',group:'hidden'},
+  {id:'dreams',   ico:'🌟',lbl:'夢想計畫',group:'hidden'},
+  {id:'reports',  ico:'📈',lbl:'年報',group:'hidden'},
 ];
-const MOB=['home','monthly','invest','goals','settings'];
+const MOB=['home','incomes','savings2','expenses2','settings'];
 
 // ── STATE ───────────────────────────────────────────────────
 let S={
@@ -898,8 +904,14 @@ function moSel(){return`<div class="mo-scroll">${MOS.map((m,i)=>`<div class="mo-
 // ═══ PAGES ════════════════════════════════════════════════════
 function page(){
   switch(S.page){
-    // 新版 5 大主頁
-    case'home':     return pgHome();
+    // 新版 6 大主頁（V7 重構）
+    case'home':     return pgOverviewNew();
+    case'incomes':  return pgIncomesNew();
+    case'savings2': return pgSavingsNew();
+    case'expenses2':return pgExpensesNew();
+    case'stocks':   return pgStocksNew();
+    case'networth2':return pgNetworthNew();
+    // 舊版主頁（保留可從設定進入）
     case'health':   return pgHealth();
     case'invest':   return pgInvest();
     case'accounts': return pgAccounts();
@@ -1251,6 +1263,727 @@ function getNextSteps(M){
 }
 
 // ─── 🏠 首頁儀表板 ───────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+// ──── V7 簡化版 6 大主頁 ─────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+
+// 計算「本月股票現值總額」
+function calcStocksValue(){
+  const tracks=S.data.investTracks||[];
+  let totalCost=0,totalValue=0;
+  tracks.forEach(t=>{
+    totalCost+=toN(t.totalCost||0);
+    totalValue+=toN(t.currentValue||t.totalCost||0);
+  });
+  return{totalCost,totalValue,count:tracks.length,gain:totalValue-totalCost};
+}
+
+// 計算「本月總存款」（從 allocLogs 取本月，或從 expenses 中 cat=存入 的累計）
+function calcMonthlySavings(){
+  const mk0=mk();
+  const log=(S.data.allocLogs||{})[mk0];
+  if(log){
+    // 用月初分配的記錄
+    const p=log.percentages||{};
+    const sal=toN(log.salary);
+    const emergency=Math.round(sal*p.emergency/100);
+    const house=Math.round(sal*p.house/100);
+    const invest=Math.round(sal*p.invest/100);
+    return{
+      emergency,house,invest,
+      shortTerm:Math.round(sal*p.shortTerm/100),
+      total:emergency+house+invest
+    };
+  }
+  // fallback：從 budgets 抓 __mandatory
+  const bgt=(S.data.budgets||{})[mk0]||{};
+  return{emergency:0,house:0,invest:0,shortTerm:0,total:toN(bgt.__mandatory)};
+}
+
+// 計算「現金水位」狀態
+function calcCashWater(){
+  const M=computeMonthly();
+  const liquidAssets=toN(M.liquidAssets);
+  const fixedTotal=toN(M.fixedTotal);
+  const months=fixedTotal>0?liquidAssets/fixedTotal:0;
+  let status='unknown',color='var(--mut)',label='未設定';
+  if(fixedTotal>0){
+    if(months<1){status='danger';color='var(--red)';label='🔴 緊急（不足 1 個月）';}
+    else if(months<3){status='warning';color='var(--yelb)';label='🟡 警戒（1-3 個月）';}
+    else if(months<6){status='ok';color='var(--blu)';label='🔵 OK（3-6 個月）';}
+    else{status='healthy';color='var(--grn)';label='🟢 健康（6 個月以上）';}
+  }
+  return{liquidAssets,fixedTotal,months,status,color,label};
+}
+
+// ──── 📊 總覽 ─────────────────────────────────────
+function pgOverviewNew(){
+  const M=computeMonthly();
+  const stocks=calcStocksValue();
+  const savings=calcMonthlySavings();
+  const water=calcCashWater();
+  const tAssets=(S.data.assets||[]).reduce((s,a)=>s+toN(a.value),0);
+  const tDebts=(S.data.debts||[]).reduce((s,d)=>s+toN(d.remainingAmount),0);
+  const netWorth=tAssets-tDebts;
+  const prev=computePrevMonth();
+  const anomalies=detectAnomalies();
+
+  // 簡易診斷
+  const diagnose=()=>{
+    const lines=[];
+    if(M.tInc===0)lines.push({type:'info',text:'本月還沒記錄收入。'});
+    if(M.tInc>0&&M.tExp>M.tInc)lines.push({type:'danger',text:`本月支出 $${fmt(M.tExp)} 超過收入 $${fmt(M.tInc)}，先停下來檢視固定支出。`});
+    if(M.tInc>0&&savings.total>0){
+      const sr=Math.round(savings.total/M.tInc*100);
+      if(sr>=20)lines.push({type:'good',text:`儲蓄率 ${sr}%，達到健康指標 20%。`});
+      else if(sr>=10)lines.push({type:'warn',text:`儲蓄率 ${sr}%，建議朝 20% 努力。`});
+      else lines.push({type:'danger',text:`儲蓄率僅 ${sr}%，過低。`});
+    }
+    if(water.status==='danger')lines.push({type:'danger',text:`現金水位不足 1 個月生活費，優先補強。`});
+    else if(water.status==='warning')lines.push({type:'warn',text:`現金水位 ${water.months.toFixed(1)} 個月，朝 6 個月目標前進。`});
+    else if(water.status==='healthy')lines.push({type:'good',text:`現金水位 ${water.months.toFixed(1)} 個月，安全。`});
+    if(netWorth<0)lines.push({type:'warn',text:`淨資產為負 $${fmt(Math.abs(netWorth))}（債務 > 資產），多為房車貸款，屬正常範圍但要追蹤。`});
+    if(anomalies.length>0)lines.push({type:'warn',text:`本月有 ${anomalies.length} 筆異常支出（高於 3 個月平均 50%）。`});
+    return lines;
+  };
+
+  // 下月建議
+  const nextSteps=()=>{
+    const tips=[];
+    if(water.status==='danger'||water.status==='warning'){
+      tips.push('優先補緊急預備金，目標 6 個月生活費。');
+    }
+    if(M.tInc>0&&savings.total<M.tInc*0.2){
+      tips.push('每月薪水進來後第 2 天，先轉 20% 到存款戶。');
+    }
+    if(anomalies.length>0){
+      tips.push(`回頭看 ${anomalies.length} 筆異常支出，確認是必要的還是衝動的。`);
+    }
+    if(stocks.totalCost===0){
+      tips.push('還沒開始投資。建議每月 3,000-5,000 定期定額買 0050。');
+    }
+    if(tips.length===0)tips.push('保持現在的節奏，繼續穩穩走。');
+    return tips;
+  };
+
+  const diag=diagnose();
+  const tips=nextSteps();
+
+  return`
+  <div class="pg-ttl">📊 總覽</div>
+  ${moSel()}
+
+  <!-- 5 大數字 -->
+  <div class="card">
+    <div class="card-bd">
+      <div class="sg sg2">
+        <div class="sc grn">
+          <div class="sl">本月總收入</div>
+          <div class="sv grn">$${fmt(M.tInc)}</div>
+          ${prev.hasData?`<div class="ss">上月 $${fmt(prev.tInc)}</div>`:''}
+        </div>
+        <div class="sc blu">
+          <div class="sl">本月總存款</div>
+          <div class="sv blu">$${fmt(savings.total)}</div>
+          <div class="ss">${M.tInc>0?Math.round(savings.total/M.tInc*100):0}% 儲蓄率</div>
+        </div>
+        <div class="sc red">
+          <div class="sl">本月總支出</div>
+          <div class="sv red">$${fmt(M.tExp+M.fixedTotal)}</div>
+          ${prev.hasData?`<div class="ss">上月 $${fmt(prev.tExp)}</div>`:''}
+        </div>
+        <div class="sc pur">
+          <div class="sl">本月股票現值總額</div>
+          <div class="sv pur">$${fmt(stocks.totalValue)}</div>
+          <div class="ss">${stocks.count} 檔　${stocks.gain>=0?'+':''}$${fmt(stocks.gain)}</div>
+        </div>
+        <div class="sc gold" style="grid-column:1/-1;">
+          <div class="sl">本月總資產（資產 - 負債）</div>
+          <div class="sv gold">$${fmt(netWorth)}</div>
+          <div class="ss">資產 $${fmt(tAssets)}　負債 $${fmt(tDebts)}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 現金流水位 -->
+  <div class="card">
+    <div class="card-hd"><span class="card-ttl">💧 現金流水位狀態</span></div>
+    <div class="card-bd">
+      <div style="text-align:center;padding:18px;background:${water.color}22;border:2px solid ${water.color};border-radius:var(--r-sm);">
+        <div style="font-family:'Noto Serif TC',serif;font-size:32px;font-weight:700;color:${water.color};">${water.months.toFixed(1)} <span style="font-size:16px;">個月</span></div>
+        <div style="font-size:14px;color:${water.color};margin-top:6px;font-weight:600;">${water.label}</div>
+        <div class="tm" style="font-size:12px;margin-top:8px;">現金 $${fmt(water.liquidAssets)}　÷　月固定支出 $${fmt(water.fixedTotal)}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;">
+        <div style="padding:10px;text-align:center;background:var(--redl);border-radius:8px;border:1px solid var(--red);">
+          <div style="font-size:11px;color:var(--red);font-weight:600;">緊急</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--red);">1 個月</div>
+          <div class="tm" style="font-size:10px;">$${fmt(water.fixedTotal)}</div>
+        </div>
+        <div style="padding:10px;text-align:center;background:var(--yel);border-radius:8px;border:1px solid var(--yelb);">
+          <div style="font-size:11px;color:var(--yelb);font-weight:600;">警戒</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--yelb);">3 個月</div>
+          <div class="tm" style="font-size:10px;">$${fmt(water.fixedTotal*3)}</div>
+        </div>
+        <div style="padding:10px;text-align:center;background:var(--grnl);border-radius:8px;border:1px solid var(--grn);">
+          <div style="font-size:11px;color:var(--grn);font-weight:600;">健康</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--grn);">6 個月</div>
+          <div class="tm" style="font-size:10px;">$${fmt(water.fixedTotal*6)}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 診斷 -->
+  <div class="card">
+    <div class="card-hd"><span class="card-ttl">🩺 本月財報診斷</span></div>
+    <div class="card-bd">
+      ${diag.length===0?'<div class="tm" style="padding:14px;text-align:center;">資料不足，先記錄收支</div>':`
+      <div style="display:grid;grid-template-columns:1fr;gap:8px;">
+        ${diag.map(d=>{
+          const c=d.type==='good'?'var(--grn)':d.type==='warn'?'var(--yelb)':d.type==='danger'?'var(--red)':'var(--mut)';
+          const bg=d.type==='good'?'var(--grnl)':d.type==='warn'?'var(--yel)':d.type==='danger'?'var(--redl)':'var(--bg2)';
+          const ico=d.type==='good'?'✓':d.type==='warn'?'⚠':d.type==='danger'?'⛔':'·';
+          return`<div style="padding:12px 16px;background:${bg};border-left:3px solid ${c};border-radius:8px;font-size:13.5px;color:var(--brown);"><b style="color:${c};">${ico}</b> ${d.text}</div>`;
+        }).join('')}
+      </div>`}
+    </div>
+  </div>
+
+  <!-- 下月建議 -->
+  <div class="card">
+    <div class="card-hd"><span class="card-ttl">🎯 下個月行動建議</span></div>
+    <div class="card-bd">
+      <div style="display:grid;grid-template-columns:1fr;gap:8px;">
+        ${tips.map((t,i)=>`<div style="padding:12px 16px;background:var(--accL);border-left:3px solid var(--acc);border-radius:8px;font-size:13.5px;color:var(--brown);"><b>${i+1}.</b> ${t}</div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ──── 💵 收入記帳 ─────────────────────────────────
+function pgIncomesNew(){
+  const inc=(S.data.incomes||[]).filter(i=>i.month===S.month&&i.year===yr());
+  const tInc=inc.reduce((s,i)=>s+toN(i.amount),0);
+  // 建議分配比例
+  const sugg=[
+    {name:'必要支出（房貸/水電/食物/交通）',pct:50,color:'var(--brown)',pri:1},
+    {name:'存款（緊急金/買房/教育）',pct:20,color:'var(--blu)',pri:2},
+    {name:'投資（股票/ETF）',pct:10,color:'var(--grn)',pri:3},
+    {name:'享受（旅遊/孝親/添購）',pct:15,color:'var(--acc)',pri:4},
+    {name:'彈性備用（意外）',pct:5,color:'var(--mut)',pri:5}
+  ];
+  return`
+  <div class="pg-ttl">💵 收入記帳</div>
+  ${moSel()}
+
+  <div class="card">
+    <div class="card-bd">
+      <div style="text-align:center;padding:14px;background:var(--grnl);border-radius:var(--r-sm);">
+        <div class="tm" style="font-size:12px;">本月總收入</div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:32px;font-weight:700;color:var(--grn);">$${fmt(tInc)}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-hd">
+      <span class="card-ttl">📝 本月收入清單</span>
+      <button class="btn btn-p btn-sm" onclick="openM('addInc')">＋ 新增收入</button>
+    </div>
+    <div class="card-bd">
+      ${inc.length===0?'<div class="empty" style="padding:30px;"><div style="font-size:48px;">💵</div><p>本月還沒有收入記錄</p></div>':`
+      <div class="tw"><table>
+        <thead><tr><th>日期</th><th>類別</th><th>來源/備註</th><th style="text-align:right;">金額</th><th></th></tr></thead>
+        <tbody>${inc.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(i=>`<tr>
+          <td>${i.date?i.date.slice(5,10):''}</td>
+          <td><span class="bdg" style="background:var(--mut);color:#fff;font-size:11px;">${i.cat||'-'}</span></td>
+          <td>${i.note||'-'}</td>
+          <td class="an" style="color:var(--grn);font-weight:700;">$${fmt(toN(i.amount))}</td>
+          <td style="text-align:right;"><button class="bdel" onclick="delInc('${i.id}')">×</button></td>
+        </tr>`).join('')}</tbody>
+      </table></div>`}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-hd"><span class="card-ttl">📐 建議分配比例（按優先順序）</span></div>
+    <div class="card-bd">
+      <div class="notice tip" style="font-size:13px;margin-bottom:12px;">
+        薪水進來後第 2 天就把錢分到不同帳戶，看不見的錢才不會花掉。
+      </div>
+      <div style="display:grid;grid-template-columns:1fr;gap:8px;">
+        ${sugg.map(s=>{
+          const amt=Math.round(tInc*s.pct/100);
+          return`<div style="display:flex;gap:12px;align-items:center;padding:12px 16px;background:var(--bg2);border-radius:8px;border-left:4px solid ${s.color};">
+            <span class="bdg" style="background:${s.color};color:#fff;font-size:12px;font-weight:700;min-width:34px;text-align:center;">${s.pri}</span>
+            <div style="flex:1;">
+              <div style="font-size:14px;color:var(--brown);font-weight:600;">${s.name}</div>
+              <div class="tm" style="font-size:11.5px;margin-top:2px;">${s.pct}%</div>
+            </div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:${s.color};">$${fmt(amt)}</div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div style="margin-top:12px;padding:12px 16px;background:var(--accL);border-radius:8px;font-size:12.5px;line-height:1.7;color:var(--brown);">
+        💡 50/20/10/15/5 法則：必要支出 ≤50%，存款 ≥20%，投資 ≥10%，享受 ≤15%，彈性 5%。<br>
+        實際比例可以根據你的狀況調整，但「先存後花」是核心。
+      </div>
+    </div>
+  </div>`;
+}
+
+// ──── 🏦 每月存款 ─────────────────────────────────
+function pgSavingsNew(){
+  const accounts=(S.data.accounts||[]).filter(a=>['緊急預備金','高利儲蓄','年費預備金','投資戶'].includes(a.purpose));
+  const allAccounts=S.data.accounts||[];
+  const savings=calcMonthlySavings();
+  const water=calcCashWater();
+  const tBalance=allAccounts.reduce((s,a)=>s+toN(a.balance),0);
+  return`
+  <div class="pg-ttl">🏦 每月存款</div>
+  ${moSel()}
+
+  <!-- 本月存款金額 -->
+  <div class="card">
+    <div class="card-bd">
+      <div style="text-align:center;padding:14px;background:var(--blue);background:linear-gradient(135deg,var(--accL),var(--card));border-radius:var(--r-sm);">
+        <div class="tm" style="font-size:12px;">本月存入</div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:32px;font-weight:700;color:var(--blu);">$${fmt(savings.total)}</div>
+        <div class="tm" style="font-size:11px;margin-top:6px;">緊急 $${fmt(savings.emergency)}　／　買房 $${fmt(savings.house)}　／　投資 $${fmt(savings.invest)}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 現金水位 -->
+  <div class="card">
+    <div class="card-hd"><span class="card-ttl">💧 家庭現金水位</span></div>
+    <div class="card-bd">
+      <div style="text-align:center;padding:18px;background:${water.color}22;border:2px solid ${water.color};border-radius:var(--r-sm);">
+        <div style="font-family:'Noto Serif TC',serif;font-size:36px;font-weight:700;color:${water.color};">${water.months.toFixed(1)} <span style="font-size:18px;">個月</span></div>
+        <div style="font-size:14px;color:${water.color};margin-top:6px;font-weight:600;">${water.label}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;">
+        <div style="padding:10px;text-align:center;background:var(--redl);border-radius:8px;">
+          <div style="font-size:11px;color:var(--red);font-weight:600;">緊急水位</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--red);">1 個月</div>
+        </div>
+        <div style="padding:10px;text-align:center;background:var(--yel);border-radius:8px;">
+          <div style="font-size:11px;color:var(--yelb);font-weight:600;">警戒水位</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--yelb);">3 個月</div>
+        </div>
+        <div style="padding:10px;text-align:center;background:var(--grnl);border-radius:8px;">
+          <div style="font-size:11px;color:var(--grn);font-weight:600;">健康水位</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--grn);">6 個月</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 存款帳戶清單 -->
+  <div class="card">
+    <div class="card-hd">
+      <span class="card-ttl">📋 存款帳戶</span>
+      <button class="btn btn-p btn-sm" onclick="openM('addAccount')">＋ 新增帳戶</button>
+    </div>
+    <div class="card-bd">
+      ${allAccounts.length===0?'<div class="empty" style="padding:30px;"><div style="font-size:48px;">🏦</div><p>還沒設定帳戶</p><p class="tm">把你的銀行帳戶加進來，記錄每月存了多少</p></div>':`
+      <div style="display:grid;grid-template-columns:1fr;gap:10px;">
+        ${allAccounts.map(a=>`<div style="padding:14px 18px;background:var(--card);border:1.5px solid var(--bdr);border-left:4px solid var(--blu);border-radius:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:0;">
+              <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--brown);">${a.bank||''} ${a.nickname?`<span style="font-size:13px;color:var(--mut);font-weight:500;">（${a.nickname}）</span>`:''}</div>
+              <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
+                <span class="bdg" style="background:var(--mut);color:#fff;font-size:11px;">${a.purpose||'其他'}</span>
+                ${a.interestRate>0?`<span class="bdg" style="background:var(--grn);color:#fff;font-size:11px;">${a.interestRate}% 利率</span>`:''}
+              </div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:var(--brown);">$${fmt(toN(a.balance||0))}</div>
+              <div class="tm" style="font-size:10px;">餘額</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:10px;">
+            <input type="number" placeholder="輸入新餘額" id="ab_${a.id}" style="flex:1;padding:6px 10px;border:1px solid var(--bdr);border-radius:6px;font-size:12.5px;">
+            <button class="btn btn-s btn-sm" onclick="updateAccountBalance('${a.id}')">🔄 更新</button>
+            <button class="btn btn-s btn-sm" onclick="openM('editAccount','${a.id}')">✏️</button>
+          </div>
+        </div>`).join('')}
+        <div style="text-align:right;padding:10px 14px;background:var(--accL);border-radius:8px;margin-top:4px;">
+          <span class="tm">總餘額：</span>
+          <span style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--brown);">$${fmt(tBalance)}</span>
+        </div>
+      </div>`}
+    </div>
+  </div>
+
+  <!-- 緊急預備金規劃 -->
+  <div class="card">
+    <div class="card-hd"><span class="card-ttl">🆘 緊急預備金規劃</span></div>
+    <div class="card-bd">
+      <div style="background:var(--bg2);padding:14px 18px;border-radius:var(--r-sm);font-size:13px;line-height:1.9;color:var(--brown);">
+        目標：<b>6 個月家庭固定支出</b><br>
+        家庭固定支出 = $${fmt(water.fixedTotal)} / 月<br>
+        緊急預備金目標 = <b style="color:var(--red);">$${fmt(water.fixedTotal*6)}</b><br>
+        目前緊急金（流動資產）= $${fmt(water.liquidAssets)}<br>
+        <hr style="margin:8px 0;border:none;border-top:1px dashed var(--bdr);">
+        ${water.liquidAssets>=water.fixedTotal*6?
+          `<span style="color:var(--grn);">✓ 已達標</span>，可以開始累積買房頭期款`:
+          `還差 <b style="color:var(--red);">$${fmt(water.fixedTotal*6-water.liquidAssets)}</b>　優先補這個`}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ──── 💸 每月支出 ─────────────────────────────────
+function pgExpensesNew(){
+  const exp=(S.data.expenses||[]).filter(e=>e.month===S.month&&e.year===yr());
+  const realExp=exp.filter(e=>!e.fromLedger&&!e.excludeFromBudget);
+  const fixedItems=S.data.fixedItems||[];
+  const fixedTotal=fixedItems.reduce((s,f)=>s+toN(f.amount),0);
+  const variableTotal=realExp.reduce((s,e)=>s+toN(e.amount),0);
+
+  // 按類別分組
+  const byCat={};
+  realExp.forEach(e=>{const c=e.cat||'其他';byCat[c]=(byCat[c]||0)+toN(e.amount);});
+
+  // 預備金帳本（攤提）
+  const ALL_LEDGERS=getAllLedgers();
+
+  return`
+  <div class="pg-ttl">💸 每月支出</div>
+  ${moSel()}
+
+  <div class="card">
+    <div class="card-bd">
+      <div class="sg sg2">
+        <div class="sc red">
+          <div class="sl">本月總支出</div>
+          <div class="sv red">$${fmt(fixedTotal+variableTotal)}</div>
+          <div class="ss">固定 + 變動</div>
+        </div>
+        <div class="sc gold">
+          <div class="sl">固定支出</div>
+          <div class="sv gold">$${fmt(fixedTotal)}</div>
+          <div class="ss">${fixedItems.length} 筆</div>
+        </div>
+        <div class="sc pur">
+          <div class="sl">變動支出（含信用卡）</div>
+          <div class="sv pur">$${fmt(variableTotal)}</div>
+          <div class="ss">${realExp.length} 筆</div>
+        </div>
+        <div class="sc pur">
+          <div class="sl">預備金攤提</div>
+          <div class="sv pur">${ALL_LEDGERS.length} <span style="font-size:14px;">本帳本</span></div>
+          <div class="ss">為定期/不定期支出準備</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 固定支出 -->
+  <div class="card">
+    <div class="card-hd">
+      <span class="card-ttl">📌 固定支出（房租房貸、車貸、保險等）</span>
+      <button class="btn btn-p btn-sm" onclick="openM('addFix')">＋ 新增</button>
+    </div>
+    <div class="card-bd">
+      ${fixedItems.length===0?'<div class="empty" style="padding:30px;"><div style="font-size:48px;">📌</div><p>還沒設定固定支出</p></div>':`
+      <div class="tw"><table>
+        <thead><tr><th>項目</th><th>類別</th><th style="text-align:right;">月金額</th><th></th></tr></thead>
+        <tbody>${fixedItems.map(f=>`<tr>
+          <td><b>${f.name||'-'}</b></td>
+          <td>${f.category||'-'}</td>
+          <td class="an">$${fmt(toN(f.amount))}</td>
+          <td style="text-align:right;"><button class="bdel" onclick="delFix('${f.id}')">×</button></td>
+        </tr>`).join('')}
+        <tr style="background:var(--accL);font-weight:700;">
+          <td colspan="2">合計</td>
+          <td class="an" style="color:var(--red);">$${fmt(fixedTotal)}</td>
+          <td></td>
+        </tr></tbody>
+      </table></div>`}
+    </div>
+  </div>
+
+  <!-- 變動支出 -->
+  <div class="card">
+    <div class="card-hd">
+      <span class="card-ttl">💳 變動支出（信用卡 + 現金/轉帳）</span>
+      <button class="btn btn-p btn-sm" onclick="openM('addExp')">＋ 新增</button>
+    </div>
+    <div class="card-bd">
+      ${realExp.length===0?'<div class="empty" style="padding:30px;"><div style="font-size:48px;">💸</div><p>本月還沒有支出</p></div>':`
+      <div style="margin-bottom:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;">
+        ${Object.entries(byCat).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`<div style="padding:8px 12px;background:var(--bg2);border-radius:8px;font-size:12px;">
+          <div class="tm" style="font-size:10px;">${c}</div>
+          <div style="font-family:'Noto Serif TC',serif;font-weight:700;color:var(--brown);">$${fmt(v)}</div>
+        </div>`).join('')}
+      </div>
+      <div class="tw"><table>
+        <thead><tr><th>日期</th><th>類別</th><th>備註</th><th style="text-align:right;">金額</th><th></th></tr></thead>
+        <tbody>${realExp.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,30).map(e=>`<tr>
+          <td>${e.date?e.date.slice(5,10):''}</td>
+          <td><span class="bdg" style="background:var(--mut);color:#fff;font-size:11px;">${e.cat||'-'}</span></td>
+          <td>${e.note||'-'}</td>
+          <td class="an" style="color:var(--red);">$${fmt(toN(e.amount))}</td>
+          <td style="text-align:right;"><button class="bdel" onclick="delExp('${e.id}')">×</button></td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+      ${realExp.length>30?`<div class="tm" style="text-align:center;padding:8px;">僅顯示最近 30 筆</div>`:''}`}
+    </div>
+  </div>
+
+  <!-- 預備金帳本（攤提） -->
+  <div class="card">
+    <div class="card-hd">
+      <span class="card-ttl">📒 預備金帳本（每月攤提準備）</span>
+      <button class="btn btn-p btn-sm" onclick="openM('addLE')">＋ 記一筆</button>
+    </div>
+    <div class="card-bd">
+      <div class="notice tip" style="font-size:13px;margin-bottom:12px;">
+        💡 不定期但會花的錢（交通：加油+保險+保養稅金；美麗：頭髮+保養）<br>
+        每月先「攤提」存進去，真的要花時就有錢，不會臨時掏錢手忙腳亂。
+      </div>
+      ${ALL_LEDGERS.length===0?'<div class="empty" style="padding:20px;">還沒設定預備金帳本</div>':`
+      <div style="display:grid;grid-template-columns:1fr;gap:8px;">
+        ${ALL_LEDGERS.map(l=>{
+          const entries=getLedgerAll(l.id);
+          const cumBalance=entries.reduce((s,e)=>s+toN(e.amount),0);
+          const cfg=getLedgerCfg(l.id);
+          const budget=toN((S.data.ledgerBudgets||{})[l.id])||toN(l.budget)||0;
+          return`<div onclick="setP('ledger');setTimeout(()=>{const f=document.getElementById('ledgerFilter');if(f){f.value='${l.id}';f.dispatchEvent(new Event('change'));}},100);" style="padding:12px 16px;background:var(--bg2);border-radius:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+            <div style="flex:1;">
+              <div style="font-size:14px;font-weight:600;color:var(--brown);">${l.name}</div>
+              <div class="tm" style="font-size:11px;">每月攤提 $${fmt(budget)}</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:${cumBalance>=0?'var(--grn)':'var(--red)'};">$${fmt(cumBalance)}</div>
+              <div class="tm" style="font-size:10px;">累積</div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`}
+      <div style="text-align:center;margin-top:12px;">
+        <button class="btn btn-s btn-sm" onclick="setP('ledger')">→ 進入預備金帳本詳細頁</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ──── 📈 本月股票現值 ─────────────────────────────────
+function pgStocksNew(){
+  const stocks=calcStocksValue();
+  const tracks=S.data.investTracks||[];
+
+  return`
+  <div class="pg-ttl">📈 本月股票現值</div>
+  ${moSel()}
+
+  <div class="card">
+    <div class="card-bd">
+      <div class="sg sg2">
+        <div class="sc pur">
+          <div class="sl">總投入</div>
+          <div class="sv pur">$${fmt(stocks.totalCost)}</div>
+        </div>
+        <div class="sc rose">
+          <div class="sl">目前現值</div>
+          <div class="sv rose">$${fmt(stocks.totalValue)}</div>
+        </div>
+        <div class="sc ${stocks.gain>=0?'grn':'red'}">
+          <div class="sl">損益</div>
+          <div class="sv ${stocks.gain>=0?'grn':'red'}">${stocks.gain>=0?'+':''}$${fmt(stocks.gain)}</div>
+          <div class="ss">${stocks.totalCost>0?Math.round(stocks.gain/stocks.totalCost*100):0}%</div>
+        </div>
+        <div class="sc gold">
+          <div class="sl">持有檔數</div>
+          <div class="sv gold">${stocks.count} <span style="font-size:14px;">檔</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 持股清單 -->
+  <div class="card">
+    <div class="card-hd">
+      <span class="card-ttl">📋 持股清單</span>
+      <button class="btn btn-p btn-sm" onclick="openM('addInvest')">＋ 新增持股</button>
+    </div>
+    <div class="card-bd">
+      ${tracks.length===0?'<div class="empty" style="padding:30px;"><div style="font-size:48px;">📈</div><p>還沒有持股記錄</p></div>':`
+      <div class="tw"><table>
+        <thead><tr><th>股票</th><th style="text-align:right;">總成本</th><th style="text-align:right;">現值</th><th style="text-align:right;">損益</th><th></th></tr></thead>
+        <tbody>${tracks.map(t=>{
+          const cost=toN(t.totalCost);
+          const val=toN(t.currentValue||t.totalCost);
+          const gain=val-cost;
+          return`<tr>
+            <td><b>${t.symbol||'-'}</b> ${t.name?`<span class="tm" style="font-size:11px;">${t.name}</span>`:''}</td>
+            <td class="an">$${fmt(cost)}</td>
+            <td class="an">$${fmt(val)}</td>
+            <td class="an" style="color:${gain>=0?'var(--grn)':'var(--red)'};">${gain>=0?'+':''}$${fmt(gain)}</td>
+            <td style="text-align:right;">
+              <button class="bdel" style="color:var(--acc);" onclick="openM('editInvest','${t.id}')">✏️</button>
+              <button class="bdel" onclick="delInvest('${t.id}')">×</button>
+            </td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table></div>`}
+    </div>
+  </div>
+
+  <!-- 投資建議（針對你的問題） -->
+  <div class="card">
+    <div class="card-hd"><span class="card-ttl">💡 給你的投資建議</span></div>
+    <div class="card-bd">
+      <div style="background:linear-gradient(135deg,var(--purl),var(--card));padding:18px 22px;border-radius:var(--r-sm);font-size:13.5px;line-height:1.9;color:var(--brown);">
+
+        <b style="color:var(--brown);font-family:'Noto Serif TC',serif;font-size:15px;">你問：「該撥多少錢買股票？目標是什麼？」</b>
+        <hr style="margin:10px 0;border:none;border-top:1px dashed var(--bdr);">
+
+        <b style="color:var(--pur);">1️⃣ 買股票的目標：時間決定一切</b><br>
+        股票是「<b>10 年以上不動</b>」的錢的工具。<br>
+        ・買房頭期款（3-5 年要用）→ <b style="color:var(--red);">不要放股票</b>，放高利數位戶<br>
+        ・退休、孩子大學費（10 年+）→ ✅ 可以放股票<br>
+        ・改善生活品質（短期）→ 用儲蓄帳，不要動投資<br><br>
+
+        <b style="color:var(--pur);">2️⃣ 該撥多少錢？建議規則：</b><br>
+        ・每月薪水的 <b>10%</b> 定期定額（不管市場漲跌）<br>
+        ・市場大跌時可以多買，但<b>不要 All in</b><br>
+        ・存款不足 6 個月生活費前，不要增加投資金額<br><br>
+
+        <b style="color:var(--pur);">3️⃣ 「看到大跌才買」對嗎？</b><br>
+        ⚠️ <b>不完全對。</b>原因：<br>
+        ・你無法預測「最低點」（可能還會更跌）<br>
+        ・等大跌會錯過很多上漲時間<br>
+        ・心理會很累，每天看盤<br><br>
+        <b style="color:var(--grn);">✅ 建議改成：每月定期定額 + 跌 -10% / -20% / -30% 各加碼一次</b><br>
+        既不會錯過上漲，也能在低點多買。<br><br>
+
+        <b style="color:var(--pur);">4️⃣ 存股是好的，但要選對標的：</b><br>
+        ・主食 80%：<b>0050 / 006208（台灣 50）</b>　市值型最穩<br>
+        ・配菜 15%：高股息 ETF（00878、0056）<br>
+        ・辣椒 5%：個別股票（賠了不心痛的金額）
+      </div>
+    </div>
+  </div>
+
+  <!-- 分批加碼追蹤 -->
+  <div style="text-align:center;margin:14px 0;">
+    <button class="btn btn-s btn-sm" onclick="setP('invest')">→ 進入投資詳細頁（分批加碼追蹤、複利試算）</button>
+  </div>`;
+}
+
+// ──── 💰 每月總資產 ─────────────────────────────────
+function pgNetworthNew(){
+  const assets=S.data.assets||[];
+  const debts=S.data.debts||[];
+  const tA=assets.reduce((s,a)=>s+toN(a.value),0);
+  const tD=debts.reduce((s,d)=>s+toN(d.remainingAmount),0);
+  const nw=tA-tD;
+
+  return`
+  <div class="pg-ttl">💰 每月總資產</div>
+  ${moSel()}
+
+  <div class="card">
+    <div class="card-bd">
+      <div class="sg sg2">
+        <div class="sc grn">
+          <div class="sl">總資產</div>
+          <div class="sv grn">$${fmt(tA)}</div>
+          <div class="ss">${assets.length} 項</div>
+        </div>
+        <div class="sc red">
+          <div class="sl">總負債</div>
+          <div class="sv red">$${fmt(tD)}</div>
+          <div class="ss">${debts.length} 項</div>
+        </div>
+        <div class="sc ${nw>=0?'gold':'red'}" style="grid-column:1/-1;">
+          <div class="sl">淨資產（資產 - 負債）</div>
+          <div class="sv ${nw>=0?'gold':'red'}">$${fmt(nw)}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 資產列表 -->
+  <div class="card">
+    <div class="card-hd">
+      <span class="card-ttl">📈 資產列表</span>
+      <button class="btn btn-p btn-sm" onclick="openM('addAsset')">＋ 新增</button>
+    </div>
+    <div class="card-bd">
+      ${assets.length===0?'<div class="empty" style="padding:30px;"><div style="font-size:48px;">📈</div><p>還沒設定資產</p><p class="tm">現金、定存、股票、房子、車子、貴重物品等</p></div>':`
+      <div class="tw"><table>
+        <thead><tr><th>類型</th><th>名稱</th><th style="text-align:right;">價值</th><th></th></tr></thead>
+        <tbody>${assets.map(a=>`<tr>
+          <td><span class="bdg" style="background:var(--grn);color:#fff;font-size:11px;">${a.type||'-'}</span></td>
+          <td>${a.name||'-'}</td>
+          <td class="an" style="color:var(--grn);">$${fmt(toN(a.value))}</td>
+          <td style="text-align:right;"><button class="bdel" onclick="delAsset('${a.id}')">×</button></td>
+        </tr>`).join('')}</tbody>
+      </table></div>`}
+    </div>
+  </div>
+
+  <!-- 負債列表 -->
+  <div class="card">
+    <div class="card-hd">
+      <span class="card-ttl">📉 負債列表</span>
+      <button class="btn btn-p btn-sm" onclick="openM('addDebt')">＋ 新增</button>
+    </div>
+    <div class="card-bd">
+      ${debts.length===0?'<div class="empty" style="padding:30px;"><div style="font-size:48px;">📉</div><p>還沒有負債記錄</p></div>':`
+      <div class="tw"><table>
+        <thead><tr><th>類型</th><th>名稱</th><th style="text-align:right;">剩餘</th><th>利率</th><th></th></tr></thead>
+        <tbody>${debts.map(d=>`<tr>
+          <td><span class="bdg" style="background:var(--red);color:#fff;font-size:11px;">${d.type||'-'}</span></td>
+          <td>${d.name||'-'}</td>
+          <td class="an" style="color:var(--red);">$${fmt(toN(d.remainingAmount))}</td>
+          <td>${d.interestRate?d.interestRate+'%':'-'}</td>
+          <td style="text-align:right;"><button class="bdel" onclick="delDebt('${d.id}')">×</button></td>
+        </tr>`).join('')}</tbody>
+      </table></div>`}
+    </div>
+  </div>
+
+  <!-- 好負債 vs 壞負債解釋 -->
+  <div class="card">
+    <div class="card-hd"><span class="card-ttl">💡 好負債 vs 壞負債（你問的）</span></div>
+    <div class="card-bd">
+      <div style="background:linear-gradient(135deg,var(--purl),var(--card));padding:18px 22px;border-radius:var(--r-sm);font-size:13.5px;line-height:1.9;color:var(--brown);">
+
+        <b style="color:var(--brown);font-family:'Noto Serif TC',serif;font-size:15px;">你問：「資產是正的好？還是負的好？」</b>
+        <hr style="margin:10px 0;border:none;border-top:1px dashed var(--bdr);">
+
+        <b style="color:var(--grn);">✅ 淨資產越「正」越好</b><br>
+        但 33 歲剛買房有房貸的家庭，淨資產 = 0 或微負是正常的。<br>
+        重點是<b>未來的趨勢</b>：每年要往「正」的方向走。<br><br>
+
+        <b style="color:var(--brown);font-family:'Noto Serif TC',serif;font-size:14px;">🟢 好負債（能接受）</b><br>
+        ・<b>房貸</b>：利率低（2-3%），房子會升值 + 替代房租<br>
+        ・<b>車貸</b>：如果是工作必需的車，且利率合理（< 3%）<br>
+        ・<b>學貸</b>：投資自己換更高收入<br><br>
+
+        <b style="color:var(--red);font-family:'Noto Serif TC',serif;font-size:14px;">🔴 壞負債（要小心）</b><br>
+        ・<b>信用卡循環利息</b>（15%+）：最毒，要立刻還清<br>
+        ・<b>消費分期</b>：買 iPhone、家電分 24 期 → 不划算<br>
+        ・<b>高利貸款</b>：年息 10%+ 的個人信貸<br><br>
+
+        <b style="color:var(--pur);">📊 對你的判斷：</b><br>
+        ・房貸 → ✅ 好負債<br>
+        ・車貸 → 要看是不是必要、利率多少<br>
+        ・未來貸款前先問：<b>這筆錢借來「會生錢」還是「會花錢」？</b><br>
+        　會生錢（如投資自己、生財工具）→ 可以借<br>
+        　會花錢（如奢侈品、旅遊）→ 不要借
+      </div>
+    </div>
+  </div>`;
+}
+
 function pgHome(){
   const M=computeMonthly();
   const steps=getNextSteps(M);
