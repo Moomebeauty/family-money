@@ -994,6 +994,180 @@ function computeMonthly(){
     bgt,inc,exp,realExp};
 }
 
+// ═══════════════════════════════════════════════════════════
+// ──── 📊 健檢進階：歷史比較 + 異常偵測 ─────────────────────
+// ═══════════════════════════════════════════════════════════
+
+// 計算上月同類數據（用於對比）
+function computePrevMonth(){
+  const curMonth=S.month;
+  const curYear=yr();
+  const prevMonth=curMonth===1?12:curMonth-1;
+  const prevYear=curMonth===1?curYear-1:curYear;
+
+  const prevInc=(S.data.incomes||[]).filter(i=>i.month===prevMonth&&i.year===prevYear);
+  const prevExp=(S.data.expenses||[]).filter(e=>e.month===prevMonth&&e.year===prevYear);
+  const prevRealExp=prevExp.filter(e=>!e.fromLedger&&!e.excludeFromBudget);
+
+  const tInc=prevInc.reduce((s,i)=>s+toN(i.amount),0);
+  const tExp=prevRealExp.reduce((s,e)=>s+toN(e.amount),0);
+
+  // 按類別分組
+  const byCat={};
+  prevRealExp.forEach(e=>{
+    const c=e.cat||'其他';
+    byCat[c]=(byCat[c]||0)+toN(e.amount);
+  });
+
+  return{tInc,tExp,byCat,month:prevMonth,year:prevYear,hasData:prevInc.length>0||prevExp.length>0};
+}
+
+// 計算過去 N 個月的平均（用於異常偵測）
+function computeAvgMonths(n=3){
+  const curMonth=S.month;
+  const curYear=yr();
+  const months=[];
+  for(let i=1;i<=n;i++){
+    let m=curMonth-i;
+    let y=curYear;
+    while(m<=0){m+=12;y--;}
+    months.push({m,y});
+  }
+
+  const byCatTotals={};
+  const byCatCounts={};
+  let totalExp=0;
+  let validMonths=0;
+
+  months.forEach(({m,y})=>{
+    const exp=(S.data.expenses||[]).filter(e=>e.month===m&&e.year===y&&!e.fromLedger&&!e.excludeFromBudget);
+    if(exp.length===0)return;
+    validMonths++;
+    exp.forEach(e=>{
+      const c=e.cat||'其他';
+      byCatTotals[c]=(byCatTotals[c]||0)+toN(e.amount);
+      byCatCounts[c]=(byCatCounts[c]||0)+1;
+      totalExp+=toN(e.amount);
+    });
+  });
+
+  const byCatAvg={};
+  Object.keys(byCatTotals).forEach(c=>{
+    byCatAvg[c]={
+      monthAvg:validMonths>0?byCatTotals[c]/validMonths:0,
+      perItemAvg:byCatCounts[c]>0?byCatTotals[c]/byCatCounts[c]:0
+    };
+  });
+
+  return{byCatAvg,totalAvg:validMonths>0?totalExp/validMonths:0,validMonths};
+}
+
+// 異常支出偵測（單筆 > 同類平均 1.5 倍）
+function detectAnomalies(){
+  const avg=computeAvgMonths(3);
+  if(avg.validMonths===0)return[];
+  const curExp=(S.data.expenses||[]).filter(e=>e.month===S.month&&e.year===yr()&&!e.fromLedger&&!e.excludeFromBudget);
+
+  const anomalies=[];
+  curExp.forEach(e=>{
+    const cat=e.cat||'其他';
+    const amt=toN(e.amount);
+    const catAvg=avg.byCatAvg[cat];
+    if(!catAvg)return;
+    // 單筆超過該類平均單筆的 1.5 倍，且 > 1000
+    if(amt>=catAvg.perItemAvg*1.5&&amt>=1000&&catAvg.perItemAvg>0){
+      anomalies.push({
+        ...e,
+        catAvg:catAvg.perItemAvg,
+        ratio:Math.round(amt/catAvg.perItemAvg*100)
+      });
+    }
+  });
+
+  return anomalies.sort((a,b)=>b.amount-a.amount);
+}
+
+// 類別月對月比較
+function compareByCat(){
+  const curExp=(S.data.expenses||[]).filter(e=>e.month===S.month&&e.year===yr()&&!e.fromLedger&&!e.excludeFromBudget);
+  const prev=computePrevMonth();
+  if(!prev.hasData)return[];
+
+  const curByCat={};
+  curExp.forEach(e=>{
+    const c=e.cat||'其他';
+    curByCat[c]=(curByCat[c]||0)+toN(e.amount);
+  });
+
+  const allCats=new Set([...Object.keys(curByCat),...Object.keys(prev.byCat)]);
+  const comparisons=[];
+  allCats.forEach(c=>{
+    const cur=curByCat[c]||0;
+    const pre=prev.byCat[c]||0;
+    const diff=cur-pre;
+    const pct=pre>0?Math.round((cur-pre)/pre*100):(cur>0?100:0);
+    comparisons.push({cat:c,cur,prev:pre,diff,pct});
+  });
+
+  return comparisons.sort((a,b)=>Math.abs(b.diff)-Math.abs(a.diff));
+}
+
+// 家人語氣文字產生器（健康狀態 → 對應文字）
+function generateFamilyMessage(M){
+  const userName=S.user||'親愛的';
+  const monthName=MOS[S.month-1];
+  const sr=M.savingsRate;
+  const mc=toN(M.monthsCovered);
+  const prev=computePrevMonth();
+
+  // 暖心開場
+  let opening=`親愛的 ${userName}，這是 ${monthName} 的家庭財務小結。`;
+  if(prev.hasData){
+    const incDiff=M.tInc-prev.tInc;
+    if(incDiff>1000){
+      opening+=`這個月收入比上月多了 $${fmt(incDiff)}，有努力到 ✨`;
+    }else if(incDiff<-1000){
+      opening+=`這個月收入比上月少了 $${fmt(Math.abs(incDiff))}，但別擔心，看下面的分析。`;
+    }
+  }
+
+  // 數據誠實話
+  let truth='';
+  if(sr>=30){
+    truth=`儲蓄率 ${sr}% 非常棒！表示你每賺 100 元，有 ${sr} 元被你「留住」沒花掉。這是健康家庭的指標。`;
+  }else if(sr>=20){
+    truth=`儲蓄率 ${sr}% 在健康範圍內。穩穩存著，5 年後會看見複利的力量。`;
+  }else if(sr>=10){
+    truth=`儲蓄率 ${sr}% 偏低一點，可以看看有沒有「不必要的花費」可以調整。`;
+  }else if(sr>0){
+    truth=`儲蓄率只有 ${sr}%，這個月花得有點多。先別自責，下個月可以從「先存後花」開始改變。`;
+  }else{
+    truth=`這個月支出超過收入了，是不是有什麼特殊狀況？先停下來想一想，下個月可以重新規劃。`;
+  }
+
+  if(mc>0){
+    if(mc>=6){
+      truth+=` 安全感方面，你的緊急金可撐 ${mc} 個月，已超過 6 個月安全線，可以放心 🌸`;
+    }else if(mc>=3){
+      truth+=` 緊急金可撐 ${mc} 個月，建議朝 6 個月目標前進。`;
+    }else{
+      truth+=` 緊急金只夠撐 ${mc} 個月，這是優先要補強的部分。`;
+    }
+  }
+
+  // 鼓勵結尾
+  let ending='';
+  if(sr>=20&&mc>=6){
+    ending=`你已經做得很好了，繼續保持這個節奏，未來會感謝現在的自己 💪`;
+  }else if(sr>=10){
+    ending=`一步一步來，財務健康不是一天養成的。給自己時間 🌱`;
+  }else{
+    ending=`不要焦慮，看到問題就是進步的開始。下個月，先做好「月初分配」這一件事就好 ☕`;
+  }
+
+  return{opening,truth,ending};
+}
+
 // 共用：產生「下一步建議」清單
 function getNextSteps(M){
   const steps=[];
@@ -1146,6 +1320,31 @@ function pgHome(){
         </div>
       </div>`;
     }
+  })()}
+
+  <!-- ⚠️ 首頁異常支出警示（如果有）-->
+  ${(()=>{
+    const anomalies=detectAnomalies();
+    if(anomalies.length===0)return'';
+    const top3=anomalies.slice(0,3);
+    return`<div class="card" style="margin-bottom:20px;border-left:5px solid var(--red);cursor:pointer;background:linear-gradient(135deg,var(--redl),var(--card));" onclick="setP('health')">
+      <div class="card-bd" style="padding:16px 22px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;">
+          <div style="font-size:28px;">⚠️</div>
+          <div style="flex:1;">
+            <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--red);letter-spacing:0.06em;">本月偵測到 ${anomalies.length} 筆異常支出</div>
+            <div class="tm" style="font-size:12px;margin-top:2px;">比過去 3 個月平均高 50%+，建議回頭看一眼</div>
+          </div>
+          <button class="btn btn-s btn-sm">查看 →</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;">
+          ${top3.map(a=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--card);border-radius:6px;font-size:12.5px;">
+            <span style="color:var(--brown);"><b>${a.cat||'其他'}</b>　${(a.note||'').slice(0,18)}</span>
+            <span style="color:var(--red);font-weight:700;">$${fmt(toN(a.amount))}　<span style="font-size:10.5px;color:var(--mut);">(${a.ratio}% 平均)</span></span>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>`;
   })()}
 
   <!-- 🤔 我要買東西大按鈕（核心衝動消費防護）-->
@@ -1601,10 +1800,139 @@ function pgMonthlyEntry(){
 function pgHealth(){
   const M=computeMonthly();
   const steps=getNextSteps(M);
+  const familyMsg=generateFamilyMessage(M);
+  const anomalies=detectAnomalies();
+  const cmpCats=compareByCat();
+  const prev=computePrevMonth();
   return`
   <div class="pg-ttl">📊 家庭財務健檢報告</div>
-  <div class="pg-sub">系統自動分析　＋ 完整建議書　＋ 紅黃綠燈狀態</div>
+  <div class="pg-sub">家人對話　＋ 數據誠實話　＋ 紅黃綠燈狀態</div>
   ${moSel()}
+
+  <!-- 🌸 家人寫信給你（暖心開場） -->
+  <div class="card card-feature" style="background:linear-gradient(135deg,var(--purl),var(--card));border:2px solid var(--pur);">
+    <div class="card-hd">
+      <span class="card-ttl">💌 給你的真心話</span>
+      <span class="bdg" style="background:var(--pur);color:#fff;">${MOS[S.month-1]} 家書</span>
+    </div>
+    <div class="card-bd">
+      <div style="background:var(--card);padding:22px 26px;border-radius:var(--r-sm);font-family:'Noto Serif TC',serif;font-size:14.5px;line-height:2.1;letter-spacing:0.05em;color:var(--brown);">
+        <div style="margin-bottom:14px;">
+          <span style="color:var(--pur);font-weight:600;">${familyMsg.opening}</span>
+        </div>
+        <div style="margin-bottom:14px;padding:14px 18px;background:var(--bg2);border-left:3px solid var(--acc);border-radius:8px;">
+          ${familyMsg.truth}
+        </div>
+        <div style="font-style:italic;color:var(--brown);">
+          ${familyMsg.ending}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  ${anomalies.length>0?`
+  <!-- ⚠️ 異常支出偵測 -->
+  <div class="card card-feature" style="background:linear-gradient(135deg,var(--redl),var(--card));border:2px solid var(--red);">
+    <div class="card-hd">
+      <span class="card-ttl">⚠️ 注意：偵測到 ${anomalies.length} 筆異常支出</span>
+      <span class="bdg" style="background:var(--red);color:#fff;">比過去 3 個月平均高</span>
+    </div>
+    <div class="card-bd">
+      <div class="notice" style="background:var(--redl);padding:14px 18px;border-radius:var(--r-sm);font-size:13px;margin-bottom:12px;color:var(--brown);line-height:1.7;">
+        💡 系統發現這些筆消費比你過去 3 個月該類的平均「單筆金額」高出 50% 以上。<br>
+        不一定是壞事，可能是必要的大採購，但<b>值得回頭看一眼</b>，確認是不是有意識的消費。
+      </div>
+      <div style="display:grid;grid-template-columns:1fr;gap:10px;">
+        ${anomalies.slice(0,10).map(a=>`<div style="padding:14px 18px;background:var(--card);border-radius:10px;border-left:4px solid var(--red);">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:14px;font-weight:700;color:var(--brown);">
+                <span class="bdg" style="background:var(--mut);color:#fff;font-size:11px;margin-right:6px;">${a.cat||'其他'}</span>
+                ${a.note||a.cat||'-'}
+              </div>
+              <div class="tm" style="font-size:11.5px;margin-top:4px;">
+                ${a.date?a.date.slice(0,10):''}　／　該類平均單筆 $${fmt(Math.round(a.catAvg))}
+              </div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--red);">$${fmt(toN(a.amount))}</div>
+              <div class="bdg" style="background:var(--red);color:#fff;font-size:11px;margin-top:3px;">${a.ratio}% of 平均</div>
+            </div>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>
+  `:''}
+
+  ${prev.hasData&&cmpCats.length>0?`
+  <!-- 📊 月對月對比 -->
+  <div class="card card-feature">
+    <div class="card-hd">
+      <span class="card-ttl">📊 跟上個月比　${MOS[prev.month-1]} → ${MOS[S.month-1]}</span>
+    </div>
+    <div class="card-bd">
+      <!-- 收入支出總對比 -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px;">
+        <div style="padding:14px 18px;background:var(--bg2);border-radius:10px;border-left:4px solid var(--grn);">
+          <div class="tm" style="font-size:11px;letter-spacing:0.08em;">收入變化</div>
+          <div style="display:flex;align-items:baseline;gap:8px;margin-top:4px;">
+            <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:${M.tInc>=prev.tInc?'var(--grn)':'var(--red)'};">
+              ${M.tInc>=prev.tInc?'↑':'↓'} $${fmt(Math.abs(M.tInc-prev.tInc))}
+            </div>
+            <span class="tm" style="font-size:11px;">${prev.tInc>0?Math.round((M.tInc-prev.tInc)/prev.tInc*100):0}%</span>
+          </div>
+          <div class="tm" style="font-size:11px;margin-top:3px;">$${fmt(prev.tInc)} → $${fmt(M.tInc)}</div>
+        </div>
+        <div style="padding:14px 18px;background:var(--bg2);border-radius:10px;border-left:4px solid var(--red);">
+          <div class="tm" style="font-size:11px;letter-spacing:0.08em;">支出變化</div>
+          <div style="display:flex;align-items:baseline;gap:8px;margin-top:4px;">
+            <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:${M.tExp<=prev.tExp?'var(--grn)':'var(--red)'};">
+              ${M.tExp>=prev.tExp?'↑':'↓'} $${fmt(Math.abs(M.tExp-prev.tExp))}
+            </div>
+            <span class="tm" style="font-size:11px;">${prev.tExp>0?Math.round((M.tExp-prev.tExp)/prev.tExp*100):0}%</span>
+          </div>
+          <div class="tm" style="font-size:11px;margin-top:3px;">$${fmt(prev.tExp)} → $${fmt(M.tExp)}</div>
+        </div>
+      </div>
+
+      <!-- 類別變化 Top 5 -->
+      <b style="font-family:'Noto Serif TC',serif;font-size:14px;color:var(--brown);letter-spacing:0.08em;">📈 變化最大的類別</b>
+      <div style="margin-top:10px;display:grid;grid-template-columns:1fr;gap:8px;">
+        ${cmpCats.slice(0,5).map(c=>{
+          const up=c.diff>0;
+          const big=Math.abs(c.pct)>=50;
+          return`<div style="padding:10px 14px;background:var(--card);border:1px solid var(--bdr);border-radius:8px;border-left:3px solid ${up?(big?'var(--red)':'var(--yelb)'):'var(--grn)'};">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;">
+              <div style="flex:1;min-width:0;">
+                <span class="bdg" style="background:var(--mut);color:#fff;font-size:11px;">${c.cat}</span>
+                <span class="tm" style="font-size:11.5px;margin-left:8px;">$${fmt(c.prev)} → $${fmt(c.cur)}</span>
+              </div>
+              <div style="text-align:right;flex-shrink:0;">
+                <span style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:${up?(big?'var(--red)':'var(--yelb)'):'var(--grn)'};">
+                  ${up?'+':''}$${fmt(c.diff)}
+                </span>
+                <span class="tm" style="font-size:11px;margin-left:6px;">(${up?'+':''}${c.pct}%)</span>
+              </div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+      ${(()=>{
+        // 找最值得提醒的一筆
+        const biggestUp=cmpCats.find(c=>c.diff>2000);
+        const biggestDown=cmpCats.find(c=>c.diff<-2000);
+        if(biggestUp||biggestDown){
+          return`<div style="margin-top:14px;padding:14px 18px;background:var(--accL);border-radius:8px;font-size:13px;line-height:1.8;color:var(--brown);">
+            ${biggestUp?`💡 <b>${biggestUp.cat}</b>多花了 $${fmt(biggestUp.diff)}，看看是不是有特別狀況？<br>`:''}
+            ${biggestDown?`✨ <b>${biggestDown.cat}</b>省了 $${fmt(Math.abs(biggestDown.diff))}，做得很好！`:''}
+          </div>`;
+        }
+        return'';
+      })()}
+    </div>
+  </div>
+  `:''}
 
   <!-- 四大健康指標完整版 -->
   <div class="card card-feature">
