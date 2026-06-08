@@ -7405,13 +7405,39 @@ window.updExp=async(id)=>{
   const date=g('m0'),amount=n('m1');if(!date||!amount){alert('請填日期和金額');return;}
   const d=new Date(date),method=g('m3'),cardBank=method==='信用卡'?g('m_cb'):'';
   const oldExp=(S.data.expenses||[]).find(e=>e.id===id)||{};
+  const newCat=g('m2'),newNote=g('m5')||'';
+  const newMonth=d.getMonth()+1,newYear=d.getFullYear();
   setSyncing('syncing');
   try{
-    const newData={...oldExp,date,amount,category:g('m2'),payMethod:method,cardBank,note:g('m5')||'',month:d.getMonth()+1,year:d.getFullYear()};
+    const newData={...oldExp,date,amount,category:newCat,payMethod:method,cardBank,note:newNote,month:newMonth,year:newYear};
     delete newData.id;
     await setDoc(doc(db,'families',FID,'expenses',id),newData);
+
+    // ⛓️ 雙向同步：如果這筆有 linkId（連動到預備金），同步更新對應的 ledgerEntries
+    if(oldExp.linkId){
+      const linkedLEs=(S.data.ledgerEntries||[]).filter(le=>le.linkId===oldExp.linkId);
+      for(const le of linkedLEs){
+        // 預備金那邊的金額是負的（消費），信用卡是正的金額
+        // 同步：保留原本 lid 和 user，更新金額/日期/類別/備註
+        const newLE={
+          ...le,
+          date,
+          amount:-Math.abs(amount),  // 預備金為負
+          cat:newCat,
+          note:(oldExp.item||'')+(newNote?' '+newNote:''),
+          month:newMonth,
+          year:newYear,
+          linkedCardBank:cardBank||le.linkedCardBank
+        };
+        delete newLE.id;
+        await setDoc(doc(db,'families',FID,'ledgerEntries',le.id),newLE);
+      }
+      if(linkedLEs.length>0)toast(`✅ 已更新（同步 ${linkedLEs.length} 筆預備金）`);
+      else toast('✅ 已更新');
+    }else{
+      toast('✅ 已更新');
+    }
     setSyncing('synced');
-    toast('✅ 已更新');
   }catch(err){
     console.error(err);setSyncing('error');
     alert('儲存失敗：'+(err.message||err));
@@ -7675,7 +7701,26 @@ window.saveCat=async()=>{
 window.delA=async id=>{if(!confirm('確認刪除？'))return;await saveMain({assets:(S.data.assets||[]).filter(a=>a.id!==id)});toast('已刪除');};
 window.delD=async id=>{if(!confirm('確認刪除？'))return;await saveMain({debts:(S.data.debts||[]).filter(d=>d.id!==id)});toast('已刪除');};
 window.delInc=async id=>{if(!confirm('確認刪除？'))return;await delSub('incomes',id);toast('已刪除');};
-window.delExp=async id=>{if(!confirm('確認刪除？'))return;await delSub('expenses',id);toast('已刪除');};
+window.delExp=async id=>{
+  const exp=(S.data.expenses||[]).find(e=>e.id===id);
+  if(!exp){alert('找不到記錄');return;}
+  // 檢查是否有連動的預備金記錄
+  const linkedLEs=exp.linkId?(S.data.ledgerEntries||[]).filter(le=>le.linkId===exp.linkId):[];
+  const msg=linkedLEs.length>0?`確認刪除？\n⛓️ 同時會刪除連動的 ${linkedLEs.length} 筆預備金記錄`:'確認刪除？';
+  if(!confirm(msg))return;
+  setSyncing('syncing');
+  try{
+    await delSub('expenses',id);
+    for(const le of linkedLEs){
+      await delSub('ledgerEntries',le.id);
+    }
+    setSyncing('synced');
+    toast(linkedLEs.length>0?`✅ 已刪除（同步刪除 ${linkedLEs.length} 筆預備金）`:'已刪除');
+  }catch(err){
+    console.error(err);setSyncing('error');
+    alert('刪除失敗：'+(err.message||err));
+  }
+};
 window.delLE=async id=>{
   const le=(S.data.ledgerEntries||[]).find(e=>e.id===id);
   if(!le){alert('找不到此記錄');return;}
