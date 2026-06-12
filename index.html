@@ -684,6 +684,7 @@ const PAGES=[
   {id:'expenses2',ico:'💸',lbl:'每月支出',group:'main'},
   {id:'stocks',   ico:'📈',lbl:'本月股票現值',group:'main'},
   {id:'networth2',ico:'💰',lbl:'每月總資產',group:'main'},
+  {id:'trends',   ico:'📈',lbl:'趨勢分析',group:'main'},
   {id:'settings', ico:'⚙️',lbl:'設定',group:'main'},
   // 以下為隱藏的舊頁（直接從 URL 或設定進入，不顯示在側邊欄）
   {id:'allocate', ico:'💰',lbl:'月初分配',group:'hidden'},
@@ -911,6 +912,7 @@ function page(){
     case'expenses2':return pgExpensesNew();
     case'stocks':   return pgStocksNew();
     case'networth2':return pgNetworthNew();
+    case'trends':   return pgTrends();
     // 舊版主頁（保留可從設定進入）
     case'health':   return pgHealth();
     case'invest':   return pgInvest();
@@ -1949,6 +1951,319 @@ function pgStocksNew(){
 }
 
 // ──── 💰 每月總資產 ─────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+// ──── 📈 趨勢分析 ─────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+
+// 計算某月的關鍵指標快照
+function snapshotMonth(year,month){
+  const exp=(S.data.expenses||[]).filter(e=>e.month===month&&e.year===year);
+  const realExp=exp.filter(e=>!e.fromLedger&&!e.excludeFromBudget);
+  const inc=(S.data.incomes||[]).filter(i=>i.month===month&&i.year===year);
+  const fixedItems=S.data.fixedItems||[];
+  const fixedTotal=fixedItems.reduce((s,f)=>s+toN(f.amount),0);
+  const tInc=inc.reduce((s,i)=>s+toN(i.amount),0);
+  const tExp=realExp.reduce((s,e)=>s+toN(e.amount),0)+fixedTotal;
+
+  // 月存款（從 allocLogs 取）
+  const mk0=`${year}-${month}`;
+  const log=(S.data.allocLogs||{})[mk0];
+  let savings=0;
+  if(log){
+    const p=log.percentages||{};
+    const sal=toN(log.salary);
+    savings=Math.round(sal*(toN(p.emergency)+toN(p.house)+toN(p.invest))/100);
+  }
+
+  // 儲蓄率
+  const savingsRate=tInc>0?Math.round(savings/tInc*100):0;
+  // 固定支出佔比
+  const fixedRate=tInc>0?Math.round(fixedTotal/tInc*100):0;
+
+  return{year,month,tInc,tExp,savings,savingsRate,fixedTotal,fixedRate};
+}
+
+// 取得過去 N 個月的快照陣列
+function getMonthSnapshots(n=12){
+  const snapshots=[];
+  const curMonth=S.month,curYear=yr();
+  for(let i=n-1;i>=0;i--){
+    let m=curMonth-i,y=curYear;
+    while(m<=0){m+=12;y--;}
+    snapshots.push(snapshotMonth(y,m));
+  }
+  return snapshots;
+}
+
+// 計算進步/退步狀態
+function calcProgressStatus(curVal,prevVal,higherIsBetter=true){
+  if(prevVal===0&&curVal===0)return{type:'neutral',label:'→ 持平',color:'var(--mut)',diff:0,pct:0};
+  if(prevVal===0)return{type:'new',label:'（新數據）',color:'var(--blu)',diff:curVal,pct:100};
+  const diff=curVal-prevVal;
+  const pct=Math.round(diff/Math.abs(prevVal)*100);
+  let type,label,color;
+  if(Math.abs(pct)<2){type='neutral';label='→ 持平';color='var(--mut)';}
+  else if((diff>0&&higherIsBetter)||(diff<0&&!higherIsBetter)){
+    type='better';label='↑ 進步';color='var(--grn)';
+  }else{
+    type='worse';label='↓ 退步';color='var(--red)';
+  }
+  return{type,label,color,diff,pct};
+}
+
+// 畫簡易折線圖（純 SVG）
+function drawTrendChart(data,opts={}){
+  if(!data||data.length===0)return'<div class="empty" style="padding:20px;text-align:center;">資料不足</div>';
+  const width=opts.width||600;
+  const height=opts.height||120;
+  const padding={top:15,right:15,bottom:30,left:50};
+  const innerW=width-padding.left-padding.right;
+  const innerH=height-padding.top-padding.bottom;
+  const color=opts.color||'var(--brown)';
+  const fillColor=opts.fillColor||color;
+  const showZero=opts.showZero!==false;
+  const formatY=opts.formatY||(v=>fmt(Math.round(v)));
+
+  const values=data.map(d=>toN(d.value));
+  let min=Math.min(...values);
+  let max=Math.max(...values);
+  if(showZero&&min>0)min=0;
+  if(min===max){min=min-1;max=max+1;}
+  const range=max-min;
+
+  const points=data.map((d,i)=>{
+    const x=padding.left+(data.length>1?(i/(data.length-1))*innerW:innerW/2);
+    const y=padding.top+innerH-((d.value-min)/range)*innerH;
+    return{x,y,...d};
+  });
+
+  const linePath='M '+points.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L ');
+  const areaPath=linePath+` L ${points[points.length-1].x.toFixed(1)},${padding.top+innerH} L ${points[0].x.toFixed(1)},${padding.top+innerH} Z`;
+
+  // 3 條 Y 軸標記
+  const yTicks=[max,(max+min)/2,min];
+
+  return`<svg viewBox="0 0 ${width} ${height}" style="width:100%;height:auto;display:block;">
+    <defs>
+      <linearGradient id="grd-${opts.id||'def'}" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="${fillColor}" stop-opacity="0.25"/>
+        <stop offset="100%" stop-color="${fillColor}" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    ${yTicks.map((t,i)=>`<line x1="${padding.left}" y1="${(padding.top+(i/2)*innerH).toFixed(1)}" x2="${width-padding.right}" y2="${(padding.top+(i/2)*innerH).toFixed(1)}" stroke="var(--bdr)" stroke-width="0.5" stroke-dasharray="3,3"/>
+      <text x="${padding.left-4}" y="${(padding.top+(i/2)*innerH+3).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--mut)" font-family="ui-monospace">${formatY(t)}</text>`).join('')}
+    <path d="${areaPath}" fill="url(#grd-${opts.id||'def'})"/>
+    <path d="${linePath}" stroke="${color}" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    ${points.map((p,i)=>`<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.5" fill="${color}" stroke="#fff" stroke-width="1.5"/>
+      <text x="${p.x.toFixed(1)}" y="${(padding.top+innerH+18).toFixed(1)}" text-anchor="middle" font-size="10" fill="var(--mut)" font-family="ui-monospace">${p.label}</text>`).join('')}
+  </svg>`;
+}
+
+function pgTrends(){
+  const stocks=calcStocksValue();
+  // 取過去 12 個月資料
+  const snap12=getMonthSnapshots(12);
+  const snap6=snap12.slice(-6);
+  const cur=snap12[snap12.length-1];
+  const prev=snap12.length>=2?snap12[snap12.length-2]:null;
+
+  // 資產與股票每月不會留快照（要從目前的單一值），但我們可以推算「目前 vs 上月初」
+  const tAssets=(S.data.assets||[]).reduce((s,a)=>s+toN(a.value),0);
+  const tDebts=(S.data.debts||[]).reduce((s,d)=>s+toN(d.remainingAmount),0);
+  const netWorth=tAssets-tDebts;
+
+  // 進步/退步指標（本月 vs 上月）
+  const incStatus=prev?calcProgressStatus(cur.tInc,prev.tInc,true):null;
+  const savStatus=prev?calcProgressStatus(cur.savings,prev.savings,true):null;
+  const expStatus=prev?calcProgressStatus(cur.tExp,prev.tExp,false):null; // 支出降低=進步
+  const srStatus=prev?calcProgressStatus(cur.savingsRate,prev.savingsRate,true):null;
+  const fixStatus=prev?calcProgressStatus(cur.fixedRate,prev.fixedRate,false):null; // 固定比例降低=進步
+
+  // 6 個月折線資料
+  const incChart=snap6.map(s=>({value:s.tInc,label:`${s.month}月`}));
+  const savChart=snap6.map(s=>({value:s.savings,label:`${s.month}月`}));
+  const expChart=snap6.map(s=>({value:s.tExp,label:`${s.month}月`}));
+  const srChart=snap6.map(s=>({value:s.savingsRate,label:`${s.month}月`}));
+
+  // 統計這 6 個月平均
+  const avg6=(arr,key)=>{const v=arr.filter(x=>toN(x[key])>0);return v.length>0?Math.round(v.reduce((s,x)=>s+toN(x[key]),0)/v.length):0;};
+  const avgInc=avg6(snap6,'tInc');
+  const avgSav=avg6(snap6,'savings');
+  const avgExp=avg6(snap6,'tExp');
+  const avgSr=avg6(snap6,'savingsRate');
+
+  // 12 個月趨勢方向（簡易：第一筆 vs 最後一筆）
+  const trend12=(arr,key,higherIsBetter=true)=>{
+    const valid=arr.filter(x=>toN(x[key])>0);
+    if(valid.length<2)return null;
+    const first=toN(valid[0][key]);
+    const last=toN(valid[valid.length-1][key]);
+    return calcProgressStatus(last,first,higherIsBetter);
+  };
+  const t12Inc=trend12(snap12,'tInc',true);
+  const t12Sav=trend12(snap12,'savings',true);
+  const t12Sr=trend12(snap12,'savingsRate',true);
+  const t12Fix=trend12(snap12,'fixedRate',false);
+
+  // 整體判斷
+  const overallScore=(()=>{
+    if(!prev)return null;
+    let score=0;
+    if(srStatus&&srStatus.type==='better')score++;
+    if(srStatus&&srStatus.type==='worse')score--;
+    if(savStatus&&savStatus.type==='better')score++;
+    if(savStatus&&savStatus.type==='worse')score--;
+    if(fixStatus&&fixStatus.type==='better')score++;
+    if(fixStatus&&fixStatus.type==='worse')score--;
+    return score;
+  })();
+  let overallLabel='',overallColor='',overallEmoji='';
+  if(overallScore===null){overallLabel='資料不足';overallColor='var(--mut)';overallEmoji='📊';}
+  else if(overallScore>=2){overallLabel='整體進步';overallColor='var(--grn)';overallEmoji='🎉';}
+  else if(overallScore>=1){overallLabel='略有進步';overallColor='var(--grn)';overallEmoji='✨';}
+  else if(overallScore===0){overallLabel='持平';overallColor='var(--mut)';overallEmoji='➡️';}
+  else if(overallScore>=-1){overallLabel='稍微退步';overallColor='var(--yelb)';overallEmoji='⚠️';}
+  else{overallLabel='明顯退步';overallColor='var(--red)';overallEmoji='⚠️';}
+
+  // 比較卡片元件
+  const compareCard=(label,curVal,prevVal,status,unit='元',ico='')=>{
+    if(!status){
+      return`<div style="padding:14px 18px;background:var(--bg2);border-radius:10px;border-left:4px solid var(--mut);">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;">
+          <span style="font-size:13px;color:var(--brown);">${ico} ${label}</span>
+          <span style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--brown);">${unit==='%'?curVal+'%':'$'+fmt(curVal)}</span>
+        </div>
+        <div class="tm" style="font-size:11px;margin-top:4px;">無上月資料可比</div>
+      </div>`;
+    }
+    return`<div style="padding:14px 18px;background:${status.type==='better'?'var(--grnl)':status.type==='worse'?'var(--redl)':'var(--bg2)'};border-radius:10px;border-left:4px solid ${status.color};">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;">
+        <span style="font-size:13px;color:var(--brown);">${ico} ${label}</span>
+        <span style="font-family:'Noto Serif TC',serif;font-size:13px;font-weight:700;color:${status.color};">${status.label}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-top:6px;flex-wrap:wrap;">
+        <span class="tm" style="font-size:11.5px;">${unit==='%'?prevVal+'%':'$'+fmt(prevVal)} → ${unit==='%'?curVal+'%':'$'+fmt(curVal)}</span>
+        <span style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:${status.color};">${status.diff>=0?'+':''}${unit==='%'?status.diff+'%':'$'+fmt(status.diff)}　${status.pct>=0?'+':''}${status.pct}%</span>
+      </div>
+    </div>`;
+  };
+
+  // 12 個月趨勢小卡
+  const longTrendCard=(label,status,key)=>{
+    if(!status)return`<div style="padding:10px 14px;background:var(--bg2);border-radius:8px;text-align:center;">
+      <div class="tm" style="font-size:11px;">${label}</div>
+      <div style="font-size:13px;color:var(--mut);margin-top:3px;">資料不足</div>
+    </div>`;
+    return`<div style="padding:10px 14px;background:${status.type==='better'?'var(--grnl)':status.type==='worse'?'var(--redl)':'var(--bg2)'};border-radius:8px;border-left:3px solid ${status.color};">
+      <div class="tm" style="font-size:11px;">${label}</div>
+      <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:${status.color};margin-top:3px;">${status.label}</div>
+      <div class="tm" style="font-size:10px;">${status.pct>=0?'+':''}${status.pct}%</div>
+    </div>`;
+  };
+
+  return`
+  <div class="pg-ttl">📈 趨勢分析</div>
+  <div class="pg-sub">本月 vs 上月　＋ 6 個月趨勢　＋ 1 年方向</div>
+
+  <!-- 🎯 整體判斷（最重要的結論） -->
+  <div class="card card-feature" style="background:linear-gradient(135deg,${overallColor}22,var(--card));border:2px solid ${overallColor};">
+    <div class="card-bd" style="padding:24px;text-align:center;">
+      <div style="font-size:48px;line-height:1;">${overallEmoji}</div>
+      <div style="font-family:'Noto Serif TC',serif;font-size:28px;font-weight:700;color:${overallColor};margin-top:8px;letter-spacing:0.1em;">${overallLabel}</div>
+      <div class="tm" style="font-size:12.5px;margin-top:6px;">本月跟上月比較</div>
+    </div>
+  </div>
+
+  <!-- 📊 本月 vs 上月 對比卡片 -->
+  <div class="card">
+    <div class="card-hd"><span class="card-ttl">📊 本月 vs 上月　逐項對比</span></div>
+    <div class="card-bd">
+      ${!prev?`<div class="empty" style="padding:30px;"><div style="font-size:48px;">📅</div><p>沒有上月資料，無法對比</p><p class="tm">下個月就可以看到對比了</p></div>`:`
+      <div style="display:grid;grid-template-columns:1fr;gap:10px;">
+        ${compareCard('月總收入',cur.tInc,prev.tInc,incStatus,'元','💵')}
+        ${compareCard('月存款金額',cur.savings,prev.savings,savStatus,'元','🏦')}
+        ${compareCard('月總支出',cur.tExp,prev.tExp,expStatus,'元','💸')}
+        ${compareCard('儲蓄率',cur.savingsRate,prev.savingsRate,srStatus,'%','📈')}
+        ${compareCard('固定支出佔比',cur.fixedRate,prev.fixedRate,fixStatus,'%','📌')}
+      </div>`}
+    </div>
+  </div>
+
+  <!-- 📉 過去 6 個月趨勢圖 -->
+  <div class="card">
+    <div class="card-hd"><span class="card-ttl">📉 過去 6 個月趨勢</span></div>
+    <div class="card-bd">
+      <div style="display:grid;grid-template-columns:1fr;gap:18px;">
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
+            <b style="font-family:'Noto Serif TC',serif;font-size:13px;color:var(--grn);">💵 月收入</b>
+            <span class="tm" style="font-size:11px;">6 個月平均 $${fmt(avgInc)}</span>
+          </div>
+          ${drawTrendChart(incChart,{color:'#7A9B8A',fillColor:'#7A9B8A',id:'inc'})}
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
+            <b style="font-family:'Noto Serif TC',serif;font-size:13px;color:var(--blu);">🏦 月存款</b>
+            <span class="tm" style="font-size:11px;">6 個月平均 $${fmt(avgSav)}</span>
+          </div>
+          ${drawTrendChart(savChart,{color:'#7E9CB8',fillColor:'#7E9CB8',id:'sav'})}
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
+            <b style="font-family:'Noto Serif TC',serif;font-size:13px;color:var(--red);">💸 月支出</b>
+            <span class="tm" style="font-size:11px;">6 個月平均 $${fmt(avgExp)}</span>
+          </div>
+          ${drawTrendChart(expChart,{color:'#B8696B',fillColor:'#B8696B',id:'exp'})}
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
+            <b style="font-family:'Noto Serif TC',serif;font-size:13px;color:var(--gold);">📈 儲蓄率（%）</b>
+            <span class="tm" style="font-size:11px;">6 個月平均 ${avgSr}%</span>
+          </div>
+          ${drawTrendChart(srChart,{color:'#C9A961',fillColor:'#C9A961',id:'sr',formatY:v=>Math.round(v)+'%',showZero:true})}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 📅 過去 12 個月方向 -->
+  <div class="card">
+    <div class="card-hd"><span class="card-ttl">📅 過去 12 個月　長期方向</span></div>
+    <div class="card-bd">
+      <div class="tm" style="font-size:12px;margin-bottom:10px;">第一筆有效月 → 本月，看大方向</div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
+        ${longTrendCard('月收入方向',t12Inc)}
+        ${longTrendCard('月存款方向',t12Sav)}
+        ${longTrendCard('儲蓄率方向',t12Sr)}
+        ${longTrendCard('固定支出比例',t12Fix)}
+      </div>
+    </div>
+  </div>
+
+  <!-- 💡 誠實提醒（避免錯誤解讀） -->
+  <div class="card">
+    <div class="card-hd"><span class="card-ttl">💡 怎麼正確判斷進步？</span></div>
+    <div class="card-bd">
+      <div style="background:linear-gradient(135deg,var(--accL),var(--card));padding:18px 22px;border-radius:var(--r-sm);font-size:13.5px;line-height:1.9;color:var(--brown);">
+        <b style="color:var(--brown);font-family:'Noto Serif TC',serif;font-size:15px;">✅ 真正算進步的指標</b><br>
+        ・<b>儲蓄率上升</b> → 你主動存了更多錢<br>
+        ・<b>存款金額上升</b> → 紀律有發揮<br>
+        ・<b>固定支出比例下降</b> → 不被綁死<br>
+        ・<b>支出穩定不爆衝</b> → 控制力進步<br><br>
+
+        <b style="color:var(--red);font-family:'Noto Serif TC',serif;font-size:15px;">⚠️ 容易誤判的指標</b><br>
+        ・<b>股票現值漲</b> → 可能是市場漲，不是你的功勞<br>
+        ・<b>總資產變多</b> → 可能借了更多錢<br>
+        ・<b>單月支出降低</b> → 可能只是這個月剛好沒大事<br><br>
+
+        <b style="color:var(--gold);font-family:'Noto Serif TC',serif;font-size:14px;">📊 看 3 個月 / 6 個月平均比看單月準</b><br>
+        單月會有「特殊事件」干擾（韓國旅行、生日大餐、年終）<br>
+        看 <b>6 個月趨勢線</b> 才是真實的方向。
+      </div>
+    </div>
+  </div>`;
+}
+
 function pgNetworthNew(){
   const assets=S.data.assets||[];
   const debts=S.data.debts||[];
