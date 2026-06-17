@@ -904,10 +904,12 @@ async function saveMain(patch){
   try{await setDoc(doc(db,'families',FID),patch,{merge:true});setSyncing('synced');}
   catch{setSyncing('error');toast('儲存失敗，請檢查網路');}
 }
+// 清除物件內所有 undefined 欄位（Firestore 不接受 undefined）
+function cleanUndef(o){const r={...o};Object.keys(r).forEach(k=>{if(r[k]===undefined)r[k]=null;});return r;}
 async function addSub(col,data){
   setSyncing('syncing');
-  try{await addDoc(collection(db,'families',FID,col),{...data,_at:Date.now()});setSyncing('synced');}
-  catch{setSyncing('error');toast('儲存失敗');}
+  try{await addDoc(collection(db,'families',FID,col),cleanUndef({...data,_at:Date.now()}));setSyncing('synced');}
+  catch(err){setSyncing('error');toast('儲存失敗');console.error('addSub error:',err);}
 }
 async function delSub(col,id){
   setSyncing('syncing');
@@ -8219,7 +8221,7 @@ window.updLE=async(id)=>{
   setSyncing('syncing');
   try{
     // 決定 linkId：原本有就保留，原本沒有但這次選了卡就建立
-    let linkId=oldLinkId;
+    let linkId=oldLinkId||null;
     if(!linkId&&newBank&&amount<0)linkId='lnk_'+Date.now()+'_'+Math.random().toString(36).slice(2,6);
 
     // 更新流水帳本身（用 setDoc 但要保留所有原欄位）
@@ -8229,9 +8231,11 @@ window.updLE=async(id)=>{
       note:note,
       month:mo,year:yr2,
       linkedCardBank:newBank||null,
-      linkId:(newBank&&amount<0)?linkId:(amount>=0?null:linkId)
+      linkId:(newBank&&amount<0)?linkId:(amount>=0?null:(linkId||null))
     };
     delete newLE.id;  // 避免覆蓋 doc id
+    // 清掉所有 undefined 欄位（Firestore 不接受 undefined）
+    Object.keys(newLE).forEach(k=>{if(newLE[k]===undefined)newLE[k]=null;});
     await setDoc(doc(db,'families',FID,'ledgerEntries',id),newLE);
 
     // 處理信用卡明細同步（4 種情境）
