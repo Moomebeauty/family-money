@@ -5961,6 +5961,9 @@ function pgLedger(){
   <div class="pg-ttl">📒 預備金帳本</div>
   <div class="pg-sub">月度＝每月變動支出預備金　／　年度＝大筆年費預先攤提存錢</div>
 
+  <!-- 月份切換器 -->
+  ${moSel()}
+
   <!-- 帳本切換 + 新增 -->
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;align-items:center;">
     ${ALL_LEDGERS.map((ld,i)=>{
@@ -5971,6 +5974,34 @@ function pgLedger(){
     }).join('')}
     <button class="btn btn-s btn-sm" onclick="openM('addLedger')" style="margin-left:auto;">＋ 新增帳本</button>
   </div>
+
+  <!-- 📊 資料分佈診斷（看這本帳本各月份有多少筆）-->
+  ${(()=>{
+    if(allEntries.length===0)return'';
+    const dist={};
+    allEntries.forEach(e=>{
+      const k=`${e.year||'??'}/${e.month||'??'}`;
+      if(!dist[k])dist[k]={cnt:0,sum:0};
+      dist[k].cnt++;
+      dist[k].sum+=toN(e.amount);
+    });
+    const keys=Object.keys(dist).sort();
+    const curKey=`${yr()}/${S.month}`;
+    return`<div style="background:linear-gradient(135deg,var(--blul),#fff);padding:12px 16px;border-radius:10px;border:1px solid var(--blu);margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
+        <b style="font-family:'Noto Serif TC',serif;font-size:13px;color:var(--blu);">📊 「${l.name}」各月份分佈　${allEntries.length} 筆 / 累積 $${fmt(cumTotal)}</b>
+        <span class="tm" style="font-size:11px;">📌 點月份標籤可快速切換</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;">
+        ${keys.map(k=>{
+          const[y,m]=k.split('/');
+          const isCur=k===curKey;
+          return`<span onclick="setMo(${+m})" style="padding:4px 10px;background:${isCur?'var(--acc)':'#fff'};color:${isCur?'#fff':'var(--brown)'};border:1px solid ${isCur?'var(--acc)':'var(--bdr)'};border-radius:6px;font-size:11px;cursor:pointer;font-weight:${isCur?'700':'500'};">${k}: ${dist[k].cnt} 筆${dist[k].sum!==0?` (${dist[k].sum>=0?'+':''}$${fmt(dist[k].sum)})`:''}</span>`;
+        }).join('')}
+      </div>
+      ${entries.length===0?`<div style="margin-top:8px;padding:8px 12px;background:var(--redl);border-radius:6px;color:var(--red);font-size:12px;font-weight:600;">⚠️ 本月（${curKey}）抓到 0 筆。如果你以為輸入過，可能日期月份不對，請從上方分佈找到正確月份點過去。</div>`:''}
+    </div>`;
+  })()}
 
   <!-- 帳本資訊 + 設定按鈕 -->
   <div class="notice ${ledgerType==='year'?'gold':'info'}">
@@ -7849,46 +7880,56 @@ window.saveLE=async()=>{
   const d=new Date(date);
   const ALL=getAllLedgers();
   const l=ALL[S.ledgerIdx]||ALL[0];
+  if(!l){alert('找不到帳本，請先建立');return;}
   const cardBank=g('m_card')||'';
   const note=g('m4')||'';
-  const cat=g('m2');
-  const user=g('m3');
+  const cat=g('m2')||(l.cats&&l.cats[0])||'其他';
+  const user=g('m3')||S.user||'';
   const mo=d.getMonth()+1,yr2=d.getFullYear();
 
-  // 1. 寫入流水帳本身
-  const linkId='lnk_'+Date.now();
-  const ledgerEntry={
-    lid:l.id,date,amount,cat,user,
-    note:note+(cardBank?` 💳 ${cardBank}`:''),
-    month:mo,year:yr2,
-    linkedCardBank:cardBank||null,
-    linkId:cardBank&&amount<0?linkId:null
-  };
-  await addSub('ledgerEntries',ledgerEntry);
-
-  // 2. 如果是「支出 + 指定信用卡」，自動建立信用卡明細（標記為來自預備金）
-  if(cardBank&&amount<0){
-    const expAmount=Math.abs(amount);
-    const expItem=(note||l.name.replace(/[📒💰📚🚗🎓💊🎁💎🏖️🐈🐶🍼💼⚽🎮🧧🏢💡]/g,'').trim()+` (${cat})`).trim();
-    await addSub('expenses',{
-      date,
-      amount:expAmount,
-      category:cat,
-      item:expItem,
-      note:`⛓️ 來自預備金 - ${l.name}`,
-      payMethod:'信用卡',
-      cardBank,
-      user,
+  setSyncing('syncing');
+  try{
+    // 1. 寫入流水帳本身
+    const linkId='lnk_'+Date.now();
+    const ledgerEntry={
+      lid:l.id,date,amount,cat,user,
+      note:note+(cardBank?` 💳 ${cardBank}`:''),
       month:mo,year:yr2,
-      fromLedger:l.id,
-      linkId,
-      excludeFromBudget:true  // 不重複計入變動支出預算
-    });
-    toast(`✅ 已記錄並同步到 ${cardBank} 信用卡明細`);
-  }else{
-    toast('✅ 已新增');
+      linkedCardBank:cardBank||null,
+      linkId:cardBank&&amount<0?linkId:null
+    };
+    await addSub('ledgerEntries',ledgerEntry);
+
+    // 2. 如果是「支出 + 指定信用卡」，自動建立信用卡明細
+    if(cardBank&&amount<0){
+      const expAmount=Math.abs(amount);
+      const expItem=(note||l.name.replace(/[📒💰📚🚗🎓💊🎁💎🏖️🐈🐶🍼💼⚽🎮🧧🏢💡]/g,'').trim()+` (${cat})`).trim();
+      await addSub('expenses',{
+        date,
+        amount:expAmount,
+        category:cat,
+        item:expItem,
+        note:`⛓️ 來自預備金 - ${l.name}`,
+        payMethod:'信用卡',
+        cardBank,
+        user,
+        month:mo,year:yr2,
+        fromLedger:l.id,
+        linkId,
+        excludeFromBudget:true
+      });
+      setSyncing('synced');
+      toast(`✅ 已記錄並同步到 ${cardBank} 信用卡明細`);
+    }else{
+      setSyncing('synced');
+      toast('✅ 已新增 1 筆');
+    }
+    closeMod();
+  }catch(err){
+    console.error('saveLE 失敗:',err);
+    setSyncing('error');
+    alert('儲存失敗：'+(err.message||err)+'\n\n請截圖告訴 Claude');
   }
-  closeMod();
 };
 window.saveBgt=async(cat,val)=>{
   const k=mk();const budgets={...(S.data.budgets||{})};if(!budgets[k])budgets[k]={};budgets[k][cat]=toN(val);await saveMain({budgets});
