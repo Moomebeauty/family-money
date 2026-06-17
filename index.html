@@ -6003,6 +6003,87 @@ function pgLedger(){
     </div>`;
   })()}
 
+  <!-- 💡 智能建議攤提（根據過去 6 個月平均） -->
+  ${(()=>{
+    // 計算過去 6 個月（含本月之前）的支出總和與平均
+    const curMonth=S.month,curYear=yr();
+    const monthsData=[];
+    for(let i=1;i<=6;i++){
+      let m=curMonth-i,y=curYear;
+      while(m<=0){m+=12;y--;}
+      const monthEntries=allEntries.filter(e=>e.month===m&&e.year===y);
+      const out=monthEntries.filter(e=>toN(e.amount)<0).reduce((s,e)=>s+Math.abs(toN(e.amount)),0);
+      monthsData.push({m,y,out,count:monthEntries.length});
+    }
+    const validMonths=monthsData.filter(d=>d.count>0);
+    const totalOut=monthsData.reduce((s,d)=>s+d.out,0);
+    const avgOut=validMonths.length>0?Math.round(totalOut/validMonths.length):0;
+    const curBudget=toN(budget);
+    const diff=avgOut-curBudget;
+
+    return`<div style="background:linear-gradient(135deg,var(--purl),#fff);padding:16px 20px;border-radius:12px;border:1.5px solid var(--pur);margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
+        <b style="font-family:'Noto Serif TC',serif;font-size:15px;color:var(--pur);">💡 智能攤提建議（過去 6 個月平均）</b>
+        <span class="tm" style="font-size:11px;">${validMonths.length} 個有效月份</span>
+      </div>
+
+      ${validMonths.length===0?`<div style="padding:12px;background:var(--bg2);border-radius:8px;font-size:13px;color:var(--mut);">
+        過去 6 個月還沒有支出記錄，無法計算平均。等累積幾個月資料後系統會自動算給你。
+      </div>`:`
+      <!-- 大字主要建議 -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div style="padding:12px 14px;background:#fff;border-radius:8px;border-left:4px solid var(--mut);">
+          <div class="tm" style="font-size:11px;">目前設定攤提</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--brown);margin-top:3px;">$${fmt(curBudget)}</div>
+          <div class="tm" style="font-size:10px;">/ 月</div>
+        </div>
+        <div style="padding:12px 14px;background:linear-gradient(135deg,var(--purl),#fff);border-radius:8px;border-left:4px solid var(--pur);">
+          <div class="tm" style="font-size:11px;color:var(--pur);">💡 建議攤提</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--pur);margin-top:3px;">$${fmt(avgOut)}</div>
+          <div class="tm" style="font-size:10px;">/ 月（6 個月平均）</div>
+        </div>
+      </div>
+
+      <!-- 差距提醒 -->
+      ${curBudget===0?`<div style="padding:10px 14px;background:var(--yel);border-radius:8px;font-size:12.5px;color:var(--brown);border-left:3px solid var(--yelb);">
+        ⚠️ 你還沒設定每月攤提金額。建議設成 <b style="color:var(--pur);">$${fmt(avgOut)}</b>，這樣才能對應實際花費。
+      </div>`:diff>500?`<div style="padding:10px 14px;background:var(--redl);border-radius:8px;font-size:12.5px;color:var(--brown);border-left:3px solid var(--red);">
+        ⚠️ 你的攤提 <b style="color:var(--red);">不夠</b>，每月差 <b>$${fmt(diff)}</b>。長期下去會入不敷出，建議調高到 $${fmt(avgOut)}。
+      </div>`:diff<-500?`<div style="padding:10px 14px;background:var(--grnl);border-radius:8px;font-size:12.5px;color:var(--brown);border-left:3px solid var(--grn);">
+        ✓ 你的攤提 <b style="color:var(--grn);">綽綽有餘</b>，每月多 <b>$${fmt(-diff)}</b>。可以考慮降到 $${fmt(avgOut)}，或保留當作緩衝。
+      </div>`:`<div style="padding:10px 14px;background:var(--grnl);border-radius:8px;font-size:12.5px;color:var(--brown);border-left:3px solid var(--grn);">
+        ✓ <b style="color:var(--grn);">攤提抓得剛剛好</b>，跟實際花費接近。繼續保持！
+      </div>`}
+
+      <!-- 過去 6 個月明細 -->
+      <details style="margin-top:10px;">
+        <summary style="cursor:pointer;font-size:12px;color:var(--mut);padding:4px;">📊 看過去 6 個月實際支出明細</summary>
+        <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;">
+          ${monthsData.slice().reverse().map(d=>{
+            const isHigh=d.out>avgOut*1.3;
+            const isLow=d.out>0&&d.out<avgOut*0.7;
+            const bg=d.count===0?'var(--bg2)':isHigh?'var(--redl)':isLow?'var(--grnl)':'#fff';
+            const c=d.count===0?'var(--mut)':isHigh?'var(--red)':isLow?'var(--grn)':'var(--brown)';
+            return`<div style="padding:6px 10px;background:${bg};border:1px solid var(--bdr);border-radius:6px;font-size:11px;min-width:90px;">
+              <div class="tm" style="font-size:10px;">${d.y}/${d.m}</div>
+              <div style="font-family:'Noto Serif TC',serif;font-weight:700;color:${c};">${d.count===0?'無記錄':'$'+fmt(d.out)}</div>
+              ${isHigh?'<div style="font-size:9px;color:var(--red);">⬆️ 偏高</div>':isLow?'<div style="font-size:9px;color:var(--grn);">⬇️ 偏低</div>':''}
+            </div>`;
+          }).join('')}
+        </div>
+        <div style="margin-top:8px;padding:8px 12px;background:var(--bg2);border-radius:6px;font-size:11px;color:var(--brown);">
+          💡 平均計算：${validMonths.map(d=>'$'+fmt(d.out)).join(' + ')} = $${fmt(totalOut)}<br>
+          $${fmt(totalOut)} ÷ ${validMonths.length} 個月 = <b style="color:var(--pur);">$${fmt(avgOut)} / 月</b>
+        </div>
+      </details>
+
+      <div class="tm" style="font-size:11px;margin-top:8px;text-align:right;">
+        要調整攤提金額？點 <b>⚙️ 帳本設定</b> 即可手動修改
+      </div>
+      `}
+    </div>`;
+  })()}
+
   <!-- 帳本資訊 + 設定按鈕 -->
   <div class="notice ${ledgerType==='year'?'gold':'info'}">
     ${ledgerType==='year'?`📅 <b>年度預備金帳本</b>：${l.name} 屬於「大筆年費」（保險、稅金、紅包等）。${yearlyTarget>0?`年度目標 <b>$${fmt(yearlyTarget)}</b>，分 ${activeMonths.length} 個月攤提，每月該存 <b>$${fmt(autoMonthly)}</b>。${!thisMonthInSchedule?'<br>📌 本月不在攤提月份內，可暫不存入。':''}`:'點右下「⚙️ 帳本設定」設定年度目標，系統會自動算每月該存多少。'}`:`📆 <b>月度變動預備金帳本</b>：${l.name} 屬於「每月日常變動支出」（水電、交通、生活費等），每月固定存入預算金額。`}
