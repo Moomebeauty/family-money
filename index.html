@@ -5903,13 +5903,22 @@ function pgLedger(){
   const ledgerCfg=getLedgerCfg(l.id);
   const ldBudgets=S.data.ledgerBudgets||{};
   const budget=ldBudgets[l.id]!==undefined?ldBudgets[l.id]:l.budget;
-  const entries=getLedger(l.id).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  // 預備金帳本獨立的「檢視年份」，預設為當前年份
+  const viewYear=S.ledgerViewYear||yr();
   const allEntries=getLedgerAll(l.id);
+  // 用 viewYear + S.month 篩選本月（取代 getLedger）
+  const entries=allEntries.filter(e=>e.month===S.month&&e.year===viewYear).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   let running=0;
   const rows=entries.map((e,i)=>{running+=toN(e.amount);return{...e,run:running,oi:i};});
   const cumTotal=allEntries.reduce((s,e)=>s+toN(e.amount),0);
   const mIn=entries.filter(e=>toN(e.amount)>0).reduce((s,e)=>s+toN(e.amount),0);
   const mOut=entries.filter(e=>toN(e.amount)<0).reduce((s,e)=>s+Math.abs(toN(e.amount)),0);
+
+  // 取出所有有資料的年份（用於切換器）
+  const yearSet=new Set(allEntries.map(e=>e.year).filter(y=>y));
+  yearSet.add(yr()); // 一定要有「今年」
+  yearSet.add(viewYear); // 也要有目前選的
+  const allYears=[...yearSet].sort();
 
   // 智能月存計算
   const yearlyTarget=toN(ledgerCfg.yearlyTarget);
@@ -5961,6 +5970,16 @@ function pgLedger(){
   <div class="pg-ttl">📒 預備金帳本</div>
   <div class="pg-sub">月度＝每月變動支出預備金　／　年度＝大筆年費預先攤提存錢</div>
 
+  <!-- 年份切換器 + 月份切換器 -->
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+    <span class="tm" style="font-size:12px;letter-spacing:0.08em;">📅 年份：</span>
+    ${allYears.map(y=>{
+      const active=y===viewYear;
+      return`<button onclick="setLedgerYear(${y})" style="padding:5px 14px;border-radius:18px;border:1.5px solid ${active?'var(--pur)':'var(--bdr)'};background:${active?'var(--pur)':'#fff'};color:${active?'#fff':'var(--brown)'};font-weight:${active?'700':'500'};font-size:13px;cursor:pointer;transition:all .2s;">${y}</button>`;
+    }).join('')}
+    <button onclick="addLedgerYear()" title="新增年份（未來規劃用）" style="padding:5px 12px;border-radius:18px;border:1.5px dashed var(--bdr);background:transparent;color:var(--mut);font-size:12px;cursor:pointer;">＋</button>
+  </div>
+
   <!-- 月份切換器 -->
   ${moSel()}
 
@@ -6000,6 +6019,84 @@ function pgLedger(){
         }).join('')}
       </div>
       ${entries.length===0?`<div style="margin-top:8px;padding:8px 12px;background:var(--redl);border-radius:6px;color:var(--red);font-size:12px;font-weight:600;">⚠️ 本月（${curKey}）抓到 0 筆。如果你以為輸入過，可能日期月份不對，請從上方分佈找到正確月份點過去。</div>`:''}
+    </div>`;
+  })()}
+
+  <!-- 💰 帳本目前餘額 + 安全水位（最重要！）-->
+  ${(()=>{
+    // 重算過去 6 個月平均支出（不在這 if 內，便於計算安全水位）
+    const curMonth=S.month,curYear=yr();
+    const monthsData=[];
+    for(let i=1;i<=6;i++){
+      let m=curMonth-i,y=curYear;
+      while(m<=0){m+=12;y--;}
+      const monthEntries=allEntries.filter(e=>e.month===m&&e.year===y);
+      const out=monthEntries.filter(e=>toN(e.amount)<0).reduce((s,e)=>s+Math.abs(toN(e.amount)),0);
+      monthsData.push({m,y,out,count:monthEntries.length});
+    }
+    const validMonths=monthsData.filter(d=>d.count>0);
+    const avgMonthlyOut=validMonths.length>0?Math.round(monthsData.reduce((s,d)=>s+d.out,0)/validMonths.length):0;
+    // 用平均月支出算「能撐幾個月」
+    const monthsCanCover=avgMonthlyOut>0?cumTotal/avgMonthlyOut:null;
+    // 安全水位判斷
+    let lvl,lvlColor,lvlBg,lvlLabel,lvlAdvice;
+    if(cumTotal<0){
+      lvl='danger';lvlColor='var(--red)';lvlBg='var(--redl)';lvlLabel='🔴 透支';
+      lvlAdvice=`目前帳本為負，先補滿 $${fmt(Math.abs(cumTotal))} 回到 0`;
+    }else if(avgMonthlyOut===0){
+      lvl='unknown';lvlColor='var(--mut)';lvlBg='var(--bg2)';lvlLabel='⚪ 資料不足';
+      lvlAdvice='還沒有支出記錄，無法判斷安全水位';
+    }else if(monthsCanCover<1){
+      lvl='warning';lvlColor='var(--yelb)';lvlBg='var(--yel)';lvlLabel='🟡 緊張';
+      lvlAdvice=`只能撐 ${monthsCanCover.toFixed(1)} 個月，建議補到 1 個月以上 ($${fmt(avgMonthlyOut)})`;
+    }else if(monthsCanCover<3){
+      lvl='ok';lvlColor='var(--blu)';lvlBg='var(--blul)';lvlLabel='🔵 健康';
+      lvlAdvice=`可撐 ${monthsCanCover.toFixed(1)} 個月，建議朝 3 個月目標前進 ($${fmt(avgMonthlyOut*3)})`;
+    }else{
+      lvl='safe';lvlColor='var(--grn)';lvlBg='var(--grnl)';lvlLabel='🟢 充足';
+      lvlAdvice=`可撐 ${monthsCanCover.toFixed(1)} 個月，安全水位達標`;
+    }
+
+    return`<div style="background:linear-gradient(135deg,${lvlBg},#fff);padding:18px 22px;border-radius:14px;border:2px solid ${lvlColor};margin-bottom:14px;">
+      <!-- 大字餘額 -->
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:14px;margin-bottom:10px;">
+        <div>
+          <div class="tm" style="font-size:12px;letter-spacing:0.1em;">💰 ${l.name}　目前餘額</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:36px;font-weight:700;color:${cumTotal>=0?'var(--brown)':'var(--red)'};margin-top:4px;line-height:1;">$${fmt(cumTotal)}</div>
+          <div class="tm" style="font-size:11px;margin-top:4px;">含所有時間的存入與支出</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="tm" style="font-size:11px;letter-spacing:0.1em;">安全水位</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:${lvlColor};margin-top:2px;">${lvlLabel}</div>
+          ${monthsCanCover!==null?`<div class="tm" style="font-size:11px;margin-top:2px;">可撐 <b style="color:${lvlColor};">${monthsCanCover.toFixed(1)}</b> 個月</div>`:''}
+        </div>
+      </div>
+
+      <!-- 安全水位提示 -->
+      <div style="padding:10px 14px;background:#fff;border-radius:8px;border-left:3px solid ${lvlColor};font-size:12.5px;color:var(--brown);line-height:1.7;">
+        💡 ${lvlAdvice}
+      </div>
+
+      ${avgMonthlyOut>0?`
+      <!-- 水位刻度 -->
+      <div style="margin-top:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
+        <div style="padding:6px 8px;text-align:center;background:${cumTotal<avgMonthlyOut?'var(--redl)':'#fff'};border:1px solid var(--bdr);border-radius:6px;">
+          <div class="tm" style="font-size:10px;">最低保底</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:13px;font-weight:700;color:var(--red);">$${fmt(avgMonthlyOut)}</div>
+          <div class="tm" style="font-size:9px;">1 個月</div>
+        </div>
+        <div style="padding:6px 8px;text-align:center;background:${cumTotal>=avgMonthlyOut&&cumTotal<avgMonthlyOut*3?'var(--blul)':'#fff'};border:1px solid var(--bdr);border-radius:6px;">
+          <div class="tm" style="font-size:10px;">健康目標</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:13px;font-weight:700;color:var(--blu);">$${fmt(avgMonthlyOut*3)}</div>
+          <div class="tm" style="font-size:9px;">3 個月</div>
+        </div>
+        <div style="padding:6px 8px;text-align:center;background:${cumTotal>=avgMonthlyOut*3?'var(--grnl)':'#fff'};border:1px solid var(--bdr);border-radius:6px;">
+          <div class="tm" style="font-size:10px;">完全安全</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:13px;font-weight:700;color:var(--grn);">$${fmt(avgMonthlyOut*6)}</div>
+          <div class="tm" style="font-size:9px;">6 個月</div>
+        </div>
+      </div>
+      `:''}
     </div>`;
   })()}
 
@@ -6168,7 +6265,7 @@ function pgLedger(){
           </div>
         </div>
         <div class="tw"><table>
-          <thead><tr><th>日期</th><th>金額</th><th>類別</th><th>說明</th><th style="text-align:center;">同步</th><th>累計餘額</th><th></th></tr></thead>
+          <thead><tr><th>日期</th><th>金額</th><th>類別</th><th>說明</th><th style="text-align:center;">同步</th><th title="本月內逐筆累積（不是帳本總餘額）">本月累積</th><th></th></tr></thead>
           <tbody>${rows.length===0?`<tr><td colspan="7"><div class="empty"><div class="empty-ico">📒</div><p>本月尚無紀錄</p></div></td></tr>`:
             rows.map(r=>{
               const hasLink=!!r.linkId;
@@ -6922,7 +7019,7 @@ function modal(){
       📌 例：5,833 元存入 → 填 <b>+5833</b>　／　保險扣款 6,000 → 填 <b>-6000</b>
     </div>
     <div class="fg fg2">
-      <div class="fgrp"><label>日期 ${(()=>{const t=new Date();return S.month!==t.getMonth()+1||yr()!==t.getFullYear()?`<span style="color:var(--gold);font-size:11px;font-weight:600;">（已自動設為${S.month}月）</span>`:'';})()}</label><input type="date" id="m0" value="${smartDateForMonth(S.month,yr())}"></div>
+      <div class="fgrp"><label>日期 ${(()=>{const t=new Date();const vy=S.ledgerViewYear||yr();return S.month!==t.getMonth()+1||vy!==t.getFullYear()?`<span style="color:var(--gold);font-size:11px;font-weight:600;">（已自動設為 ${vy}/${S.month}）</span>`:'';})()}</label><input type="date" id="m0" value="${smartDateForMonth(S.month,S.ledgerViewYear||yr())}"></div>
       <div class="fgrp"><label>金額（正=存入 / 負=支出）</label><input type="number" id="m1" placeholder="如 +5833 存入 或 -6000 支出"></div>
       <div class="fgrp"><label>類別</label><select id="m2">${l.cats.map(c=>`<option>${c}</option>`).join('')}</select></div>
       <div class="fgrp" style="grid-column:1/-1"><label>說明備註</label><input type="text" id="m4" placeholder="如：5 月薪轉戶轉入、繳國泰人壽保險費等"></div>
@@ -7888,6 +7985,19 @@ window.openLedgerEntry=(idx)=>{
   S.ledgerIdx=idx;
   S.openLedgerCat=null;
   S.modal={t:'addLE'};
+  render();
+};
+// 📅 預備金帳本：切換檢視年份
+window.setLedgerYear=(y)=>{
+  S.ledgerViewYear=y;
+  render();
+};
+window.addLedgerYear=()=>{
+  const y=prompt('輸入要新增的年份（如 2025、2027、2028）');
+  if(!y)return;
+  const yNum=parseInt(y);
+  if(isNaN(yNum)||yNum<2000||yNum>2100){alert('請輸入有效年份');return;}
+  S.ledgerViewYear=yNum;
   render();
 };
 window.openM=(t,x)=>{S.modal={t,x};render();};
