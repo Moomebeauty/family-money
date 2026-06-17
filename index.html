@@ -6956,10 +6956,16 @@ function modal(){
     </div>
     <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="saveInc()">✓ 確認</button></div>`;}
 
-  if(m.t==='addExp'){const defM=m.x||'現金';const banks=getBanks();c=`<div class="mttl">🧾 記帳支出</div>
+  if(m.t==='addExp'){const defM=m.x||'現金';const banks=getBanks();const ALL_LED=getAllLedgers();c=`<div class="mttl">🧾 記帳支出</div>
     <div class="fg fg2">
       <div class="fgrp"><label>日期 ${(()=>{const t=new Date();return S.month!==t.getMonth()+1||yr()!==t.getFullYear()?`<span style="color:var(--gold);font-size:11px;font-weight:600;">（已自動設為${S.month}月）</span>`:'';})()}</label><input type="date" id="m0" value="${smartDateForMonth(S.month,yr())}"></div>
       <div class="fgrp"><label>金額（元）</label><input type="number" id="m1" placeholder="0"></div>
+      <div class="fgrp" style="grid-column:1/-1;"><label>📒 同步到預備金帳本（選用）<span style="color:var(--mut);font-size:11px;font-weight:500;">　選了會自動扣預備金 & 類別變細項</span></label>
+        <select id="m_le" onchange="updateAddExpCats(this.value)" style="border:1.5px solid var(--bdr);">
+          <option value="">不同步（純信用卡明細）</option>
+          ${ALL_LED.map(l=>`<option value="${l.id}">${l.name}</option>`).join('')}
+        </select>
+      </div>
       <div class="fgrp"><label>消費類別</label><select id="m2">${cats.map(c=>`<option>${c}</option>`).join('')}</select></div>
       <div class="fgrp"><label>付款方式</label>
         <select id="m3" onchange="tglCard()">
@@ -7823,21 +7829,29 @@ function modal(){
             <th style="width:40px;"></th>
           </tr>
         </thead>
-        <tbody id="batch-body">${staged.map((s,i)=>`<tr id="batch-row-${i}">
+        <tbody id="batch-body">${staged.map((s,i)=>{
+          // 根據 ledgerId 決定該行類別下拉內容
+          let rowCats=cats;
+          if(s.ledgerId){
+            const led=ALL_LED.find(l=>l.id===s.ledgerId);
+            if(led)rowCats=led.cats.filter(c=>c!=='存入');
+          }
+          const isLinked=!!s.ledgerId;
+          return`<tr id="batch-row-${i}">
           <td><input type="date" value="${s.date}" onchange="updateStage(${i},'date',this.value)" style="font-size:12.5px;padding:6px;width:100%;border:1px solid var(--bdr);border-radius:6px;"></td>
           <td><input type="text" value="${(s.merchant||'').replace(/"/g,'&quot;')}" placeholder="如：全家便利商店" onblur="batchAutoCat(${i},this.value)" oninput="updateStage(${i},'merchant',this.value)" style="font-size:13px;padding:6px;width:100%;border:1px solid var(--bdr);border-radius:6px;"></td>
-          <td><select id="batch-cat-${i}" onchange="updateStage(${i},'category',this.value)" style="font-size:12.5px;padding:6px;width:100%;border:1px solid var(--bdr);border-radius:6px;">${cats.map(c2=>`<option value="${c2}" ${c2===s.category?'selected':''}>${c2}</option>`).join('')}</select></td>
+          <td><select id="batch-cat-${i}" onchange="updateStage(${i},'category',this.value)" style="font-size:12.5px;padding:6px;width:100%;border:1.5px solid ${isLinked?'var(--pur)':'var(--bdr)'};border-radius:6px;background:${isLinked?'var(--purl)':'#fff'};" title="${isLinked?'預備金細項類別':'通用類別'}">${rowCats.map(c2=>`<option value="${c2}" ${c2===s.category?'selected':''}>${c2}</option>`).join('')}</select></td>
           <td><div style="display:flex;gap:4px;align-items:center;">
             <button onclick="toggleRefund(${i})" title="切換退款" style="padding:5px 7px;font-size:11px;border:1.5px solid ${toN(s.amount)<0?'var(--grn)':'var(--bdr)'};background:${toN(s.amount)<0?'var(--grnl)':'#fff'};color:${toN(s.amount)<0?'var(--grn)':'var(--mut)'};border-radius:6px;cursor:pointer;font-weight:700;flex-shrink:0;">${toN(s.amount)<0?'↻ 退':'+/−'}</button>
             <input type="number" value="${s.amount||''}" placeholder="0" oninput="updateStage(${i},'amount',this.value)" style="font-size:13px;padding:6px;width:100%;text-align:right;border:1px solid var(--bdr);border-radius:6px;color:${toN(s.amount)<0?'var(--grn)':'var(--brown)'};font-weight:${toN(s.amount)<0?'700':'500'};">
           </div></td>
           <td><select onchange="updateStage(${i},'cardBank',this.value)" style="font-size:12.5px;padding:6px;width:100%;border:1px solid var(--bdr);border-radius:6px;">${banks.map(b=>`<option value="${b}" ${b===s.cardBank?'selected':''}>${b}</option>`).join('')}</select></td>
-          <td><select onchange="updateStage(${i},'ledgerId',this.value)" style="font-size:12px;padding:6px;width:100%;border:1.5px solid ${s.ledgerId?'var(--pur)':'var(--bdr)'};border-radius:6px;background:${s.ledgerId?'var(--purl)':'#fff'};color:${s.ledgerId?'var(--pur)':'var(--mut)'};font-weight:${s.ledgerId?'700':'500'};">
+          <td><select onchange="updateLedgerAndCats(${i},this.value)" style="font-size:12px;padding:6px;width:100%;border:1.5px solid ${s.ledgerId?'var(--pur)':'var(--bdr)'};border-radius:6px;background:${s.ledgerId?'var(--purl)':'#fff'};color:${s.ledgerId?'var(--pur)':'var(--mut)'};font-weight:${s.ledgerId?'700':'500'};">
             <option value="">不同步</option>
             ${ALL_LED.map(l=>`<option value="${l.id}" ${l.id===s.ledgerId?'selected':''}>${l.name.replace(/[📒💰📚🚗🎓💊🎁💎🏖️🐈🐶🍼💼⚽🎮🧧🏢💡🍜💄🏠🌸✈️]/g,'').trim()}</option>`).join('')}
           </select></td>
           <td><button class="bdel" onclick="removeStage(${i})" style="font-size:18px;">×</button></td>
-        </tr>`).join('')}</tbody>
+        </tr>`;}).join('')}</tbody>
       </table>
     </div>
     <div style="display:flex;gap:10px;margin-top:12px;align-items:center;flex-wrap:wrap;">
@@ -8016,11 +8030,88 @@ window.saveInc=async()=>{
   await addSub('incomes',{date,amount,category:g('m2'),isPassive:g('m3')==='1',user:S.user,note:g('m5')||'',month:d.getMonth()+1,year:d.getFullYear()});
   toast('✅ 收入已記錄');closeMod();
 };
+// 📒 addExp modal：選預備金帳本後 → 類別下拉動態切換為該帳本的細項
+window.updateAddExpCats=(lid)=>{
+  const catSel=document.getElementById('m2');
+  const leSel=document.getElementById('m_le');
+  if(!catSel)return;
+  const oldCat=catSel.value;
+  let newCats=[];
+  if(lid){
+    const led=getAllLedgers().find(l=>l.id===lid);
+    if(led)newCats=led.cats.filter(c=>c!=='存入');
+  }else{
+    newCats=S.data.cats||DEF_CATS;
+  }
+  catSel.innerHTML=newCats.map(c=>`<option value="${c}" ${c===oldCat?'selected':''}>${c}</option>`).join('');
+  if(!newCats.includes(oldCat)){
+    catSel.value=newCats[0]||'其他';
+  }
+  // 視覺提示
+  catSel.style.borderColor=lid?'var(--pur)':'var(--bdr)';
+  catSel.style.background=lid?'var(--purl)':'#fff';
+  if(leSel){
+    leSel.style.borderColor=lid?'var(--pur)':'var(--bdr)';
+    leSel.style.background=lid?'var(--purl)':'#fff';
+    leSel.style.color=lid?'var(--pur)':'var(--brown)';
+    leSel.style.fontWeight=lid?'700':'500';
+  }
+};
+
 window.saveExp=async()=>{
   const date=g('m0'),amount=n('m1');if(!date||!amount){alert('請填日期和金額');return;}
   const d=new Date(date),method=g('m3'),cardBank=method==='信用卡'?g('m_cb'):'';
-  await addSub('expenses',{date,amount,category:g('m2'),payMethod:method,cardBank,user:S.user,note:g('m5')||'',month:d.getMonth()+1,year:d.getFullYear()});
-  toast('✅ 支出已記帳');closeMod();
+  const cat=g('m2')||'其他';
+  const note=g('m5')||'';
+  const ledgerId=g('m_le')||'';
+  const mo=d.getMonth()+1,yr2=d.getFullYear();
+
+  setSyncing('syncing');
+  try{
+    const itLedger=ledgerId?getAllLedgers().find(l=>l.id===ledgerId):null;
+    const linkId=itLedger?'lnk_'+Date.now()+'_'+Math.random().toString(36).slice(2,6):null;
+
+    // 1. 寫入 expenses
+    const expData={
+      date,amount,
+      category:cat,
+      payMethod:method,
+      cardBank:cardBank||null,
+      user:S.user||'',
+      note:itLedger?`⛓️ 來自預備金 - ${itLedger.name}${note?' '+note:''}`:note,
+      month:mo,year:yr2
+    };
+    if(itLedger){
+      expData.fromLedger=itLedger.id;
+      expData.linkId=linkId;
+      expData.excludeFromBudget=true;
+    }
+    await addSub('expenses',expData);
+
+    // 2. 如果有同步預備金 → 寫入 ledgerEntries
+    if(itLedger){
+      await addSub('ledgerEntries',{
+        lid:itLedger.id,
+        date,
+        amount:-Math.abs(amount), // 預備金為負（消費）
+        cat,
+        user:S.user||'',
+        note:`${note||cat} ${cardBank?`💳 ${cardBank}`:''}`.trim(),
+        month:mo,year:yr2,
+        linkedCardBank:cardBank||null,
+        linkId
+      });
+      toast(`✅ 已記錄並同步到 ${itLedger.name}`);
+    }else{
+      toast('✅ 支出已記帳');
+    }
+    setSyncing('synced');
+    closeMod();
+  }catch(err){
+    console.error('saveExp 失敗:',err);
+    setSyncing('error');
+    alert('儲存失敗：'+(err.message||err));
+  }
 };
 window.saveAsset=async()=>{
   const name=g('m0'),value=n('m2');if(!name||!value){alert('請填名稱和現值');return;}
@@ -8851,6 +8942,44 @@ window.updateStage=(i,field,val)=>{
   S.importStaging[i][field]=val;
   // 不要 render 因為會打斷 input 焦點
 };
+// 📒 批次輸入：選了預備金帳本後 → 動態切換類別下拉為該帳本的細項類別
+window.updateLedgerAndCats=(i,lid)=>{
+  if(!S.importStaging[i])return;
+  S.importStaging[i].ledgerId=lid;
+  // 切換類別下拉的選項
+  const catSel=document.getElementById(`batch-cat-${i}`);
+  if(catSel){
+    const oldCat=S.importStaging[i].category||'';
+    let newCats=[];
+    if(lid){
+      // 選了預備金 → 用該帳本的細項類別
+      const led=getAllLedgers().find(l=>l.id===lid);
+      if(led)newCats=led.cats.filter(c=>c!=='存入'); // 排除「存入」（消費場景不需要）
+    }else{
+      // 沒選 → 用通用類別
+      newCats=S.data.cats||DEF_CATS;
+    }
+    // 重新渲染選項
+    catSel.innerHTML=newCats.map(c=>`<option value="${c}" ${c===oldCat?'selected':''}>${c}</option>`).join('');
+    // 如果原本的類別不在新清單裡，預設選第一個
+    if(!newCats.includes(oldCat)){
+      const newDefault=newCats[0]||'其他';
+      catSel.value=newDefault;
+      S.importStaging[i].category=newDefault;
+    }
+    // 視覺上變紫色（提示這是預備金帳本的細項類別）
+    catSel.style.borderColor=lid?'var(--pur)':'var(--bdr)';
+    catSel.style.background=lid?'var(--purl)':'#fff';
+  }
+  // 視覺切換：預備金下拉本身
+  const led=document.querySelector(`#batch-row-${i} td:nth-child(6) select`);
+  if(led){
+    led.style.borderColor=lid?'var(--pur)':'var(--bdr)';
+    led.style.background=lid?'var(--purl)':'#fff';
+    led.style.color=lid?'var(--pur)':'var(--mut)';
+    led.style.fontWeight=lid?'700':'500';
+  }
+};
 window.removeStage=(i)=>{
   S.importStaging.splice(i,1);
   render();
@@ -9613,8 +9742,9 @@ window.confirmImport=async()=>{
           lid:itLedger.id,
           date:it.date||today(),
           amount:-amount,
-          cat:amount>0?(itLedger.cats.find(c=>c!=='存入')||'其他'):'存入',
-          user:S.user,
+          // 退款（amount<0）→ 用「存入」（如果該帳本有的話）；否則用同一個類別
+          cat:amount<0?(itLedger.cats.includes('存入')?'存入':(it.category||'其他')):(it.category||'其他'),
+          user:S.user||'',
           note:`${it.merchant} 💳 ${it.cardBank||''}${amount<0?' 退款':''}`,
           month:mo,year:y,
           linkedCardBank:it.cardBank||'',
