@@ -24,6 +24,7 @@
   --pg-stocks:#D8A06A;   /* 粉橘 */
   --pg-networth:#CFA764; /* 粉金 */
   --pg-trends:#C5A3A8;   /* 玫粉 */
+  --pg-coach:#5A4A3F;    /* 深焦糖 — 教練嚴肅感 */
   --pg-settings:#9D8876; /* 灰棕 */
   --txt:#3D2F26;--mut:#9D8876;
   --shd:0 1px 3px rgba(61,45,36,.04),0 2px 8px rgba(61,45,36,.06);
@@ -101,6 +102,7 @@ h1,h2,h3,.serif{font-family:'Noto Serif TC',serif;letter-spacing:0.06em;}
 .sb-item[data-pg="stocks"].active{border-left-color:var(--pg-stocks);background:linear-gradient(90deg,rgba(216,160,106,0.18),transparent);}
 .sb-item[data-pg="networth2"].active{border-left-color:var(--pg-networth);background:linear-gradient(90deg,rgba(207,167,100,0.18),transparent);}
 .sb-item[data-pg="trends"].active{border-left-color:var(--pg-trends);background:linear-gradient(90deg,rgba(197,163,168,0.18),transparent);}
+.sb-item[data-pg="coach"].active{border-left-color:var(--pg-coach);background:linear-gradient(90deg,rgba(90,74,63,0.18),transparent);}
 .sb-item[data-pg="home"].active::after{background:var(--pg-home);}
 .sb-item[data-pg="incomes"].active::after{background:var(--pg-incomes);}
 .sb-item[data-pg="savings2"].active::after{background:var(--pg-savings);}
@@ -109,6 +111,7 @@ h1,h2,h3,.serif{font-family:'Noto Serif TC',serif;letter-spacing:0.06em;}
 .sb-item[data-pg="stocks"].active::after{background:var(--pg-stocks);}
 .sb-item[data-pg="networth2"].active::after{background:var(--pg-networth);}
 .sb-item[data-pg="trends"].active::after{background:var(--pg-trends);}
+.sb-item[data-pg="coach"].active::after{background:var(--pg-coach);}
 /* 沐蜜風格：頁面標題彩色橫條 */
 .pg-ttl{position:relative;}
 .pg-ttl::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:5px;height:32px;border-radius:3px;background:var(--acc);}
@@ -120,6 +123,7 @@ body[data-pg="ledger"] .pg-ttl::before{background:var(--pg-ledger);}
 body[data-pg="stocks"] .pg-ttl::before{background:var(--pg-stocks);}
 body[data-pg="networth2"] .pg-ttl::before{background:var(--pg-networth);}
 body[data-pg="trends"] .pg-ttl::before{background:var(--pg-trends);}
+body[data-pg="coach"] .pg-ttl::before{background:var(--pg-coach);}
 .pg-ttl{padding-left:18px !important;}
 /* 沐蜜風格：第一張卡片頂部彩色條 */
 body[data-pg="home"] .content > .card:first-of-type,
@@ -137,7 +141,8 @@ body[data-pg="expenses2"] .content > .card:first-of-type::before,
 body[data-pg="ledger"] .content > .card:first-of-type::before,
 body[data-pg="stocks"] .content > .card:first-of-type::before,
 body[data-pg="networth2"] .content > .card:first-of-type::before,
-body[data-pg="trends"] .content > .card:first-of-type::before{
+body[data-pg="trends"] .content > .card:first-of-type::before,
+body[data-pg="coach"] .content > .card:first-of-type::before{
   content:'';position:absolute;top:0;left:0;right:0;height:4px;border-radius:14px 14px 0 0;
 }
 body[data-pg="home"] .content > .card:first-of-type::before{background:var(--pg-home);}
@@ -148,6 +153,7 @@ body[data-pg="ledger"] .content > .card:first-of-type::before{background:var(--p
 body[data-pg="stocks"] .content > .card:first-of-type::before{background:var(--pg-stocks);}
 body[data-pg="networth2"] .content > .card:first-of-type::before{background:var(--pg-networth);}
 body[data-pg="trends"] .content > .card:first-of-type::before{background:var(--pg-trends);}
+body[data-pg="coach"] .content > .card:first-of-type::before{background:var(--pg-coach);}
 .sb-item .ico{font-size:19px;width:24px;text-align:center;opacity:0.95;}
 .content{flex:1;overflow-y:auto;padding:32px 36px 100px;}
 
@@ -771,6 +777,7 @@ const PAGES=[
   {id:'stocks',   ico:'📈',lbl:'本月股票現值',group:'main'},
   {id:'networth2',ico:'💰',lbl:'每月總資產',group:'main'},
   {id:'trends',   ico:'📈',lbl:'趨勢分析',group:'main'},
+  {id:'coach',    ico:'👨‍🏫',lbl:'財務教練',group:'main'},
   {id:'settings', ico:'⚙️',lbl:'設定',group:'main'},
   // 以下為隱藏的舊頁（直接從 URL 或設定進入，不顯示在側邊欄）
   {id:'allocate', ico:'💰',lbl:'月初分配',group:'hidden'},
@@ -826,6 +833,9 @@ let S={
     userLevel:1,badges:[],expPoints:0,taskChecks:{},levelHistory:[],
     cardGuides:[],cardLogs:{},
     allocConfig:null,allocLogs:{},
+    coachChecks:{},  // 教練每週檢查記錄
+    coachPlan90:null,  // 90 天計畫 {startDate, tasks:{taskId:bool}}
+    coachWeeklyReports:{},  // 每週財務回報 {YYYY-WW: {income, saved, isolated, impulsive, asset, energy, note}}
     importStaging:[]
   }
 };
@@ -881,6 +891,9 @@ function startSync(){
       S.data.cardLogs=d.cardLogs||{};
       S.data.allocConfig=d.allocConfig||null;
       S.data.allocLogs=d.allocLogs||{};
+      S.data.coachChecks=d.coachChecks||{};
+      S.data.coachPlan90=d.coachPlan90||null;
+      S.data.coachWeeklyReports=d.coachWeeklyReports||{};
       S.data.investNotes=d.investNotes||{};
     }
     setSyncing('synced');
@@ -1018,6 +1031,7 @@ function page(){
     case'stocks':   return pgStocksNew();
     case'networth2':return pgNetworthNew();
     case'trends':   return pgTrends();
+    case'coach':    return pgCoach();
     // 舊版主頁（保留可從設定進入）
     case'health':   return pgHealth();
     case'invest':   return pgInvest();
@@ -2163,6 +2177,555 @@ function drawTrendChart(data,opts={}){
       <text x="${p.x.toFixed(1)}" y="${(padding.top+innerH+18).toFixed(1)}" text-anchor="middle" font-size="10" fill="var(--mut)" font-family="ui-monospace">${p.label}</text>`).join('')}
   </svg>`;
 }
+
+// ═══════════════════════════════════════════════════════════
+// ──── 👨‍🏫 財務教練 ─────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+
+// 計算 ISO 週數（YYYY-WW 格式）
+function getCoachWeekKey(date){
+  const d=date||new Date();
+  // 取得當週週四（用於 ISO 週數）
+  const target=new Date(d.valueOf());
+  const dayNr=(d.getDay()+6)%7; // 週一=0
+  target.setDate(target.getDate()-dayNr+3);
+  const firstThursday=target.valueOf();
+  target.setMonth(0,1);
+  if(target.getDay()!==4){
+    target.setMonth(0,1+((4-target.getDay())+7)%7);
+  }
+  const weekNum=1+Math.ceil((firstThursday-target)/604800000);
+  return`${d.getFullYear()}-W${String(weekNum).padStart(2,'0')}`;
+}
+
+// 取得這週的日期區間（顯示用）
+function getCoachWeekRange(weekKey){
+  const[y,w]=weekKey.split('-W').map(Number);
+  // 找到該年第一個週四
+  const jan4=new Date(y,0,4);
+  const dayNr=(jan4.getDay()+6)%7;
+  const week1Monday=new Date(jan4.valueOf());
+  week1Monday.setDate(jan4.getDate()-dayNr);
+  // 該週的週一
+  const weekMonday=new Date(week1Monday.valueOf());
+  weekMonday.setDate(week1Monday.getDate()+(w-1)*7);
+  const weekSunday=new Date(weekMonday.valueOf());
+  weekSunday.setDate(weekMonday.getDate()+6);
+  const fmt0=d=>`${d.getMonth()+1}/${d.getDate()}`;
+  return`${fmt0(weekMonday)} - ${fmt0(weekSunday)}`;
+}
+
+function pgCoach(){
+  const curWeek=getCoachWeekKey();
+  const checks=S.data.coachChecks||{};
+  const thisWeekData=checks[curWeek]||{};
+
+  // 智能偵測：本月收支
+  const M=computeMonthly();
+  const expRatio=M.tInc>0?Math.round((M.tExp+M.fixedTotal)/M.tInc*100):0;
+  const overSpend=expRatio>70;
+
+  // 衝動消費偵測（過去 7 天）
+  const today=new Date();
+  const sevenDaysAgo=new Date(today.getTime()-7*86400000);
+  const allExp=(S.data.expenses||[]).filter(e=>!e.fromLedger&&!e.excludeFromBudget);
+  const recentExp=allExp.filter(e=>{
+    if(!e.date)return false;
+    const d=new Date(e.date);
+    return d>=sevenDaysAgo&&d<=today;
+  });
+  // 算過去 30 天的平均單筆
+  const thirtyDaysAgo=new Date(today.getTime()-30*86400000);
+  const past30=allExp.filter(e=>{
+    if(!e.date)return false;
+    const d=new Date(e.date);
+    return d>=thirtyDaysAgo&&d<sevenDaysAgo;
+  });
+  const avgPerExp=past30.length>0?past30.reduce((s,e)=>s+toN(e.amount),0)/past30.length:0;
+  const impulsiveExp=recentExp.filter(e=>avgPerExp>0&&toN(e.amount)>=avgPerExp*1.5&&toN(e.amount)>=1000);
+
+  // 預備金健康度
+  const ALL_LED=getAllLedgers();
+  const ledHealth=ALL_LED.map(l=>{
+    const entries=getLedgerAll(l.id);
+    const cum=entries.reduce((s,e)=>s+toN(e.amount),0);
+    return{name:l.name,cum,healthy:cum>=0};
+  });
+  const unhealthyLed=ledHealth.filter(l=>!l.healthy);
+
+  // 被動收入偵測
+  const passiveIncomes=(S.data.incomes||[]).filter(i=>{
+    const cat=(i.category||i.note||'').toLowerCase();
+    return cat.includes('課程')||cat.includes('品牌')||cat.includes('抽成')||cat.includes('版稅')||cat.includes('被動')||i.isPassive;
+  });
+  const passiveThisMonth=passiveIncomes.filter(i=>i.month===S.month&&i.year===yr()).reduce((s,i)=>s+toN(i.amount),0);
+
+  // 5 個檢查問題
+  const Q=[
+    {id:'q1',label:'這週我有「先扣後花」存到至少 30%',type:'check'},
+    {id:'q2',label:'這週我沒有衝動消費',type:'check'},
+    {id:'q3',label:'這週我在「課程/品牌/抽成」推進了什麼？',type:'text',placeholder:'例：寫了 1 篇課程大綱、跟學員 case 報價'},
+    {id:'q4',label:'這週沒有被人推銷投資/借錢',type:'check'},
+    {id:'q5',label:'本週存了多少錢？（NT$）',type:'number',placeholder:'例：5000'}
+  ];
+
+  // 過去 8 週的完成率歷史
+  const past8Weeks=[];
+  for(let i=7;i>=0;i--){
+    const wk=getCoachWeekKey(new Date(today.getTime()-i*7*86400000));
+    const d=checks[wk]||{};
+    const done=['q1','q2','q4'].filter(q=>d[q]===true).length;
+    past8Weeks.push({week:wk,done,total:3,range:getCoachWeekRange(wk)});
+  }
+
+  return`
+  <div class="pg-ttl">👨‍🏫 財務教練</div>
+  <div class="pg-sub">直接、不客套　／　該罵就罵　／　每週逼你執行</div>
+
+  <!-- 📜 教練憲法（原始指令）-->
+  <div class="card">
+    <div class="card-hd"><span class="card-ttl">📜 教練憲法</span></div>
+    <div class="card-bd">
+      <div style="background:linear-gradient(135deg,#3D2D24,#5A4A3F);color:#F2E2CE;padding:24px 28px;border-radius:12px;font-family:'Noto Serif TC',serif;font-size:14px;line-height:2.1;letter-spacing:0.05em;">
+
+        <div style="border-bottom:1px solid rgba(242,226,206,0.3);padding-bottom:12px;margin-bottom:14px;">
+          <span style="font-size:11px;letter-spacing:0.2em;opacity:0.7;">YOUR FINANCIAL EXECUTION COACH</span><br>
+          <span style="font-size:18px;font-weight:700;color:#F5EBD6;">守財 ＋ 聚財</span>
+        </div>
+
+        你現在是我的個人財務執行教練，專門幫我「<b style="color:#D4B095;">守財</b>」與「<b style="color:#D4B095;">聚財</b>」。請嚴格依照以下我的命格設定與路徑來引導我，<b>不要講空泛大道理，只給可執行的具體動作</b>。<br><br>
+
+        <b style="color:#F5EBD6;font-size:15px;">【我的財務命格特徵】</b><br>
+        ・<b>身弱財旺</b>：賺得到但守不住，容易賺多少花多少，靠勞力硬賺、體力有上限。<br>
+        ・<b>三個漏財洞</b>：①容易理想化花費、投資落空 ②財庫大進大出、易衝動消費 ③靠主動勞力收入、容易過勞。<br>
+        ・<b>職業</b>：美容/紋繡霧眉霧唇技術者，想從「用時間換錢」升級成「<b style="color:#D4B095;">可重複賣的資產收入</b>」。<br>
+        ・<b style="color:#D4B095;">守財核心</b>：把流動現金強制變成漏不掉的資產（尤其不動產）。<br>
+        ・<b style="color:#D4B095;">聚財核心</b>：把勞力收入升級成課程、品牌、抽成等可重複賣的產出；漲價做精不衝量。<br><br>
+
+        <b style="color:#F5EBD6;font-size:15px;">【教練的 5 條紀律】</b><br>
+        <span style="color:#D4B095;">1.</span> 每次回報收入或花費，幫我檢查是否符合「<b>先扣後花 30-40%</b>」「<b>成本稅金先隔離</b>」原則，若超支就直接指出。<br>
+        <span style="color:#D4B095;">2.</span> 當我提到任何投資、合夥、借錢給人，先用「<b>看不懂的／保證高報酬的／朋友介紹的一律不碰</b>」這條幫我踩煞車，要求我說明風險。<br>
+        <span style="color:#D4B095;">3.</span> 主動提醒我把現金轉成資產，並追蹤我建立「<b>課程／品牌／抽成</b>」這類被動收入的進度。<br>
+        <span style="color:#D4B095;">4.</span> 每週問我一次：<b>這週存了多少？有沒有衝動消費？資產型收入推進了什麼？</b><br>
+        <span style="color:#D4B095;">5.</span> 講話直接、不客套，<b>該罵醒我就罵醒我</b>。
+      </div>
+    </div>
+  </div>
+
+  <!-- 🔍 智能偵測警示 -->
+  <div class="card">
+    <div class="card-hd"><span class="card-ttl">🔍 教練即時診斷（本月）</span></div>
+    <div class="card-bd">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">
+        <!-- 1. 支出比 -->
+        <div style="padding:14px 16px;background:${overSpend?'var(--redl)':expRatio>60?'var(--yel)':'var(--grnl)'};border-radius:10px;border-left:4px solid ${overSpend?'var(--red)':expRatio>60?'var(--yelb)':'var(--grn)'};">
+          <div class="tm" style="font-size:11px;">💸 本月支出比</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:24px;font-weight:700;color:${overSpend?'var(--red)':expRatio>60?'var(--yelb)':'var(--grn)'};">${expRatio}%</div>
+          <div style="font-size:11.5px;color:var(--brown);margin-top:4px;line-height:1.6;">
+            ${overSpend?'⛔ <b>超過 70%！</b>立刻停花，先扣 30-40% 隔離。':expRatio>60?'⚠️ 超過 60% 警戒線，注意。':'✓ 符合先扣 30-40% 原則。'}
+          </div>
+        </div>
+
+        <!-- 2. 衝動消費 -->
+        <div style="padding:14px 16px;background:${impulsiveExp.length>0?'var(--redl)':'var(--grnl)'};border-radius:10px;border-left:4px solid ${impulsiveExp.length>0?'var(--red)':'var(--grn)'};">
+          <div class="tm" style="font-size:11px;">⚠️ 近 7 天衝動消費</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:24px;font-weight:700;color:${impulsiveExp.length>0?'var(--red)':'var(--grn)'};">${impulsiveExp.length} <span style="font-size:14px;">筆</span></div>
+          <div style="font-size:11.5px;color:var(--brown);margin-top:4px;line-height:1.6;">
+            ${impulsiveExp.length>0?`⛔ 找到 <b>${impulsiveExp.length}</b> 筆比平均高 50%+：${impulsiveExp.slice(0,2).map(e=>`${e.item||e.category}($${fmt(toN(e.amount))})`).join('、')}`:'✓ 沒有大額衝動消費，繼續保持。'}
+          </div>
+        </div>
+
+        <!-- 3. 預備金健康 -->
+        <div style="padding:14px 16px;background:${unhealthyLed.length>0?'var(--yel)':'var(--grnl)'};border-radius:10px;border-left:4px solid ${unhealthyLed.length>0?'var(--yelb)':'var(--grn)'};">
+          <div class="tm" style="font-size:11px;">📒 預備金健康度</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:24px;font-weight:700;color:${unhealthyLed.length>0?'var(--yelb)':'var(--grn)'};">${ALL_LED.length-unhealthyLed.length} <span style="font-size:14px;">/ ${ALL_LED.length}</span></div>
+          <div style="font-size:11.5px;color:var(--brown);margin-top:4px;line-height:1.6;">
+            ${unhealthyLed.length>0?`⚠️ <b>${unhealthyLed.length}</b> 本帳本透支：${unhealthyLed.slice(0,2).map(l=>l.name).join('、')}`:'✓ 全部帳本健康。'}
+          </div>
+        </div>
+
+        <!-- 4. 被動收入 -->
+        <div style="padding:14px 16px;background:${passiveThisMonth>0?'var(--grnl)':'var(--bg2)'};border-radius:10px;border-left:4px solid ${passiveThisMonth>0?'var(--grn)':'var(--mut)'};">
+          <div class="tm" style="font-size:11px;">🏆 本月被動收入</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:24px;font-weight:700;color:${passiveThisMonth>0?'var(--grn)':'var(--mut)'};">$${fmt(passiveThisMonth)}</div>
+          <div style="font-size:11.5px;color:var(--brown);margin-top:4px;line-height:1.6;">
+            ${passiveThisMonth>0?`✓ 課程/品牌/抽成有進帳！繼續推進。`:`⚠️ 本月尚未有被動收入。記得提醒我推進「課程/品牌/抽成」。`}
+          </div>
+        </div>
+      </div>
+
+      <!-- 教練總結 -->
+      <div style="margin-top:14px;padding:14px 18px;background:linear-gradient(135deg,#3D2D24,#5A4A3F);color:#F5EBD6;border-radius:10px;font-family:'Noto Serif TC',serif;font-size:13.5px;line-height:1.9;">
+        <b style="color:#D4B095;">📢 教練說：</b><br>
+        ${(()=>{
+          const lines=[];
+          if(overSpend)lines.push('⛔ 你這個月又花太多了。立刻把這個月剩下的時間設「禁買日」，除了必要支出不准花。');
+          if(impulsiveExp.length>=2)lines.push('⚠️ 你最近 7 天有 '+impulsiveExp.length+' 筆衝動消費。看清楚，那些都是「漏財洞」，不是「犒賞自己」。');
+          if(unhealthyLed.length>0)lines.push('🔴 你有 '+unhealthyLed.length+' 本預備金透支了。下個月初分配時先補滿，不要拖。');
+          if(passiveThisMonth===0)lines.push('🏆 本月還沒有被動收入。你要的是從「用時間換錢」升級成「可重複賣的資產收入」，這週至少推進 1 件事。');
+          if(lines.length===0)lines.push('✓ 這個月表現不錯，繼續保持紀律。但別鬆懈—身弱財旺最怕「現在很好就放鬆」。');
+          return lines.map(l=>`<div style="margin-top:6px;">${l}</div>`).join('');
+        })()}
+      </div>
+    </div>
+  </div>
+
+  <!-- 📅 90 天守財聚財行動計畫 -->
+  ${(()=>{
+    const PLAN_TASKS={
+      'p1':{phase:1,track:'A',label:'開三個獨立帳戶（薪轉戶 / 成本稅金戶 / 置產戶）'},
+      'p2':{phase:1,track:'A',label:'每筆收入進帳當天，立刻轉 30% 到置產戶'},
+      'p3':{phase:1,track:'A',label:'每筆收入提撥 15-20% 到成本稅金戶（耗材+稅）'},
+      'p4':{phase:1,track:'A',label:'記錄過去 30 天所有花費，圈出 3 筆「不該買」的'},
+      'p5':{phase:1,track:'B',label:'列出你會的所有技術項目 + 各自價格'},
+      'p6':{phase:1,track:'B',label:'找出 1 項「最會做但最便宜」的，研究怎麼漲價 20%'},
+      'p7':{phase:1,track:'B',label:'開 IG 工作專頁（如果還沒有），發 3 篇作品照'},
+      'p8':{phase:1,track:'B',label:'收集 5 個老客戶的好評文字'},
+      'p9':{phase:1,track:'C',label:'設定「每天最多接 X 個客人」上限（自己訂）'},
+      'p10':{phase:1,track:'C',label:'每週固定 1 天完整休息（不接客、不回訊息）'},
+      'p11':{phase:1,track:'C',label:'紀錄每天就寢時間，連續 7 天'},
+
+      'p12':{phase:2,track:'A',label:'檢視第 1 個月存了多少 → 算儲蓄率，是否到 30%'},
+      'p13':{phase:2,track:'A',label:'緊急金累積到 1 個月生活費'},
+      'p14':{phase:2,track:'A',label:'拒絕至少 1 個「朋友介紹/保證高報酬」的投資'},
+      'p15':{phase:2,track:'A',label:'衝動消費「等 48 小時再買」實踐 3 次'},
+      'p16':{phase:2,track:'B',label:'漲價 20%（先漲 1 個項目，看反應）'},
+      'p17':{phase:2,track:'B',label:'寫出「線上課程／師資班」第一版大綱（標題+10 個重點）'},
+      'p18':{phase:2,track:'B',label:'找 1-2 個業界品牌談耗材抽成合作'},
+      'p19':{phase:2,track:'B',label:'拍 1 支「教學短影片」發 IG / 抖音'},
+      'p20':{phase:2,track:'C',label:'統計這 4 週「過勞日」幾天 → 下月減少 30%'},
+      'p21':{phase:2,track:'C',label:'規律運動 1 週 2 次（哪怕 15 分鐘）'},
+      'p22':{phase:2,track:'C',label:'設定睡前 22:30 放下手機規則'},
+
+      'p23':{phase:3,track:'A',label:'緊急金達到 3 個月生活費'},
+      'p24':{phase:3,track:'A',label:'諮詢 1 位房仲，了解現在的房市現況（純了解、不買）'},
+      'p25':{phase:3,track:'A',label:'整理出「年度大額支出表」（保費、稅金、保養）並開始攤提'},
+      'p26':{phase:3,track:'A',label:'衝動消費歸零（這個月一次都沒有）'},
+      'p27':{phase:3,track:'B',label:'第 1 期師資班開始招生（哪怕 3-5 人）'},
+      'p28':{phase:3,track:'B',label:'與品牌簽署第 1 份抽成合約'},
+      'p29':{phase:3,track:'B',label:'漲價後的價格穩定運作，客戶接受度評估'},
+      'p30':{phase:3,track:'B',label:'IG 累積到 500+ 追蹤（如果原本沒做的話）'},
+      'p31':{phase:3,track:'C',label:'評估體力是否變好 → 沒有就減量'},
+      'p32':{phase:3,track:'C',label:'安排 1 次「3 天以上長假」'},
+      'p33':{phase:3,track:'C',label:'健康檢查（重點：血糖、肝指數、肩頸）'}
+    };
+    const plan=S.data.coachPlan90||{startDate:null,tasks:{}};
+    const tasks=plan.tasks||{};
+    const totalTasks=Object.keys(PLAN_TASKS).length;
+    const doneTasks=Object.keys(tasks).filter(k=>tasks[k]).length;
+    const pct=Math.round(doneTasks/totalTasks*100);
+
+    // 計算現在是第幾天
+    let dayNum=null,phaseNow=null;
+    if(plan.startDate){
+      const start=new Date(plan.startDate);
+      const now=new Date();
+      dayNum=Math.floor((now-start)/86400000)+1;
+      if(dayNum<=28)phaseNow=1;
+      else if(dayNum<=56)phaseNow=2;
+      else if(dayNum<=90)phaseNow=3;
+      else phaseNow=4; // 結束
+    }
+
+    const tracks={A:{ico:'💰',name:'守財軌',color:'var(--blu)',bg:'var(--blul)'},B:{ico:'🚀',name:'聚財軌',color:'var(--grn)',bg:'var(--grnl)'},C:{ico:'💪',name:'體力軌',color:'var(--gold)',bg:'var(--goldL)'}};
+    const phases={1:{name:'地基期',sub:'先把漏財洞補起來',weeks:'第 1-4 週',color:'var(--grn)'},2:{name:'轉型期',sub:'開始建立可重複賣的東西',weeks:'第 5-8 週',color:'var(--yelb)'},3:{name:'變現期',sub:'真的賺到被動收入',weeks:'第 9-12 週',color:'var(--red)'}};
+
+    return`<div class="card">
+      <div class="card-hd">
+        <span class="card-ttl">📅 90 天守財聚財行動計畫</span>
+        ${plan.startDate?`<span class="bdg" style="background:var(--pg-coach);color:#fff;">第 ${dayNum>90?'90+':dayNum} 天 / 90</span>`:'<button class="btn btn-p btn-sm" onclick="startCoachPlan()">▶ 開始 90 天計畫</button>'}
+      </div>
+      <div class="card-bd">
+        ${!plan.startDate?`<div class="notice tip" style="font-size:13px;">
+          💡 90 天三軌並行：<b>守財 + 聚財 + 體力</b>。點上方「▶ 開始」設定起始日，系統會自動標示你現在在哪一階段。
+        </div>`:`<div style="margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:200px;">
+            <div class="tm" style="font-size:11px;">總體進度</div>
+            <div class="pb-lg" style="height:10px;margin-top:4px;"><div class="pf" style="width:${pct}%;background:linear-gradient(90deg,var(--grn),var(--gold));"></div></div>
+            <div class="tm" style="font-size:11px;margin-top:3px;">${doneTasks}/${totalTasks} 任務 (${pct}%)　／　起始日：${plan.startDate}</div>
+          </div>
+          <button class="btn btn-s btn-sm" onclick="resetCoachPlan()">↺ 重置</button>
+        </div>`}
+
+        <!-- 3 個階段 -->
+        ${[1,2,3].map(phaseNum=>{
+          const ph=phases[phaseNum];
+          const phaseTasks=Object.entries(PLAN_TASKS).filter(([_,t])=>t.phase===phaseNum);
+          const phaseDone=phaseTasks.filter(([k,_])=>tasks[k]).length;
+          const phasePct=Math.round(phaseDone/phaseTasks.length*100);
+          const isActive=phaseNow===phaseNum;
+          return`<div style="margin-bottom:18px;border:${isActive?'2px solid '+ph.color:'1px solid var(--bdr)'};border-radius:12px;overflow:hidden;${isActive?'box-shadow:0 4px 12px rgba(0,0,0,0.06);':''}">
+            <div style="padding:12px 18px;background:${isActive?ph.color:'var(--bg2)'};color:${isActive?'#fff':'var(--brown)'};">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px;">
+                <b style="font-family:'Noto Serif TC',serif;font-size:15px;">${ph.weeks}　${ph.name}　<span style="font-weight:400;opacity:0.85;font-size:12px;">${ph.sub}</span></b>
+                <span style="font-size:13px;font-weight:700;">${phaseDone}/${phaseTasks.length}　(${phasePct}%)</span>
+              </div>
+            </div>
+            <div style="padding:14px 18px;background:#fff;">
+              ${['A','B','C'].map(trackKey=>{
+                const tr=tracks[trackKey];
+                const trackTasks=phaseTasks.filter(([_,t])=>t.track===trackKey);
+                return`<div style="margin-bottom:10px;">
+                  <div style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:${tr.bg};border-radius:6px;margin-bottom:6px;">
+                    <span style="font-size:16px;">${tr.ico}</span>
+                    <b style="font-family:'Noto Serif TC',serif;font-size:13px;color:${tr.color};letter-spacing:0.06em;">${tr.name}</b>
+                  </div>
+                  ${trackTasks.map(([k,t])=>{
+                    const done=!!tasks[k];
+                    return`<label style="display:flex;gap:10px;padding:8px 12px;cursor:pointer;border-radius:6px;transition:background .15s;" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background='transparent'">
+                      <input type="checkbox" ${done?'checked':''} onchange="togglePlanTask('${k}',this.checked)" style="width:18px;height:18px;accent-color:${tr.color};cursor:pointer;flex-shrink:0;margin-top:2px;">
+                      <span style="font-size:13px;color:${done?'var(--mut)':'var(--brown)'};${done?'text-decoration:line-through;':''}line-height:1.6;">${t.label}</span>
+                    </label>`;
+                  }).join('')}
+                </div>`;
+              }).join('')}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  })()}
+
+  <!-- 📋 本週財務回報 -->
+  ${(()=>{
+    const wk=getCoachWeekKey();
+    const reports=S.data.coachWeeklyReports||{};
+    const r=reports[wk]||{};
+
+    // 評判邏輯
+    const judge=()=>{
+      if(!r.income||r.income<=0)return null;
+      const savedRate=r.saved>0?Math.round(r.saved/r.income*100):0;
+      const issues=[];
+      const goods=[];
+
+      // 守財判定
+      if(savedRate>=30)goods.push(`✅ 儲蓄率 ${savedRate}%，達到 30% 守財目標`);
+      else if(savedRate>=20)issues.push(`⚠️ 儲蓄率只有 ${savedRate}%，距離 30% 還差 ${30-savedRate}%`);
+      else issues.push(`⛔ 儲蓄率 ${savedRate}%，<b>嚴重不足</b>，立刻調整！這就是身弱財旺的漏財洞`);
+
+      if(r.isolated)goods.push('✅ 成本稅金已隔離');
+      else issues.push('⛔ 成本稅金沒隔離，到時候要繳會被打到');
+
+      if(r.impulsive&&r.impulsive.trim()&&r.impulsive.trim()!=='無'&&r.impulsive.trim()!=='沒有')
+        issues.push(`⚠️ 衝動消費：「${r.impulsive}」— 記下來，下週同類消費要 48 小時冷靜`);
+      else if(r.impulsive)goods.push('✅ 本週無衝動消費');
+
+      // 聚財判定
+      if(r.asset&&r.asset.trim()&&r.asset.trim()!=='無'&&r.asset.trim()!=='沒有')
+        goods.push(`✅ 資產型收入推進：「${r.asset}」`);
+      else issues.push('⛔ 本週沒有推進「課程/品牌/抽成」— 別忘了核心是「擺脫用時間換錢」');
+
+      // 體力判定
+      if(r.energy&&(r.energy.includes('累')||r.energy.includes('疲')||r.energy.includes('差')||r.energy.includes('不好')))
+        issues.push(`⚠️ 體力狀況：「${r.energy}」— 下週主動減 1-2 個客戶，身體垮了什麼都沒了`);
+      else if(r.energy)goods.push(`✅ 體力狀況 OK：${r.energy}`);
+
+      // 下週 3 件事
+      const nextActions=[];
+      if(savedRate<30)nextActions.push(`先扣存 ${Math.round(r.income*0.3)} 元（30%）— 收入進帳當天就轉`);
+      if(!r.isolated)nextActions.push('開「成本稅金戶」並轉入本月應隔離金額');
+      if(r.impulsive&&r.impulsive.trim()&&r.impulsive.trim()!=='無')nextActions.push('衝動消費「等 48 小時再買」這週實踐 2 次');
+      if(!r.asset||r.asset.trim()==='無'||r.asset.trim()==='沒有')nextActions.push('推進 1 件聚財事：寫 1 篇課程大綱 或 拍 1 支教學影片 或 約 1 個品牌談合作');
+      if(r.energy&&(r.energy.includes('累')||r.energy.includes('疲')))nextActions.push('下週減 20% 客戶量 + 安排 1 整天完整休息');
+      if(nextActions.length===0)nextActions.push('保持節奏，繼續紀律');
+      if(nextActions.length<3)nextActions.push('檢視 90 天計畫進度，挑 1 件未完成的任務這週執行');
+      if(nextActions.length<3)nextActions.push('週末花 15 分鐘看一次趨勢分析頁，確認大方向沒偏');
+
+      return{savedRate,issues,goods,nextActions:nextActions.slice(0,3)};
+    };
+    const j=judge();
+
+    return`<div class="card">
+      <div class="card-hd"><span class="card-ttl">📋 本週財務回報　${getCoachWeekRange(wk)}</span></div>
+      <div class="card-bd">
+        <div class="notice tip" style="font-size:13px;margin-bottom:14px;">
+          💡 每週末填一份，系統會依「守財聚財原則」幫你檢視 → 給下週最重要的 3 件事
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div style="padding:12px 14px;background:var(--bg2);border-radius:8px;">
+            <label style="font-size:12px;color:var(--brown);font-weight:600;">💵 本週收入（NT$）</label>
+            <input type="number" value="${r.income||''}" onblur="updWeeklyReport('income',toN(this.value))" placeholder="如：85000" style="width:100%;padding:8px;border:1px solid var(--bdr);border-radius:6px;margin-top:4px;font-size:15px;font-weight:700;color:var(--brown);">
+          </div>
+          <div style="padding:12px 14px;background:var(--bg2);border-radius:8px;">
+            <label style="font-size:12px;color:var(--brown);font-weight:600;">🏦 已先扣存下（NT$）<span style="color:var(--mut);font-weight:400;">目標 30-40%</span></label>
+            <input type="number" value="${r.saved||''}" onblur="updWeeklyReport('saved',toN(this.value))" placeholder="如：25500" style="width:100%;padding:8px;border:1px solid var(--bdr);border-radius:6px;margin-top:4px;font-size:15px;font-weight:700;color:var(--blu);">
+          </div>
+        </div>
+        <div style="padding:12px 14px;background:var(--bg2);border-radius:8px;margin-bottom:10px;">
+          <label style="font-size:12px;color:var(--brown);font-weight:600;">💼 成本/稅金是否已隔離？</label>
+          <div style="display:flex;gap:10px;margin-top:6px;">
+            <label style="cursor:pointer;display:flex;align-items:center;gap:6px;"><input type="radio" name="isolated" ${r.isolated===true?'checked':''} onchange="updWeeklyReport('isolated',true)"> 是</label>
+            <label style="cursor:pointer;display:flex;align-items:center;gap:6px;"><input type="radio" name="isolated" ${r.isolated===false?'checked':''} onchange="updWeeklyReport('isolated',false)"> 否</label>
+          </div>
+        </div>
+        <div style="padding:12px 14px;background:var(--bg2);border-radius:8px;margin-bottom:10px;">
+          <label style="font-size:12px;color:var(--brown);font-weight:600;">⚠️ 有沒有衝動消費或理想化花費？</label>
+          <textarea onblur="updWeeklyReport('impulsive',this.value)" placeholder="無 ／ 或寫下具體項目，例：買了一台不必要的吹風機 $3500" style="width:100%;padding:8px;border:1px solid var(--bdr);border-radius:6px;margin-top:4px;font-size:13px;min-height:50px;resize:vertical;">${(r.impulsive||'').replace(/"/g,'&quot;')}</textarea>
+        </div>
+        <div style="padding:12px 14px;background:var(--bg2);border-radius:8px;margin-bottom:10px;">
+          <label style="font-size:12px;color:var(--brown);font-weight:600;">🚀 資產型收入（課程/品牌/抽成）這週推進了什麼？</label>
+          <textarea onblur="updWeeklyReport('asset',this.value)" placeholder="例：寫了師資班大綱第 1 章、跟 X 品牌約週三談合作" style="width:100%;padding:8px;border:1px solid var(--bdr);border-radius:6px;margin-top:4px;font-size:13px;min-height:50px;resize:vertical;">${(r.asset||'').replace(/"/g,'&quot;')}</textarea>
+        </div>
+        <div style="padding:12px 14px;background:var(--bg2);border-radius:8px;margin-bottom:10px;">
+          <label style="font-size:12px;color:var(--brown);font-weight:600;">💪 身體狀況/工作量會不會太累？</label>
+          <textarea onblur="updWeeklyReport('energy',this.value)" placeholder="例：很累，下背痛 ／ 還行 ／ 排太滿沒休息" style="width:100%;padding:8px;border:1px solid var(--bdr);border-radius:6px;margin-top:4px;font-size:13px;min-height:50px;resize:vertical;">${(r.energy||'').replace(/"/g,'&quot;')}</textarea>
+        </div>
+
+        ${j?`
+        <!-- 📢 教練評判 -->
+        <div style="margin-top:14px;padding:18px 22px;background:linear-gradient(135deg,#3D2D24,#5A4A3F);color:#F5EBD6;border-radius:12px;font-family:'Noto Serif TC',serif;">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+            <span style="font-size:11px;letter-spacing:0.2em;opacity:0.7;">📢 COACH JUDGEMENT</span>
+            <span style="background:#D4B095;color:#3D2D24;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:700;">儲蓄率 ${j.savedRate}%</span>
+          </div>
+
+          ${j.goods.length>0?`<div style="margin-bottom:10px;font-size:13.5px;line-height:1.9;">${j.goods.map(g=>`<div>${g}</div>`).join('')}</div>`:''}
+
+          ${j.issues.length>0?`<div style="padding:10px 14px;background:rgba(220,150,150,0.15);border-left:3px solid #E0A0A0;border-radius:6px;margin-bottom:12px;font-size:13.5px;line-height:1.9;">${j.issues.map(i=>`<div>${i}</div>`).join('')}</div>`:''}
+
+          <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(242,226,206,0.25);">
+            <div style="font-size:13px;color:#D4B095;font-weight:700;margin-bottom:8px;">🎯 下週最重要的 3 件事：</div>
+            ${j.nextActions.map((a,i)=>`<div style="display:flex;gap:10px;padding:6px 0;font-size:13.5px;line-height:1.7;"><span style="color:#D4B095;font-weight:700;">${i+1}.</span><span>${a}</span></div>`).join('')}
+          </div>
+        </div>`:`<div class="empty" style="padding:20px;background:var(--bg2);border-radius:10px;">
+          <p class="tm" style="font-size:13px;">填完上方欄位後，系統會給你「這週對錯 + 下週 3 件事」</p>
+        </div>`}
+      </div>
+    </div>`;
+  })()}
+
+  <!-- 📝 本週檢查清單 -->
+  <div class="card">
+    <div class="card-hd">
+      <span class="card-ttl">📝 本週檢查清單　${getCoachWeekRange(curWeek)}</span>
+      <span class="bdg" style="background:var(--pg-coach);color:#fff;">${curWeek}</span>
+    </div>
+    <div class="card-bd">
+      <div style="display:grid;grid-template-columns:1fr;gap:10px;">
+        ${Q.map(q=>{
+          const v=thisWeekData[q.id];
+          if(q.type==='check'){
+            const checked=v===true;
+            return`<label style="padding:14px 18px;background:${checked?'var(--grnl)':'var(--bg2)'};border-left:4px solid ${checked?'var(--grn)':'var(--mut)'};border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:12px;">
+              <input type="checkbox" ${checked?'checked':''} onchange="updCoachCheck('${q.id}',this.checked)" style="width:20px;height:20px;accent-color:var(--grn);cursor:pointer;">
+              <span style="font-size:14px;color:var(--brown);font-weight:${checked?'700':'500'};${checked?'text-decoration:line-through;text-decoration-color:var(--grn);':''}">${q.label}</span>
+            </label>`;
+          }else if(q.type==='text'){
+            return`<div style="padding:14px 18px;background:var(--bg2);border-left:4px solid var(--blu);border-radius:10px;">
+              <div style="font-size:14px;color:var(--brown);font-weight:600;margin-bottom:6px;">${q.label}</div>
+              <input type="text" value="${(v||'').replace(/"/g,'&quot;')}" placeholder="${q.placeholder||''}" onblur="updCoachCheck('${q.id}',this.value)" style="width:100%;padding:8px 12px;border:1px solid var(--bdr);border-radius:6px;font-size:13px;">
+            </div>`;
+          }else if(q.type==='number'){
+            return`<div style="padding:14px 18px;background:var(--bg2);border-left:4px solid var(--gold);border-radius:10px;">
+              <div style="font-size:14px;color:var(--brown);font-weight:600;margin-bottom:6px;">${q.label}</div>
+              <input type="number" value="${v||''}" placeholder="${q.placeholder||''}" onblur="updCoachCheck('${q.id}',toN(this.value))" style="width:160px;padding:8px 12px;border:1px solid var(--bdr);border-radius:6px;font-size:15px;font-weight:700;color:var(--brown);">
+            </div>`;
+          }
+        }).join('')}
+      </div>
+
+      <!-- 自由筆記 -->
+      <div style="margin-top:14px;padding:14px 18px;background:var(--accL);border-radius:10px;">
+        <div style="font-size:13px;color:var(--brown);font-weight:600;margin-bottom:6px;">📝 本週其他想記下的事</div>
+        <textarea onblur="updCoachCheck('note',this.value)" placeholder="這週的反思、領悟、需要記住的事..." style="width:100%;min-height:60px;padding:10px;border:1px solid var(--bdr);border-radius:6px;font-size:13px;font-family:inherit;resize:vertical;">${(thisWeekData.note||'').replace(/"/g,'&quot;')}</textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- 📊 過去 8 週紀律完成率 -->
+  <div class="card">
+    <div class="card-hd"><span class="card-ttl">📊 過去 8 週紀律完成率</span></div>
+    <div class="card-bd">
+      <div class="tm" style="font-size:11px;margin-bottom:10px;">勾選率 = 3 個檢查項中完成幾個（不含問答題）</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;">
+        ${past8Weeks.map(w=>{
+          const pct=Math.round(w.done/w.total*100);
+          const isThisWeek=w.week===curWeek;
+          const color=pct>=100?'var(--grn)':pct>=66?'var(--blu)':pct>=33?'var(--yelb)':pct>0?'var(--red)':'var(--mut)';
+          return`<div style="padding:10px 12px;background:${isThisWeek?'var(--accL)':'var(--bg2)'};border-radius:8px;border:${isThisWeek?'1.5px solid var(--gold)':'1px solid var(--bdr)'};text-align:center;">
+            <div class="tm" style="font-size:10px;">${w.range}</div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:${color};margin-top:3px;">${w.done}/${w.total}</div>
+            ${isThisWeek?'<div style="font-size:10px;color:var(--gold);font-weight:700;margin-top:2px;">本週</div>':''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  </div>
+
+  <!-- 🔑 紀律口訣 -->
+  <div class="card">
+    <div class="card-hd"><span class="card-ttl">🔑 守財 ＋ 聚財　六字口訣</span></div>
+    <div class="card-bd">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div style="padding:18px;text-align:center;background:linear-gradient(135deg,var(--blul),var(--card));border-radius:10px;border:2px solid var(--blu);">
+          <div style="font-family:'Noto Serif TC',serif;font-size:30px;font-weight:700;color:var(--blu);letter-spacing:0.2em;">守 財</div>
+          <div style="font-size:12px;color:var(--brown);margin-top:8px;line-height:1.8;">先扣後花 30-40%<br>現金 → 資產 (尤其房產)<br>看不懂的不碰</div>
+        </div>
+        <div style="padding:18px;text-align:center;background:linear-gradient(135deg,var(--grnl),var(--card));border-radius:10px;border:2px solid var(--grn);">
+          <div style="font-family:'Noto Serif TC',serif;font-size:30px;font-weight:700;color:var(--grn);letter-spacing:0.2em;">聚 財</div>
+          <div style="font-size:12px;color:var(--brown);margin-top:8px;line-height:1.8;">勞力 → 課程/品牌/抽成<br>漲價做精不衝量<br>可重複賣的產出</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// 更新本週某一項檢查
+window.updCoachCheck=async(field,value)=>{
+  const wk=getCoachWeekKey();
+  const checks={...(S.data.coachChecks||{})};
+  checks[wk]={...(checks[wk]||{}),[field]:value};
+  await saveMain({coachChecks:checks});
+  // 不 render（避免打斷 input 焦點）
+  // 但勾選類要 render
+  if(typeof value==='boolean')render();
+};
+
+// 📅 90 天計畫：開始
+window.startCoachPlan=async()=>{
+  if(!confirm('開始 90 天守財聚財行動計畫？\n從今天開始算第 1 天。'))return;
+  const d=new Date();
+  const startDate=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  await saveMain({coachPlan90:{startDate,tasks:{}}});
+  toast('🎯 90 天計畫已開始！');
+  render();
+};
+
+// 📅 90 天計畫：重置
+window.resetCoachPlan=async()=>{
+  if(!confirm('確定要重置 90 天計畫嗎？\n所有勾選會清空、起始日重設為今天。'))return;
+  const d=new Date();
+  const startDate=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  await saveMain({coachPlan90:{startDate,tasks:{}}});
+  toast('↺ 90 天計畫已重置');
+  render();
+};
+
+// 📅 90 天計畫：切換任務勾選
+window.togglePlanTask=async(taskId,checked)=>{
+  const plan=S.data.coachPlan90||{startDate:null,tasks:{}};
+  if(!plan.startDate){
+    // 還沒開始就勾選 → 自動開始
+    const d=new Date();
+    plan.startDate=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+  const tasks={...(plan.tasks||{})};
+  if(checked)tasks[taskId]=true;
+  else delete tasks[taskId];
+  await saveMain({coachPlan90:{...plan,tasks}});
+  render();
+};
+
+// 📋 每週財務回報：更新欄位
+window.updWeeklyReport=async(field,value)=>{
+  const wk=getCoachWeekKey();
+  const reports={...(S.data.coachWeeklyReports||{})};
+  reports[wk]={...(reports[wk]||{}),[field]:value};
+  await saveMain({coachWeeklyReports:reports});
+  // 數字、單選需要 render 才能更新評判；文字保留焦點
+  if(typeof value==='number'||typeof value==='boolean')render();
+};
 
 function pgTrends(){
   const stocks=calcStocksValue();
