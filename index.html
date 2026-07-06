@@ -1815,7 +1815,7 @@ function pgExpensesNew(){
   <div class="card">
     <div class="card-hd">
       <span class="card-ttl">📌 固定支出（房租房貸、車貸、保險等）</span>
-      <button class="btn btn-p btn-sm" onclick="openM('addFix')">＋ 新增</button>
+      <button class="btn btn-p btn-sm" onclick="openM('addFixed')">＋ 新增</button>
     </div>
     <div class="card-bd">
       ${fixedItems.length===0?'<div class="empty" style="padding:30px;"><div style="font-size:48px;">📌</div><p>還沒設定固定支出</p></div>':`
@@ -1825,7 +1825,7 @@ function pgExpensesNew(){
           <td><b>${f.name||'-'}</b></td>
           <td>${f.category||'-'}</td>
           <td class="an">$${fmt(toN(f.amount))}</td>
-          <td style="text-align:right;"><button class="bdel" onclick="delFix('${f.id}')">×</button></td>
+          <td style="text-align:right;"><button class="bdel" onclick="delFixed('${f.id}')">×</button></td>
         </tr>`).join('')}
         <tr style="background:var(--accL);font-weight:700;">
           <td colspan="2">合計</td>
