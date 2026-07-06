@@ -7568,9 +7568,22 @@ function modal(){
 
   if(m.t==='addFixed'){c=`<div class="mttl">📌 新增固定支出</div>
     <div class="fg fg2">
-      <div class="fgrp"><label>項目名稱</label><input type="text" id="m0" placeholder="如：健身房、串流平台"></div>
+      <div class="fgrp"><label>項目名稱</label><input type="text" id="m0" placeholder="如：房貸、車貸、保險、健身房" autofocus></div>
       <div class="fgrp"><label>每月金額（元）</label><input type="number" id="m1" placeholder="0"></div>
-      <div class="fgrp" style="grid-column:1/-1"><label>備註</label><input type="text" id="m2" placeholder="說明或備忘"></div>
+      <div class="fgrp"><label>類別</label>
+        <select id="m_cat">
+          <option value="房貸/房租">🏠 房貸/房租</option>
+          <option value="車貸">🚗 車貸</option>
+          <option value="保險">🛡️ 保險</option>
+          <option value="貸款">💳 貸款/分期</option>
+          <option value="訂閱">📱 訂閱服務</option>
+          <option value="通訊">📞 通訊費</option>
+          <option value="教育">🎓 教育/課程</option>
+          <option value="其他">📌 其他</option>
+        </select>
+      </div>
+      <div class="fgrp"><label>付款日（每月）</label><input type="number" id="m_day" placeholder="如：15" min="1" max="31"></div>
+      <div class="fgrp" style="grid-column:1/-1"><label>備註</label><input type="text" id="m2" placeholder="說明或備忘（選填）"></div>
     </div>
     <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="saveFixed()">✓ 確認</button></div>`;}
 
@@ -8688,7 +8701,9 @@ window.saveDebt=async()=>{
 };
 window.saveFixed=async()=>{
   const name=g('m0'),amount=n('m1');if(!name||!amount){alert('請填名稱和金額');return;}
-  const fixedItems=[...(S.data.fixedItems||[]),{id:uid(),name,amount,note:g('m2')}];
+  const category=g('m_cat')||'其他';
+  const payDay=n('m_day')||null;
+  const fixedItems=[...(S.data.fixedItems||[]),{id:uid(),name,amount,category,payDay,note:g('m2')}];
   await saveMain({fixedItems});toast('✅ 固定支出已新增');closeMod();
 };
 window.updateFixed=async(id)=>{
