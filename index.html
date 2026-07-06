@@ -8,47 +8,47 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700;900&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  /* 💜 薰衣草紫 + 銀 — 家庭系統專屬 (跟沐蜜玫瑰紅金區分) */
-  --brown:#3D2E4A;--bl:#5D4E6D;--acc:#8B7BA8;--acc2:#B2A0C8;--accL:#E8E0F0;
-  --bg:#F7F3FA;--bg2:#EDE6F2;--bg3:#DED4EA;--card:#FFFFFF;--bdr:#D8CFE0;
-  --grn:#7B9B85;--grnl:#E8F0EA;--red:#B78598;--redl:#F2E4EA;
-  --yel:#F5EEDE;--yelb:#C4A365;--blu:#7B8AAF;--blul:#E5E8F2;
-  --pur:#8B7BA8;--purl:#EFE6F5;--gold:#B8965D;--goldL:#F0E6D0;
-  --rose:#B593B0;--roseL:#EEE0EB;
-  --silver:#C4BFCE;--silverL:#E8E4EE;--silverDk:#8A85A0;
-  /* 頁面主色（薰衣草紫調系） */
-  --pg-home:#8B7BA8;      /* 薰衣草 — 總覽 */
-  --pg-incomes:#7B9B85;   /* 森林綠 */
-  --pg-savings:#7B8AAF;   /* 暮色藍 */
-  --pg-expenses:#B593B0;  /* 淺紫玫瑰 */
-  --pg-ledger:#9D82B8;    /* 深薰衣草 */
-  --pg-stocks:#B89C7B;    /* 銀灰橘 */
-  --pg-networth:#B8965D;  /* 香檳金 */
-  --pg-trends:#8FA5B8;    /* 灰藍 */
-  --pg-coach:#3D3450;     /* 深暮夜紫 */
-  --pg-settings:#8A85A0;  /* 銀灰紫 */
-  --txt:#2E2438;--mut:#8A85A0;
-  --shd:0 1px 3px rgba(93,78,109,.06),0 2px 8px rgba(93,78,109,.08);
-  --shd2:0 4px 12px rgba(93,78,109,.10),0 8px 24px rgba(93,78,109,.08);
+  /* ☕ 深複古棕 + 琥珀金 — 家庭系統專屬（跟沐蜜玫瑰紅區隔） */
+  --brown:#3D2817;--bl:#5A3E2A;--acc:#8B6B47;--acc2:#C69440;--accL:#F3E4C5;
+  --bg:#FAF3E5;--bg2:#F3E8D0;--bg3:#E8D9B8;--card:#FFFDF6;--bdr:#DBC9A8;
+  --grn:#7B9B5A;--grnl:#EDF2E0;--red:#B85850;--redl:#F5DED9;
+  --yel:#FFF3D0;--yelb:#C69440;--blu:#8B7B5A;--blul:#F0EAD8;
+  --pur:#8B6B47;--purl:#F0E4CE;--gold:#C69440;--goldL:#F5EBCE;
+  --rose:#B87E52;--roseL:#F2DFC5;
+  --silver:#C9B99C;--silverL:#EEE4CE;--silverDk:#8B7B5A;
+  /* 頁面主色（琥珀金調系） */
+  --pg-home:#8B6B47;      /* 焦糖棕 — 總覽 */
+  --pg-incomes:#7B9B5A;   /* 橄欖綠 */
+  --pg-savings:#8B7B5A;   /* 沙棕 */
+  --pg-expenses:#B85850;  /* 磚紅 */
+  --pg-ledger:#C69440;    /* 琥珀金 */
+  --pg-stocks:#8B5A2A;    /* 深栗棕 */
+  --pg-networth:#D4A551;  /* 亮金 */
+  --pg-trends:#8B6B47;    /* 焦糖棕 */
+  --pg-coach:#3D2817;     /* 深黑棕 — 教練嚴肅感 */
+  --pg-settings:#8B7B5A;  /* 沙棕 */
+  --txt:#2A1810;--mut:#8B7B5A;
+  --shd:0 1px 3px rgba(61,40,23,.06),0 2px 8px rgba(61,40,23,.08);
+  --shd2:0 4px 12px rgba(61,40,23,.10),0 8px 24px rgba(61,40,23,.08);
   --r:14px;--r-sm:10px;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;letter-spacing:0.03em;}
 html,body{height:100%;}
-body{font-family:'Noto Sans TC',sans-serif;background:#F7F3FA;color:var(--txt);min-height:100vh;overflow-x:hidden;font-size:16px;line-height:1.75;position:relative;}
-/* 💜 薰衣草浮水印 — 整體頁面背景的溫柔光暈 */
+body{font-family:'Noto Sans TC',sans-serif;background:#FAF3E5;color:var(--txt);min-height:100vh;overflow-x:hidden;font-size:16px;line-height:1.75;position:relative;}
+/* ☕ 琥珀光暈浮水印 — 溫暖書房感 */
 body.with-watermark::before{
   content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   background-image:
-    radial-gradient(ellipse 600px 400px at 15% 20%,rgba(200,180,220,0.35),transparent 60%),
-    radial-gradient(ellipse 500px 350px at 85% 30%,rgba(180,170,215,0.28),transparent 65%),
-    radial-gradient(ellipse 700px 500px at 50% 70%,rgba(210,195,225,0.25),transparent 60%),
-    radial-gradient(ellipse 400px 300px at 20% 85%,rgba(190,180,220,0.22),transparent 60%),
-    radial-gradient(ellipse 450px 320px at 90% 90%,rgba(215,200,225,0.20),transparent 60%);
+    radial-gradient(ellipse 600px 400px at 15% 20%,rgba(215,180,120,0.32),transparent 60%),
+    radial-gradient(ellipse 500px 350px at 85% 30%,rgba(200,165,110,0.28),transparent 65%),
+    radial-gradient(ellipse 700px 500px at 50% 70%,rgba(220,185,125,0.22),transparent 60%),
+    radial-gradient(ellipse 400px 300px at 20% 85%,rgba(195,160,105,0.20),transparent 60%),
+    radial-gradient(ellipse 450px 320px at 90% 90%,rgba(210,175,115,0.18),transparent 60%);
   background-attachment:fixed;
 }
 body.with-watermark::after{
   content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
-  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 800'><g opacity='0.05' fill='%235D4E6D'><circle cx='150' cy='180' r='60'/><circle cx='180' cy='200' r='45'/><circle cx='130' cy='220' r='40'/><circle cx='600' cy='300' r='55'/><circle cx='640' cy='320' r='40'/><circle cx='620' cy='350' r='38'/><circle cx='400' cy='600' r='50'/><circle cx='430' cy='620' r='40'/><circle cx='380' cy='630' r='35'/><circle cx='720' cy='700' r='42'/><circle cx='80' cy='650' r='45'/></g></svg>");
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 800'><g opacity='0.04' fill='%235A3E2A'><circle cx='150' cy='180' r='60'/><circle cx='180' cy='200' r='45'/><circle cx='130' cy='220' r='40'/><circle cx='600' cy='300' r='55'/><circle cx='640' cy='320' r='40'/><circle cx='620' cy='350' r='38'/><circle cx='400' cy='600' r='50'/><circle cx='430' cy='620' r='40'/><circle cx='380' cy='630' r='35'/><circle cx='720' cy='700' r='42'/><circle cx='80' cy='650' r='45'/></g></svg>");
   background-size:cover;background-attachment:fixed;background-position:center;
   opacity:0.5;
 }
@@ -57,7 +57,7 @@ body.with-watermark::after{
 h1,h2,h3,.serif{font-family:'Noto Serif TC',serif;letter-spacing:0.06em;}
 
 /* LOGIN */
-.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#2E2438,var(--brown),#5D4E6D);padding:20px;}
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#2A1810,#3D2817,#5A3E2A);padding:20px;}
 .login-box{background:var(--card);border-radius:24px;padding:40px 36px;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center;animation:fadeIn .4s ease;}
 @keyframes fadeIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 .login-ico{font-size:56px;margin-bottom:12px;}
@@ -85,17 +85,17 @@ h1,h2,h3,.serif{font-family:'Noto Serif TC',serif;letter-spacing:0.06em;}
 .sync-lbl{font-size:12px;color:var(--mut);letter-spacing:0.1em;}
 .btn-out{background:#FFFFFF;border:1.5px solid var(--bdr);color:var(--brown);border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;letter-spacing:0.08em;transition:all .25s;font-weight:500;}
 .btn-out:hover{border-color:var(--pur);color:var(--pur);}
-.btn-search{background:linear-gradient(135deg,var(--pur),var(--acc));color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;letter-spacing:0.08em;font-weight:600;transition:all .25s;box-shadow:0 2px 8px rgba(139,123,168,0.3);}
-.btn-search:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(139,123,168,0.45);}
+.btn-search{background:linear-gradient(135deg,var(--gold),#B8853A);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;letter-spacing:0.08em;font-weight:600;transition:all .25s;box-shadow:0 2px 8px rgba(198,148,64,0.3);}
+.btn-search:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(198,148,64,0.45);}
 
 /* LAYOUT */
 .layout{display:flex;flex:1;overflow:hidden;}
-.sidebar{width:230px;background:linear-gradient(180deg,#3D3450 0%,#2E2838 100%);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0;padding:20px 0;border-right:1px solid rgba(255,255,255,0.05);box-shadow:2px 0 12px rgba(0,0,0,0.08);}
-.sb-sec-lbl{font-size:11px;font-weight:500;color:rgba(255,255,255,0.45);letter-spacing:3px;text-transform:uppercase;padding:18px 22px 8px;font-family:'Noto Serif TC',serif;}
-.sb-item{display:flex;align-items:center;gap:14px;padding:14px 22px;cursor:pointer;font-size:15px;color:rgba(255,255,255,0.75);font-weight:500;transition:all .25s cubic-bezier(.4,0,.2,1);border-left:4px solid transparent;letter-spacing:0.12em;position:relative;}
-.sb-item:hover{background:rgba(255,255,255,0.06);color:#FFFFFF;padding-left:26px;}
-.sb-item.active{background:rgba(255,255,255,0.14);color:#FFFFFF;font-weight:700;border-left-color:var(--gold);}
-.sb-item.active::after{content:'';position:absolute;right:16px;top:50%;transform:translateY(-50%);width:6px;height:6px;border-radius:50%;background:var(--gold);box-shadow:0 0 10px rgba(184,150,93,0.8);}
+.sidebar{width:230px;background:linear-gradient(180deg,#3D2817 0%,#2A1A0F 100%);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0;padding:20px 0;border-right:1px solid rgba(198,148,64,0.15);box-shadow:2px 0 12px rgba(0,0,0,0.10);}
+.sb-sec-lbl{font-size:11px;font-weight:500;color:rgba(255,240,210,0.50);letter-spacing:3px;text-transform:uppercase;padding:18px 22px 8px;font-family:'Noto Serif TC',serif;}
+.sb-item{display:flex;align-items:center;gap:14px;padding:14px 22px;cursor:pointer;font-size:15px;color:rgba(255,240,210,0.80);font-weight:500;transition:all .25s cubic-bezier(.4,0,.2,1);border-left:4px solid transparent;letter-spacing:0.12em;position:relative;}
+.sb-item:hover{background:rgba(198,148,64,0.10);color:#FFF3D0;padding-left:26px;}
+.sb-item.active{background:rgba(198,148,64,0.18);color:#FFF3D0;font-weight:700;border-left-color:var(--gold);}
+.sb-item.active::after{content:'';position:absolute;right:16px;top:50%;transform:translateY(-50%);width:6px;height:6px;border-radius:50%;background:var(--gold);box-shadow:0 0 10px rgba(198,148,64,0.9);}
 /* 沐蜜風格：每個項目有自己的主色（左邊小色條） */
 .sb-item[data-pg="home"].active{border-left-color:var(--pg-home);}
 .sb-item[data-pg="incomes"].active{border-left-color:var(--pg-incomes);}
@@ -1010,7 +1010,7 @@ function topBar(){
   <div class="tb-right">
     <div class="fb g8"><div class="sync-dot ${S.sync}"></div><span class="sync-lbl">${S.sync==='synced'?'已同步':S.sync==='syncing'?'同步中…':'離線'}</span></div>
     <button class="btn-search" onclick="openGlobalSearch()">🔍 搜尋</button>
-    <button class="btn-out" onclick="toggleWatermark()" title="切換背景浮水印">💜</button>
+    <button class="btn-out" onclick="toggleWatermark()" title="切換背景浮水印">☕</button>
     <button class="btn-out" onclick="exportCSV()">⬇ 匯出</button>
     <button class="btn-out" onclick="doOut()">登出</button>
   </div>
@@ -6839,10 +6839,47 @@ function pgLedger(){
             <button class="btn btn-p btn-sm" onclick="openM('addLE')">＋ 記一筆</button>
           </div>
         </div>
+
+        <!-- 📊 本月各類別統計方塊（沐蜜風格） -->
+        ${(()=>{
+          if(entries.length===0)return'';
+          // 分類統計（只算支出，也就是負數）
+          const byCat={};
+          entries.forEach(e=>{
+            if(toN(e.amount)>=0)return; // 只算支出
+            const cat=e.cat||'未分類';
+            byCat[cat]=(byCat[cat]||0)+Math.abs(toN(e.amount));
+          });
+          const sortedCats=Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+          if(sortedCats.length===0)return'';
+          const totalOut=sortedCats.reduce((s,[,v])=>s+v,0);
+          return`<div style="background:linear-gradient(135deg,var(--goldL),var(--card));padding:14px 18px;border-bottom:1px solid var(--bdr);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+              <b style="font-family:'Noto Serif TC',serif;font-size:13.5px;color:var(--brown);">📊 本月各類別支出（${sortedCats.length} 個類別）</b>
+              ${S.ledgerCatFilter?`<button class="btn btn-y btn-sm" style="font-size:11.5px;" onclick="S.ledgerCatFilter=null;render();">✕ 清除篩選</button>`:''}
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;">
+              ${sortedCats.map(([cat,amt])=>{
+                const pct=totalOut>0?Math.round(amt/totalOut*100):0;
+                const active=S.ledgerCatFilter===cat;
+                const catEscaped=cat.replace(/'/g,"\\'");
+                return`<button onclick="setLedgerCatFilter(${active?'null':`'${catEscaped}'`})" style="text-align:left;padding:10px 12px;background:${active?'var(--gold)':'#fff'};color:${active?'#fff':'var(--txt)'};border:1.5px solid ${active?'var(--gold)':'var(--bdr)'};border-radius:8px;cursor:pointer;transition:all 0.15s;font-family:inherit;">
+                  <div style="font-size:11.5px;opacity:0.8;">${cat}</div>
+                  <div style="font-size:17px;font-weight:700;color:${active?'#fff':'var(--red)'};margin:2px 0;font-family:'Noto Serif TC',serif;">$${fmt(amt)}</div>
+                  <div style="font-size:10.5px;opacity:0.7;">佔 ${pct}%</div>
+                </button>`;
+              }).join('')}
+            </div>
+          </div>`;
+        })()}
+
         <div class="tw"><table>
           <thead><tr><th>日期</th><th>金額</th><th>類別</th><th>說明</th><th style="text-align:center;">同步</th><th title="本月內逐筆累積（不是帳本總餘額）">本月累積</th><th></th></tr></thead>
-          <tbody>${rows.length===0?`<tr><td colspan="7"><div class="empty"><div class="empty-ico">📒</div><p>本月尚無紀錄</p></div></td></tr>`:
-            rows.map(r=>{
+          <tbody>${(()=>{
+            // 依類別篩選（如果有）
+            const displayRows=S.ledgerCatFilter?rows.filter(r=>(r.cat||'未分類')===S.ledgerCatFilter):rows;
+            if(displayRows.length===0)return`<tr><td colspan="7"><div class="empty"><div class="empty-ico">📒</div><p>${S.ledgerCatFilter?`類別「${S.ledgerCatFilter}」本月無紀錄`:'本月尚無紀錄'}</p></div></td></tr>`;
+            return displayRows.map(r=>{
               const hasLink=!!r.linkId;
               const hasCardText=r.linkedCardBank||(r.note||'').includes('💳');
               const isOrphan=!hasLink&&hasCardText;
@@ -6854,9 +6891,21 @@ function pgLedger(){
               <td style="text-align:center;font-size:11px;">${hasLink?`<span class="bdg" style="background:var(--grn);color:#fff;" title="已連動信用卡明細">🔗 ${r.linkedCardBank||'已同步'}</span>`:isOrphan?`<span class="bdg" style="background:var(--red);color:#fff;" title="備註提到信用卡但沒同步！">⚠️ 未連動</span>`:'<span class="tm">－</span>'}</td>
               <td class="run-bal">$${fmt(r.run)}</td>
               <td style="white-space:nowrap;"><button class="bdel" style="color:#aaa;font-size:13px;" onclick="openM('editLE','${r.id}')">✏️</button><button class="bdel" onclick="delLE('${r.id}')">×</button></td>
-            </tr>`;}).join('')}
+            </tr>`;}).join('');
+          })()}
           </tbody>
         </table></div>
+
+        <!-- 本月合計（沐蜜風格） -->
+        <div style="padding:14px 20px;border-top:1px solid var(--bdr);background:var(--bg2);display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:12px;">
+          <div>
+            <b style="font-size:13.5px;color:var(--brown);">${S.ledgerCatFilter?`類別「${S.ledgerCatFilter}」合計`:'本月合計'}：</b>
+            <span style="font-family:'Noto Serif TC',serif;font-size:19px;font-weight:700;color:${mOut>0?'var(--red)':'var(--grn)'};margin-left:6px;">$${fmt(S.ledgerCatFilter?entries.filter(e=>(e.cat||'未分類')===S.ledgerCatFilter&&toN(e.amount)<0).reduce((s,e)=>s+Math.abs(toN(e.amount)),0):mOut)}</span>
+          </div>
+          <div class="tm" style="font-size:12px;">
+            本月存入 <b style="color:var(--grn);">$${fmt(mIn)}</b>　·　本月支出 <b style="color:var(--red);">$${fmt(mOut)}</b>　·　本月淨額 <b style="color:${(mIn-mOut)>=0?'var(--grn)':'var(--red)'};">${(mIn-mOut)>=0?'+':''}$${fmt(mIn-mOut)}</b>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -8583,6 +8632,12 @@ window.toggleWatermark=()=>{
   const cur=localStorage.getItem('wmOff')==='1';
   if(cur){localStorage.removeItem('wmOff');toast('💜 已開啟浮水印');}
   else{localStorage.setItem('wmOff','1');toast('已關閉浮水印');}
+  render();
+};
+
+// 📒 預備金：切換類別篩選
+window.setLedgerCatFilter=(cat)=>{
+  S.ledgerCatFilter=cat;
   render();
 };
 
