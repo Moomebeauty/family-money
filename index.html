@@ -8,56 +8,54 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700;900&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  /* ☕ 深複古棕 + 琥珀金 — 家庭系統專屬（跟沐蜜玫瑰紅區隔） */
-  --brown:#3D2817;--bl:#5A3E2A;--acc:#8B6B47;--acc2:#C69440;--accL:#F3E4C5;
-  --bg:#FAF3E5;--bg2:#F3E8D0;--bg3:#E8D9B8;--card:#FFFDF6;--bdr:#DBC9A8;
-  --grn:#7B9B5A;--grnl:#EDF2E0;--red:#B85850;--redl:#F5DED9;
-  --yel:#FFF3D0;--yelb:#C69440;--blu:#8B7B5A;--blul:#F0EAD8;
-  --pur:#8B6B47;--purl:#F0E4CE;--gold:#C69440;--goldL:#F5EBCE;
-  --rose:#B87E52;--roseL:#F2DFC5;
-  --silver:#C9B99C;--silverL:#EEE4CE;--silverDk:#8B7B5A;
-  /* 頁面主色（琥珀金調系） */
-  --pg-home:#8B6B47;      /* 焦糖棕 — 總覽 */
-  --pg-incomes:#7B9B5A;   /* 橄欖綠 */
-  --pg-savings:#8B7B5A;   /* 沙棕 */
-  --pg-expenses:#B85850;  /* 磚紅 */
-  --pg-ledger:#C69440;    /* 琥珀金 */
-  --pg-stocks:#8B5A2A;    /* 深栗棕 */
-  --pg-networth:#D4A551;  /* 亮金 */
-  --pg-trends:#8B6B47;    /* 焦糖棕 */
-  --pg-coach:#3D2817;     /* 深黑棕 — 教練嚴肅感 */
-  --pg-settings:#8B7B5A;  /* 沙棕 */
-  --txt:#2A1810;--mut:#8B7B5A;
-  --shd:0 1px 3px rgba(61,40,23,.06),0 2px 8px rgba(61,40,23,.08);
-  --shd2:0 4px 12px rgba(61,40,23,.10),0 8px 24px rgba(61,40,23,.08);
-  --r:14px;--r-sm:10px;
+  /* 🍑 珊瑚橘 + 奶白 — 溫暖活潑不沉悶 */
+  --brown:#5D3A2E;--bl:#7D5A4A;--acc:#FF8E7A;--acc2:#FFA987;--accL:#FFEDE5;
+  --bg:#FFF8F3;--bg2:#FFEFE5;--bg3:#FFE0D0;--card:#FFFFFF;--bdr:#FFD8C5;
+  --grn:#7DB89A;--grnl:#E5F3ED;--red:#E86B5C;--redl:#FFE0DC;
+  --yel:#FFF3D8;--yelb:#F5B764;--blu:#7BA8C9;--blul:#E5EEF5;
+  --pur:#C29ACC;--purl:#F0E5F2;--gold:#F5A25D;--goldL:#FFEAD0;
+  --rose:#FFA987;--roseL:#FFE5D5;
+  --coral:#FF8E7A;--coralD:#F26E5A;--coralL:#FFEDE5;
+  /* 頁面主色（珊瑚橘調系） */
+  --pg-home:#FF8E7A;
+  --pg-incomes:#7DB89A;
+  --pg-savings:#7BA8C9;
+  --pg-expenses:#E86B5C;
+  --pg-ledger:#F5A25D;
+  --pg-stocks:#F5B764;
+  --pg-networth:#FFA987;
+  --pg-trends:#C29ACC;
+  --pg-coach:#5D3A2E;
+  --pg-settings:#7D5A4A;
+  --txt:#3D2418;--mut:#9E7565;
+  --shd:0 1px 3px rgba(255,142,122,.08),0 2px 8px rgba(93,58,46,.06);
+  --shd2:0 4px 16px rgba(255,142,122,.14),0 8px 32px rgba(93,58,46,.08);
+  --r:16px;--r-sm:12px;
 }
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;letter-spacing:0.03em;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;letter-spacing:0.02em;}
 html,body{height:100%;}
-body{font-family:'Noto Sans TC',sans-serif;background:#FAF3E5;color:var(--txt);min-height:100vh;overflow-x:hidden;font-size:16px;line-height:1.75;position:relative;}
-/* ☕ 琥珀光暈浮水印 — 溫暖書房感 */
+body{font-family:'Noto Sans TC',sans-serif;background:#FFF8F3;color:var(--txt);min-height:100vh;overflow-x:hidden;font-size:16px;line-height:1.75;position:relative;}
+/* 🍑 珊瑚光暈浮水印 */
 body.with-watermark::before{
   content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   background-image:
-    radial-gradient(ellipse 600px 400px at 15% 20%,rgba(215,180,120,0.32),transparent 60%),
-    radial-gradient(ellipse 500px 350px at 85% 30%,rgba(200,165,110,0.28),transparent 65%),
-    radial-gradient(ellipse 700px 500px at 50% 70%,rgba(220,185,125,0.22),transparent 60%),
-    radial-gradient(ellipse 400px 300px at 20% 85%,rgba(195,160,105,0.20),transparent 60%),
-    radial-gradient(ellipse 450px 320px at 90% 90%,rgba(210,175,115,0.18),transparent 60%);
+    radial-gradient(ellipse 700px 500px at 15% 20%,rgba(255,178,155,0.30),transparent 60%),
+    radial-gradient(ellipse 600px 400px at 85% 30%,rgba(255,195,175,0.28),transparent 65%),
+    radial-gradient(ellipse 800px 600px at 50% 75%,rgba(255,210,190,0.24),transparent 60%),
+    radial-gradient(ellipse 450px 320px at 90% 85%,rgba(255,190,165,0.22),transparent 60%);
   background-attachment:fixed;
 }
 body.with-watermark::after{
   content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
-  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 800'><g opacity='0.04' fill='%235A3E2A'><circle cx='150' cy='180' r='60'/><circle cx='180' cy='200' r='45'/><circle cx='130' cy='220' r='40'/><circle cx='600' cy='300' r='55'/><circle cx='640' cy='320' r='40'/><circle cx='620' cy='350' r='38'/><circle cx='400' cy='600' r='50'/><circle cx='430' cy='620' r='40'/><circle cx='380' cy='630' r='35'/><circle cx='720' cy='700' r='42'/><circle cx='80' cy='650' r='45'/></g></svg>");
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 800'><g opacity='0.05' fill='%23FF8E7A'><circle cx='150' cy='180' r='55'/><circle cx='600' cy='300' r='50'/><circle cx='400' cy='620' r='45'/><circle cx='720' cy='700' r='40'/><circle cx='80' cy='650' r='42'/></g></svg>");
   background-size:cover;background-attachment:fixed;background-position:center;
-  opacity:0.5;
+  opacity:0.6;
 }
-/* 確保內容浮在背景上 */
 .app{position:relative;z-index:1;}
 h1,h2,h3,.serif{font-family:'Noto Serif TC',serif;letter-spacing:0.06em;}
 
 /* LOGIN */
-.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#2A1810,#3D2817,#5A3E2A);padding:20px;}
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#FFA987,#FF8E7A,#F26E5A);padding:20px;}
 .login-box{background:var(--card);border-radius:24px;padding:40px 36px;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center;animation:fadeIn .4s ease;}
 @keyframes fadeIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 .login-ico{font-size:56px;margin-bottom:12px;}
@@ -85,21 +83,21 @@ h1,h2,h3,.serif{font-family:'Noto Serif TC',serif;letter-spacing:0.06em;}
 .sync-lbl{font-size:12px;color:var(--mut);letter-spacing:0.1em;}
 .btn-out{background:#FFFFFF;border:1.5px solid var(--bdr);color:var(--brown);border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;letter-spacing:0.08em;transition:all .25s;font-weight:500;}
 .btn-out:hover{border-color:var(--pur);color:var(--pur);}
-.btn-search{background:linear-gradient(135deg,var(--gold),#B8853A);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;letter-spacing:0.08em;font-weight:600;transition:all .25s;box-shadow:0 2px 8px rgba(198,148,64,0.3);}
+.btn-search{background:linear-gradient(135deg,var(--coral),var(--coralD));color:#fff;border:none;border-radius:10px;padding:8px 16px;font-size:13px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;letter-spacing:0.08em;font-weight:600;transition:all .25s;box-shadow:0 2px 8px rgba(255,142,122,0.35);}
 /* 金額輸入欄：藏原生上下箭頭 spinner（釋放空間給數字） */
 .amt-input::-webkit-outer-spin-button,
 .amt-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
 .amt-input{-moz-appearance:textfield;appearance:textfield;}
-.btn-search:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(198,148,64,0.45);}
+.btn-search:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(255,142,122,0.5);}
 
 /* LAYOUT */
 .layout{display:flex;flex:1;overflow:hidden;}
-.sidebar{width:230px;background:linear-gradient(180deg,#3D2817 0%,#2A1A0F 100%);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0;padding:20px 0;border-right:1px solid rgba(198,148,64,0.15);box-shadow:2px 0 12px rgba(0,0,0,0.10);}
-.sb-sec-lbl{font-size:11px;font-weight:500;color:rgba(255,240,210,0.50);letter-spacing:3px;text-transform:uppercase;padding:18px 22px 8px;font-family:'Noto Serif TC',serif;}
-.sb-item{display:flex;align-items:center;gap:14px;padding:14px 22px;cursor:pointer;font-size:15px;color:rgba(255,240,210,0.80);font-weight:500;transition:all .25s cubic-bezier(.4,0,.2,1);border-left:4px solid transparent;letter-spacing:0.12em;position:relative;}
-.sb-item:hover{background:rgba(198,148,64,0.10);color:#FFF3D0;padding-left:26px;}
-.sb-item.active{background:rgba(198,148,64,0.18);color:#FFF3D0;font-weight:700;border-left-color:var(--gold);}
-.sb-item.active::after{content:'';position:absolute;right:16px;top:50%;transform:translateY(-50%);width:6px;height:6px;border-radius:50%;background:var(--gold);box-shadow:0 0 10px rgba(198,148,64,0.9);}
+.sidebar{width:220px;background:linear-gradient(180deg,#FFE8DE 0%,#FFD4BF 100%);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0;padding:20px 0;border-right:1px solid rgba(255,142,122,0.20);}
+.sb-sec-lbl{font-size:11px;font-weight:600;color:var(--coralD);letter-spacing:3px;text-transform:uppercase;padding:18px 22px 8px;font-family:'Noto Serif TC',serif;}
+.sb-item{display:flex;align-items:center;gap:14px;padding:14px 22px;cursor:pointer;font-size:15px;color:var(--brown);font-weight:600;transition:all .25s cubic-bezier(.4,0,.2,1);border-left:4px solid transparent;letter-spacing:0.10em;position:relative;}
+.sb-item:hover{background:rgba(255,255,255,0.5);color:var(--coralD);padding-left:26px;}
+.sb-item.active{background:rgba(255,255,255,0.75);color:var(--coralD);font-weight:700;border-left-color:var(--coral);box-shadow:0 2px 8px rgba(255,142,122,0.20);}
+.sb-item.active::after{content:'';position:absolute;right:16px;top:50%;transform:translateY(-50%);width:6px;height:6px;border-radius:50%;background:var(--coral);box-shadow:0 0 10px rgba(255,142,122,0.6);}
 /* 沐蜜風格：每個項目有自己的主色（左邊小色條） */
 .sb-item[data-pg="home"].active{border-left-color:var(--pg-home);}
 .sb-item[data-pg="incomes"].active{border-left-color:var(--pg-incomes);}
@@ -776,15 +774,19 @@ const CARD_SCENARIOS=[
 ];
 
 const PAGES=[
-  // 側邊欄顯示的 6 個核心頁面
-  {id:'home',     ico:'📊',lbl:'總覽',group:'main'},
-  {id:'incomes',  ico:'💵',lbl:'收入記帳',group:'main'},
-  {id:'expenses2',ico:'💸',lbl:'每月支出',group:'main'},
-  {id:'ledger',   ico:'📒',lbl:'預備金帳本',group:'main'},
-  {id:'trends',   ico:'📈',lbl:'趨勢分析',group:'main'},
-  {id:'coach',    ico:'👨‍🏫',lbl:'財務教練',group:'main'},
-  {id:'settings', ico:'⚙️',lbl:'設定',group:'main'},
-  // 以下為隱藏頁面（保留功能與資料，可從設定進入）
+  // 極簡版主要頁面（4 個）
+  {id:'simple',   ico:'🏠',lbl:'我的錢',group:'main'},
+  {id:'quickInc', ico:'💵',lbl:'記一筆收入',group:'main'},
+  {id:'quickExp', ico:'💸',lbl:'記一筆支出',group:'main'},
+  {id:'fixedNew', ico:'📌',lbl:'固定支出',group:'main'},
+  {id:'settings', ico:'⚙️',lbl:'進階功能',group:'main'},
+  // 以下全部隱藏（保留資料 & 功能，未來還能用）
+  {id:'home',     ico:'📊',lbl:'總覽',group:'hidden'},
+  {id:'incomes',  ico:'💵',lbl:'收入記帳',group:'hidden'},
+  {id:'expenses2',ico:'💸',lbl:'每月支出',group:'hidden'},
+  {id:'ledger',   ico:'📒',lbl:'預備金帳本',group:'hidden'},
+  {id:'trends',   ico:'📈',lbl:'趨勢分析',group:'hidden'},
+  {id:'coach',    ico:'👨‍🏫',lbl:'財務教練',group:'hidden'},
   {id:'savings2', ico:'🏦',lbl:'每月存款',group:'hidden'},
   {id:'stocks',   ico:'📈',lbl:'本月股票現值',group:'hidden'},
   {id:'networth2',ico:'💰',lbl:'每月總資產',group:'hidden'},
@@ -803,7 +805,7 @@ const PAGES=[
   {id:'networth', ico:'💎',lbl:'資產負債',group:'hidden'},
   {id:'cashflow', ico:'💵',lbl:'收入現金流',group:'hidden'},
   {id:'expenses', ico:'🧾',lbl:'支出記帳',group:'hidden'},
-  {id:'fixed',    ico:'📌',lbl:'固定支出',group:'hidden'},
+  {id:'fixed',    ico:'📌',lbl:'固定支出(舊)',group:'hidden'},
   {id:'budget',   ico:'📋',lbl:'預算',group:'hidden'},
   {id:'cc',       ico:'💳',lbl:'信用卡',group:'hidden'},
   {id:'monthlytab',ico:'📅',lbl:'逐月收支',group:'hidden'},
@@ -815,7 +817,7 @@ const MOB=['home','incomes','savings2','expenses2','settings'];
 
 // ── STATE ───────────────────────────────────────────────────
 let S={
-  auth:false,user:'伯涵',page:'home',month:new Date().getMonth()+1,
+  auth:false,user:'伯涵',page:'simple',month:new Date().getMonth()+1,
   subTab:0,sync:'idle',modal:null,ledgerIdx:0,
   importStaging:[],importMethod:null,ocrProgress:0,
   data:{
@@ -1014,15 +1016,15 @@ function topBar(){
   <div class="tb-right">
     <div class="fb g8"><div class="sync-dot ${S.sync}"></div><span class="sync-lbl">${S.sync==='synced'?'已同步':S.sync==='syncing'?'同步中…':'離線'}</span></div>
     <button class="btn-search" onclick="openGlobalSearch()">🔍 搜尋</button>
-    <button class="btn-out" onclick="toggleWatermark()" title="切換背景浮水印">☕</button>
+    <button class="btn-out" onclick="toggleWatermark()" title="切換背景浮水印">🍑</button>
     <button class="btn-out" onclick="exportCSV()">⬇ 匯出</button>
     <button class="btn-out" onclick="doOut()">登出</button>
   </div>
 </div>`;}
 function sidebar(){return`<nav class="sidebar">
 <div style="padding:8px 22px 20px;">
-  <div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:#fff;letter-spacing:4px;">🏡 家庭財務</div>
-  <div style="font-size:11px;color:rgba(255,255,255,0.45);letter-spacing:0.2em;margin-top:2px;">FAMILY · FINANCE</div>
+  <div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:var(--coralD);letter-spacing:4px;">🏡 家庭錢包</div>
+  <div style="font-size:11px;color:var(--coral);letter-spacing:0.2em;margin-top:2px;font-weight:600;">MY MONEY</div>
 </div>
 ${PAGES.filter(p=>p.group==='main').map(p=>`<div class="sb-item${S.page===p.id?' active':''}" data-pg="${p.id}" onclick="setP('${p.id}')"><span class="ico">${p.ico}</span><span>${p.lbl}</span></div>`).join('')}
 </nav>`;}
@@ -1037,6 +1039,11 @@ function moSel(){return`<div class="mo-scroll">${MOS.map((m,i)=>`<div class="mo-
 // ═══ PAGES ════════════════════════════════════════════════════
 function page(){
   switch(S.page){
+    // 🍑 極簡版新頁面
+    case'simple':   return pgSimple();
+    case'quickInc': return pgQuickIncome();
+    case'quickExp': return pgQuickExpense();
+    case'fixedNew': return pgFixedNew();
     // 新版 6 大主頁（V7 重構）
     case'home':     return pgOverviewNew();
     case'incomes':  return pgIncomesNew();
@@ -1452,6 +1459,389 @@ function calcCashWater(){
 }
 
 // ──── 📊 總覽 ─────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+// ──── 🍑 極簡版：我的錢 · 記一筆收入 · 記一筆支出 · 固定支出 ────
+// ═══════════════════════════════════════════════════════════
+
+// 🏠 我的錢（首頁 — 一頁看完錢的流向）
+function pgSimple(){
+  const M=computeMonthly();
+  const fixedItems=S.data.fixedItems||[];
+  const fixedTotal=fixedItems.reduce((s,f)=>s+toN(f.amount),0);
+  const remain=M.tInc-M.tExp-fixedTotal;
+  const spentPct=M.tInc>0?Math.round((M.tExp+fixedTotal)/M.tInc*100):0;
+
+  // 本月收入 by 類別
+  const incs=(S.data.incomes||[]).filter(i=>i.month===S.month&&i.year===yr());
+  const byIncCat={};
+  incs.forEach(i=>{const c=i.category||i.item||'其他';byIncCat[c]=(byIncCat[c]||0)+toN(i.amount);});
+  const sortedInc=Object.entries(byIncCat).sort((a,b)=>b[1]-a[1]);
+
+  // 本月支出 by 類別（不含固定支出 & 預備金連動）
+  const exps=(S.data.expenses||[]).filter(e=>e.month===S.month&&e.year===yr()&&!e.fromLedger&&!e.excludeFromBudget);
+  const byExpCat={};
+  exps.forEach(e=>{const c=e.category||'其他';byExpCat[c]=(byExpCat[c]||0)+toN(e.amount);});
+  const sortedExp=Object.entries(byExpCat).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const totalExp=Object.values(byExpCat).reduce((s,v)=>s+v,0);
+
+  const medals=['🥇','🥈','🥉','4️⃣','5️⃣'];
+
+  return`
+  <div style="max-width:720px;margin:0 auto;">
+
+    <!-- 🌸 大標題 -->
+    <div style="text-align:center;padding:20px 0 10px;">
+      <div style="font-family:'Noto Serif TC',serif;font-size:32px;font-weight:700;color:var(--coralD);letter-spacing:0.15em;">${S.month} 月</div>
+      <div class="tm" style="font-size:13px;letter-spacing:0.2em;margin-top:2px;">${yr()} · ${['一','二','三','四','五','六','七','八','九','十','十一','十二'][S.month-1]}月的錢</div>
+    </div>
+
+    <!-- 💰 頂部主卡：本月狀況 -->
+    <div style="background:linear-gradient(135deg,#FFF,var(--coralL));border-radius:22px;padding:26px 28px;box-shadow:0 8px 32px rgba(255,142,122,0.15);border:1.5px solid rgba(255,142,122,0.15);margin-bottom:16px;">
+
+      <!-- 兩欄：收入 vs 支出 -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+        <div style="text-align:center;padding:14px 12px;background:var(--grnl);border-radius:16px;">
+          <div style="font-size:12px;letter-spacing:0.15em;color:var(--grn);font-weight:600;">💵 錢進來</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:26px;font-weight:700;color:var(--grn);margin-top:4px;">+$${fmt(M.tInc)}</div>
+        </div>
+        <div style="text-align:center;padding:14px 12px;background:var(--redl);border-radius:16px;">
+          <div style="font-size:12px;letter-spacing:0.15em;color:var(--red);font-weight:600;">💸 錢出去</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:26px;font-weight:700;color:var(--red);margin-top:4px;">-$${fmt(M.tExp+fixedTotal)}</div>
+        </div>
+      </div>
+
+      <!-- 剩餘 -->
+      <div style="padding:16px 20px;background:${remain>=0?'linear-gradient(135deg,var(--coralL),#fff)':'var(--redl)'};border-radius:16px;border:2px solid ${remain>=0?'var(--coral)':'var(--red)'};">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;">
+          <span style="font-size:14px;color:var(--brown);font-weight:600;letter-spacing:0.1em;">${remain>=0?'✨ 這個月還剩':'⚠️ 這個月超支了'}</span>
+          <span style="font-family:'Noto Serif TC',serif;font-size:32px;font-weight:700;color:${remain>=0?'var(--coralD)':'var(--red)'};">${remain>=0?'+':''}$${fmt(remain)}</span>
+        </div>
+        <!-- 進度條 -->
+        <div style="margin-top:10px;height:10px;background:#fff;border-radius:10px;overflow:hidden;box-shadow:inset 0 1px 3px rgba(0,0,0,0.06);">
+          <div style="height:100%;width:${Math.min(spentPct,100)}%;background:linear-gradient(90deg,var(--coral),${spentPct>100?'var(--red)':'var(--coralD)'});border-radius:10px;transition:width 0.5s;"></div>
+        </div>
+        <div class="tm" style="font-size:11.5px;margin-top:6px;text-align:right;">已花掉 <b style="color:${spentPct>100?'var(--red)':'var(--coralD)'};">${spentPct}%</b> 的收入</div>
+      </div>
+    </div>
+
+    <!-- 💵 錢從哪裡來 -->
+    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(255,142,122,0.10);margin-bottom:16px;border-top:4px solid var(--grn);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <span style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--brown);letter-spacing:0.1em;">💵 錢從哪裡來？</span>
+        <button onclick="setP('quickInc')" style="background:var(--grn);color:#fff;border:none;padding:6px 14px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">＋ 記一筆</button>
+      </div>
+      ${sortedInc.length===0?`<div style="text-align:center;padding:30px 20px;color:var(--mut);">
+        <div style="font-size:36px;">📭</div>
+        <div style="margin-top:8px;font-size:14px;">這個月還沒有收入紀錄</div>
+        <button onclick="setP('quickInc')" style="margin-top:12px;background:var(--grn);color:#fff;border:none;padding:10px 20px;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;">＋ 記第一筆收入</button>
+      </div>`:sortedInc.map(([cat,amt],i)=>{
+        const pct=M.tInc>0?Math.round(amt/M.tInc*100):0;
+        return`<div style="padding:10px 4px;border-bottom:1px dashed var(--bdr);display:flex;align-items:center;gap:10px;">
+          <span style="font-size:20px;flex-shrink:0;">${medals[i]||'🔹'}</span>
+          <div style="flex:1;">
+            <div style="font-size:14px;color:var(--brown);font-weight:600;">${cat}</div>
+            <div style="height:5px;background:var(--bg2);border-radius:5px;margin-top:5px;overflow:hidden;">
+              <div style="height:100%;width:${pct}%;background:var(--grn);border-radius:5px;"></div>
+            </div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--grn);">$${fmt(amt)}</div>
+            <div class="tm" style="font-size:10.5px;">${pct}%</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <!-- 💸 錢花到哪裡 -->
+    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(255,142,122,0.10);margin-bottom:16px;border-top:4px solid var(--red);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <span style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--brown);letter-spacing:0.1em;">💸 錢花到哪裡？</span>
+        <button onclick="setP('quickExp')" style="background:var(--red);color:#fff;border:none;padding:6px 14px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">＋ 記一筆</button>
+      </div>
+      ${sortedExp.length===0?`<div style="text-align:center;padding:30px 20px;color:var(--mut);">
+        <div style="font-size:36px;">🛍️</div>
+        <div style="margin-top:8px;font-size:14px;">這個月還沒有支出紀錄</div>
+        <button onclick="setP('quickExp')" style="margin-top:12px;background:var(--red);color:#fff;border:none;padding:10px 20px;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;">＋ 記第一筆支出</button>
+      </div>`:sortedExp.map(([cat,amt],i)=>{
+        const pct=totalExp>0?Math.round(amt/totalExp*100):0;
+        return`<div style="padding:10px 4px;border-bottom:1px dashed var(--bdr);display:flex;align-items:center;gap:10px;">
+          <span style="font-size:20px;flex-shrink:0;">${medals[i]||'🔹'}</span>
+          <div style="flex:1;">
+            <div style="font-size:14px;color:var(--brown);font-weight:600;">${cat}</div>
+            <div style="height:5px;background:var(--bg2);border-radius:5px;margin-top:5px;overflow:hidden;">
+              <div style="height:100%;width:${pct}%;background:var(--red);border-radius:5px;"></div>
+            </div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--red);">$${fmt(amt)}</div>
+            <div class="tm" style="font-size:10.5px;">${pct}%</div>
+          </div>
+        </div>`;
+      }).join('')}
+      ${Object.keys(byExpCat).length>5?`<div class="tm" style="text-align:center;font-size:11.5px;margin-top:8px;">…還有 ${Object.keys(byExpCat).length-5} 個類別</div>`:''}
+    </div>
+
+    <!-- 📌 每月固定支出 -->
+    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(255,142,122,0.10);margin-bottom:16px;border-top:4px solid var(--gold);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <span style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--brown);letter-spacing:0.1em;">📌 每月固定要花</span>
+        <button onclick="setP('fixedNew')" style="background:var(--gold);color:#fff;border:none;padding:6px 14px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">管理</button>
+      </div>
+      ${fixedItems.length===0?`<div style="text-align:center;padding:30px 20px;color:var(--mut);">
+        <div style="font-size:36px;">📋</div>
+        <div style="margin-top:8px;font-size:14px;">還沒設定固定支出</div>
+        <div class="tm" style="font-size:12px;margin-top:4px;">例如：房貸、保險、Netflix、健身房…</div>
+        <button onclick="setP('fixedNew')" style="margin-top:12px;background:var(--gold);color:#fff;border:none;padding:10px 20px;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;">＋ 新增固定支出</button>
+      </div>`:`
+        ${fixedItems.slice(0,5).map(f=>`<div style="padding:10px 4px;border-bottom:1px dashed var(--bdr);display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-size:14px;color:var(--brown);font-weight:600;">${f.name||'-'}</div>
+            <div class="tm" style="font-size:11px;">${f.category||''}${f.payDay?' · 每月 '+f.payDay+' 號':''}</div>
+          </div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--gold);">$${fmt(toN(f.amount))}</div>
+        </div>`).join('')}
+        ${fixedItems.length>5?`<div class="tm" style="text-align:center;font-size:11.5px;margin-top:8px;">…還有 ${fixedItems.length-5} 個</div>`:''}
+        <!-- 合計 -->
+        <div style="margin-top:12px;padding:14px 18px;background:var(--goldL);border-radius:12px;display:flex;justify-content:space-between;align-items:baseline;">
+          <span style="font-size:14px;font-weight:700;color:var(--brown);">每月固定支出合計</span>
+          <span style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--gold);">$${fmt(fixedTotal)}</span>
+        </div>
+      `}
+    </div>
+
+    <!-- 月份切換 -->
+    <div style="text-align:center;padding:14px 0 20px;">
+      <div class="tm" style="font-size:11px;letter-spacing:0.15em;margin-bottom:6px;">切換月份</div>
+      ${moSel().replace('mo-scroll','mo-scroll').replace('style=""','style="justify-content:center;"')}
+    </div>
+
+  </div>`;
+}
+
+// 💵 記一筆收入（超簡單介面）
+function pgQuickIncome(){
+  const incs=(S.data.incomes||[]).filter(i=>i.month===S.month&&i.year===yr()).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const total=incs.reduce((s,i)=>s+toN(i.amount),0);
+
+  return`
+  <div style="max-width:720px;margin:0 auto;">
+
+    <!-- 大標題 -->
+    <div style="text-align:center;padding:20px 0 16px;">
+      <div style="font-size:48px;">💵</div>
+      <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--grn);letter-spacing:0.15em;margin-top:4px;">記一筆收入</div>
+    </div>
+
+    <!-- 快速輸入卡 -->
+    <div style="background:#fff;border-radius:20px;padding:24px 26px;box-shadow:0 8px 24px rgba(125,184,154,0.15);margin-bottom:16px;border-top:4px solid var(--grn);">
+
+      <div style="margin-bottom:14px;">
+        <label style="display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">日期</label>
+        <input type="date" id="qi-date" value="${smartDateForMonth(S.month,yr())}" style="width:100%;padding:12px 16px;font-size:15px;border:2px solid var(--bdr);border-radius:12px;background:var(--bg2);">
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label style="display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">來源（哪裡來的）</label>
+        <input type="text" id="qi-item" placeholder="如：薪水、兼職、獎金" style="width:100%;padding:12px 16px;font-size:15px;border:2px solid var(--bdr);border-radius:12px;">
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label style="display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">金額</label>
+        <input type="number" inputmode="decimal" id="qi-amt" placeholder="0" class="amt-input" style="width:100%;padding:14px 18px;font-size:24px;font-weight:700;text-align:right;border:2px solid var(--grn);border-radius:12px;color:var(--grn);background:var(--grnl);">
+      </div>
+
+      <div style="margin-bottom:20px;">
+        <label style="display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">類別</label>
+        <select id="qi-cat" style="width:100%;padding:12px 16px;font-size:15px;border:2px solid var(--bdr);border-radius:12px;">
+          <option>薪水</option>
+          <option>兼職</option>
+          <option>獎金</option>
+          <option>投資收益</option>
+          <option>被動收入</option>
+          <option>禮金</option>
+          <option>其他</option>
+        </select>
+      </div>
+
+      <button onclick="quickSaveIncome()" style="width:100%;padding:16px;background:linear-gradient(135deg,var(--grn),#5B9E7A);color:#fff;border:none;border-radius:14px;font-size:17px;font-weight:700;letter-spacing:0.1em;cursor:pointer;box-shadow:0 4px 12px rgba(125,184,154,0.3);">
+        ✓ 存入收入
+      </button>
+    </div>
+
+    <!-- 本月已記錄 -->
+    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(255,142,122,0.10);">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px;">
+        <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);">本月已記錄</span>
+        <span style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--grn);">$${fmt(total)}</span>
+      </div>
+      ${incs.length===0?'<div style="text-align:center;padding:20px;color:var(--mut);font-size:13px;">還沒記錄任何收入</div>':`
+        <div style="max-height:400px;overflow-y:auto;">
+        ${incs.map(i=>`<div style="padding:10px 4px;border-bottom:1px dashed var(--bdr);display:flex;justify-content:space-between;align-items:center;gap:10px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13.5px;color:var(--brown);font-weight:600;">${i.item||'-'}　<span style="font-size:11px;color:var(--mut);font-weight:400;">${i.category||''}</span></div>
+            <div class="tm" style="font-size:11px;">${i.date||''}</div>
+          </div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--grn);white-space:nowrap;">+$${fmt(toN(i.amount))}</div>
+          <button onclick="delInc('${i.id}')" style="background:none;border:none;color:var(--red);font-size:18px;cursor:pointer;padding:4px 8px;">×</button>
+        </div>`).join('')}
+        </div>
+      `}
+    </div>
+  </div>`;
+}
+
+// 💸 記一筆支出（超簡單介面）
+function pgQuickExpense(){
+  const exps=(S.data.expenses||[]).filter(e=>e.month===S.month&&e.year===yr()&&!e.fromLedger&&!e.excludeFromBudget).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const total=exps.reduce((s,e)=>s+toN(e.amount),0);
+  const cats=S.data.cats||['飲食','交通','購物','美麗','家居','娛樂','醫療','教育','其他'];
+
+  return`
+  <div style="max-width:720px;margin:0 auto;">
+
+    <!-- 大標題 -->
+    <div style="text-align:center;padding:20px 0 16px;">
+      <div style="font-size:48px;">💸</div>
+      <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--red);letter-spacing:0.15em;margin-top:4px;">記一筆支出</div>
+    </div>
+
+    <!-- 快速輸入卡 -->
+    <div style="background:#fff;border-radius:20px;padding:24px 26px;box-shadow:0 8px 24px rgba(232,107,92,0.15);margin-bottom:16px;border-top:4px solid var(--red);">
+
+      <div style="margin-bottom:14px;">
+        <label style="display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">日期</label>
+        <input type="date" id="qe-date" value="${smartDateForMonth(S.month,yr())}" style="width:100%;padding:12px 16px;font-size:15px;border:2px solid var(--bdr);border-radius:12px;background:var(--bg2);">
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label style="display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">花在哪 / 買了什麼</label>
+        <input type="text" id="qe-item" placeholder="如：全家、加油、蝦皮" style="width:100%;padding:12px 16px;font-size:15px;border:2px solid var(--bdr);border-radius:12px;">
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label style="display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">金額</label>
+        <input type="number" inputmode="decimal" id="qe-amt" placeholder="0" class="amt-input" style="width:100%;padding:14px 18px;font-size:24px;font-weight:700;text-align:right;border:2px solid var(--red);border-radius:12px;color:var(--red);background:var(--redl);">
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label style="display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">類別</label>
+        <select id="qe-cat" style="width:100%;padding:12px 16px;font-size:15px;border:2px solid var(--bdr);border-radius:12px;">
+          ${cats.map(c=>`<option>${c}</option>`).join('')}
+        </select>
+      </div>
+
+      <div style="margin-bottom:20px;">
+        <label style="display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">怎麼付的</label>
+        <select id="qe-pay" style="width:100%;padding:12px 16px;font-size:15px;border:2px solid var(--bdr);border-radius:12px;">
+          <option>現金</option>
+          <option>信用卡</option>
+          <option>轉帳</option>
+          <option>行動支付</option>
+        </select>
+      </div>
+
+      <button onclick="quickSaveExpense()" style="width:100%;padding:16px;background:linear-gradient(135deg,var(--red),#C25A4C);color:#fff;border:none;border-radius:14px;font-size:17px;font-weight:700;letter-spacing:0.1em;cursor:pointer;box-shadow:0 4px 12px rgba(232,107,92,0.3);">
+        ✓ 記錄支出
+      </button>
+    </div>
+
+    <!-- 本月已記錄 -->
+    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(255,142,122,0.10);">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px;">
+        <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);">本月已花</span>
+        <span style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--red);">$${fmt(total)}</span>
+      </div>
+      ${exps.length===0?'<div style="text-align:center;padding:20px;color:var(--mut);font-size:13px;">還沒記錄任何支出</div>':`
+        <div style="max-height:400px;overflow-y:auto;">
+        ${exps.slice(0,30).map(e=>`<div style="padding:10px 4px;border-bottom:1px dashed var(--bdr);display:flex;justify-content:space-between;align-items:center;gap:10px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13.5px;color:var(--brown);font-weight:600;">${e.item||e.category||'-'}　<span style="font-size:11px;color:var(--mut);font-weight:400;">${e.category||''}</span></div>
+            <div class="tm" style="font-size:11px;">${e.date||''}${e.payMethod?' · '+e.payMethod:''}</div>
+          </div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--red);white-space:nowrap;">-$${fmt(toN(e.amount))}</div>
+          <button onclick="delExp('${e.id}')" style="background:none;border:none;color:var(--red);font-size:18px;cursor:pointer;padding:4px 8px;">×</button>
+        </div>`).join('')}
+        </div>
+        ${exps.length>30?`<div class="tm" style="text-align:center;font-size:11px;margin-top:8px;">…還有 ${exps.length-30} 筆</div>`:''}
+      `}
+    </div>
+  </div>`;
+}
+
+// 📌 固定支出（超簡單）
+function pgFixedNew(){
+  const fixedItems=S.data.fixedItems||[];
+  const total=fixedItems.reduce((s,f)=>s+toN(f.amount),0);
+  const byCat={};
+  fixedItems.forEach(f=>{const c=f.category||'其他';byCat[c]=(byCat[c]||0)+toN(f.amount);});
+  const sortedCat=Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+
+  return`
+  <div style="max-width:720px;margin:0 auto;">
+
+    <!-- 大標題 -->
+    <div style="text-align:center;padding:20px 0 16px;">
+      <div style="font-size:48px;">📌</div>
+      <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--gold);letter-spacing:0.15em;margin-top:4px;">每月固定支出</div>
+      <div class="tm" style="font-size:12.5px;margin-top:4px;">房貸、保險、訂閱等每月一定花的錢</div>
+    </div>
+
+    <!-- 大字合計 -->
+    <div style="background:linear-gradient(135deg,var(--goldL),#fff);border-radius:22px;padding:26px 28px;box-shadow:0 8px 24px rgba(245,162,93,0.15);border:2px solid rgba(245,162,93,0.2);margin-bottom:16px;text-align:center;">
+      <div style="font-size:13px;letter-spacing:0.2em;color:var(--gold);font-weight:600;">每月固定合計</div>
+      <div style="font-family:'Noto Serif TC',serif;font-size:44px;font-weight:700;color:var(--gold);margin-top:4px;">$${fmt(total)}</div>
+      <div class="tm" style="font-size:12px;margin-top:2px;">${fixedItems.length} 個項目 · 一年約 $${fmt(total*12)}</div>
+    </div>
+
+    <!-- 新增按鈕（大） -->
+    <button onclick="openM('addFixed')" style="width:100%;padding:16px;background:linear-gradient(135deg,var(--gold),#E58F4A);color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:700;letter-spacing:0.1em;cursor:pointer;box-shadow:0 4px 12px rgba(245,162,93,0.3);margin-bottom:16px;">
+      ＋ 新增固定支出
+    </button>
+
+    <!-- 類別統計 -->
+    ${sortedCat.length>0?`<div style="background:#fff;border-radius:20px;padding:20px 22px;box-shadow:0 4px 16px rgba(255,142,122,0.08);margin-bottom:16px;">
+      <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--brown);margin-bottom:12px;">📊 依類別</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;">
+        ${sortedCat.map(([cat,amt])=>{
+          const pct=total>0?Math.round(amt/total*100):0;
+          return`<div style="padding:10px 12px;background:var(--bg2);border-radius:10px;">
+            <div style="font-size:11.5px;color:var(--brown);font-weight:600;">${cat}</div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--gold);margin-top:2px;">$${fmt(amt)}</div>
+            <div class="tm" style="font-size:10px;">${pct}%</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`:''}
+
+    <!-- 明細清單 -->
+    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(255,142,122,0.10);">
+      <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);margin-bottom:14px;">📋 全部項目（${fixedItems.length}）</div>
+      ${fixedItems.length===0?`<div style="text-align:center;padding:40px 20px;color:var(--mut);">
+        <div style="font-size:48px;">📋</div>
+        <div style="margin-top:8px;font-size:14px;">還沒新增任何固定支出</div>
+        <div class="tm" style="font-size:12px;margin-top:6px;line-height:1.6;">
+          常見固定支出：<br>
+          🏠 房貸/房租<br>
+          🛡️ 保險費<br>
+          📱 手機、Netflix、Spotify<br>
+          💳 車貸、學貸<br>
+          💪 健身房、線上課程
+        </div>
+      </div>`:fixedItems.map(f=>`<div style="padding:14px 4px;border-bottom:1px dashed var(--bdr);display:flex;justify-content:space-between;align-items:center;gap:12px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:15px;color:var(--brown);font-weight:700;">${f.name||'-'}</div>
+          <div class="tm" style="font-size:11.5px;margin-top:2px;">${f.category||''}${f.payDay?' · 每月 '+f.payDay+' 號扣款':''}${f.note?' · '+f.note:''}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:var(--gold);">$${fmt(toN(f.amount))}</div>
+          <div class="tm" style="font-size:10px;">/ 月</div>
+        </div>
+        <button onclick="delFixed('${f.id}')" style="background:none;border:none;color:var(--red);font-size:20px;cursor:pointer;padding:4px 8px;flex-shrink:0;">×</button>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+
 function pgOverviewNew(){
   const M=computeMonthly();
   const stocks=calcStocksValue();
@@ -8783,6 +9173,43 @@ window.saveInc=async()=>{
   const d=new Date(date);
   await addSub('incomes',{date,amount,category:g('m2'),isPassive:g('m3')==='1',user:S.user,note:g('m5')||'',month:d.getMonth()+1,year:d.getFullYear()});
   toast('✅ 收入已記錄');closeMod();
+};
+
+// 🍑 極簡版：快速記錄收入
+window.quickSaveIncome=async()=>{
+  const date=g('qi-date');
+  const item=g('qi-item')||'';
+  const amount=toN(g('qi-amt'));
+  const cat=g('qi-cat')||'其他';
+  if(!date||!amount){alert('請填日期和金額');return;}
+  const d=new Date(date);
+  try{
+    await addSub('incomes',{date,amount,item,category:cat,user:S.user||'',note:'',month:d.getMonth()+1,year:d.getFullYear()});
+    toast(`✅ 已記錄 +$${fmt(amount)}`);
+    // 清空表單
+    document.getElementById('qi-item').value='';
+    document.getElementById('qi-amt').value='';
+    // 停留在這頁繼續記
+    setTimeout(()=>render(),300);
+  }catch(err){alert('儲存失敗：'+err.message);}
+};
+
+// 🍑 極簡版：快速記錄支出
+window.quickSaveExpense=async()=>{
+  const date=g('qe-date');
+  const item=g('qe-item')||'';
+  const amount=toN(g('qe-amt'));
+  const cat=g('qe-cat')||'其他';
+  const pay=g('qe-pay')||'現金';
+  if(!date||!amount){alert('請填日期和金額');return;}
+  const d=new Date(date);
+  try{
+    await addSub('expenses',{date,amount,item,category:cat,payMethod:pay,user:S.user||'',note:'',month:d.getMonth()+1,year:d.getFullYear()});
+    toast(`✅ 已記錄 -$${fmt(amount)}`);
+    document.getElementById('qe-item').value='';
+    document.getElementById('qe-amt').value='';
+    setTimeout(()=>render(),300);
+  }catch(err){alert('儲存失敗：'+err.message);}
 };
 // 📒 addExp modal：選預備金帳本後 → 類別下拉動態切換為該帳本的細項
 window.updateAddExpCats=(lid)=>{
