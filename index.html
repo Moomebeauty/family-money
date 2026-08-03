@@ -8,48 +8,51 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700;900&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  /* 🍮 焦糖太妃 + 香檳金 — 沐蜜氛圍但主色不同 */
-  --caramel:#B08157;--caramelDk:#8C5F3E;--caramelL:#F5EBDE;--caramelMid:#E8CFB5;
+  /* 🌸 完全複製沐蜜的顏色 */
+  --rose:#C2747A;--roseDk:#9E5A60;--roseL:#F5E8EA;--roseMid:#E8C4C8;
   --gold:#C4A46B;--goldL:#F9F0E0;--goldDk:#8C6B3A;
   --grn:#5A8C6B;--grnL:#E8F5ED;--grnl:#E8F5ED;
   --red:#C25A5A;--redL:#FAEAEA;--redl:#FAEAEA;
   --blu:#5A7AC2;--bluL:#E8EEFA;--blul:#E8EEFA;
   --pur:#8C5AC2;--purL:#F0E8FA;--purl:#F0E8FA;
-  --yel:#FFF8E5;--yelb:#C99B45;--goldL:#F9F0E0;
-  --rose:#C89882;--roseL:#F5E5D8;--roseL:#F5E5D8;
-  --brown:#6B4C3A;--bl:#7E6860;--txt:#2D1F1A;--mut:#8B7565;--bdr:#EAE0D8;
-  --bg:#FDFAF8;--bg2:#F7F0EC;--bg3:#F0E8E2;--card:#FFFFFF;--accL:#F5EBDE;
-  --acc:#B08157;--acc2:#D4B090;
-  /* 頁面主色（焦糖調系） */
-  --pg-home:#B08157;
+  --brown:#6B4C3A;--txt:#2D1F1A;--mut:#7E6860;--bdr:#EAE0D8;
+  --bg:#FDFAF8;--bg2:#F7F0EC;--bg3:#F0E8E2;--card:#FFFFFF;
+  --shd:0 2px 16px rgba(180,100,100,0.08);
+  --shd2:0 4px 32px rgba(180,100,100,0.14);
+  --shadow:0 2px 16px rgba(180,100,100,0.08);
+  --shadow2:0 4px 32px rgba(180,100,100,0.14);
+  /* 相容變數 */
+  --acc:#C2747A;--acc2:#E8C4C8;--accL:#F5E8EA;--bl:#7E6860;
+  --caramel:#C2747A;--caramelDk:#9E5A60;--caramelL:#F5E8EA;
+  --yel:#F9F0E0;--yelb:#C4A46B;
+  /* 頁面主色（玫瑰調系） */
+  --pg-home:#C2747A;
   --pg-incomes:#5A8C6B;
   --pg-savings:#5A7AC2;
   --pg-expenses:#C25A5A;
   --pg-ledger:#C4A46B;
-  --pg-stocks:#B08157;
+  --pg-stocks:#C2747A;
   --pg-networth:#C4A46B;
   --pg-trends:#8C5AC2;
-  --pg-coach:#4A3020;
+  --pg-coach:#9E5A60;
   --pg-settings:#7E6860;
-  --shd:0 2px 16px rgba(176,129,87,0.08);
-  --shd2:0 4px 32px rgba(176,129,87,0.14);
   --r:16px;--r-sm:12px;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;letter-spacing:0.04em;}
 html,body{height:100%;}
 body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;overflow-x:hidden;font-size:17px;line-height:1.65;position:relative;}
-/* 🍮 焦糖光暈浮水印 */
+/* 🌸 沐蜜光暈浮水印 */
 body.with-watermark::before{
   content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   background-image:
-    radial-gradient(ellipse 700px 500px at 15% 20%,rgba(210,175,140,0.24),transparent 60%),
-    radial-gradient(ellipse 600px 400px at 85% 30%,rgba(200,170,135,0.22),transparent 65%),
-    radial-gradient(ellipse 800px 600px at 50% 75%,rgba(220,185,150,0.20),transparent 60%);
+    radial-gradient(ellipse 700px 500px at 15% 20%,rgba(232,196,200,0.24),transparent 60%),
+    radial-gradient(ellipse 600px 400px at 85% 30%,rgba(220,185,190,0.22),transparent 65%),
+    radial-gradient(ellipse 800px 600px at 50% 75%,rgba(240,210,213,0.20),transparent 60%);
   background-attachment:fixed;
 }
 body.with-watermark::after{
   content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
-  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 800'><g opacity='0.04' fill='%23B08157'><circle cx='150' cy='180' r='55'/><circle cx='600' cy='300' r='50'/><circle cx='400' cy='620' r='45'/><circle cx='720' cy='700' r='40'/></g></svg>");
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 800'><g opacity='0.04' fill='%23C2747A'><circle cx='150' cy='180' r='55'/><circle cx='600' cy='300' r='50'/><circle cx='400' cy='620' r='45'/><circle cx='720' cy='700' r='40'/></g></svg>");
   background-size:cover;background-attachment:fixed;background-position:center;
   opacity:0.5;
 }
@@ -57,7 +60,7 @@ body.with-watermark::after{
 h1,h2,h3,.serif{font-family:'Noto Serif TC',serif;letter-spacing:0.08em;}
 
 /* LOGIN */
-.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#4A3020,#6B4C3A,#8C5F3E);padding:20px;}
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#6B4C3A,#9E5A60,#C2747A);padding:20px;}
 .login-box{background:var(--card);border-radius:24px;padding:40px 36px;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center;animation:fadeIn .4s ease;}
 @keyframes fadeIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 .login-ico{font-size:56px;margin-bottom:12px;}
@@ -73,9 +76,9 @@ h1,h2,h3,.serif{font-family:'Noto Serif TC',serif;letter-spacing:0.08em;}
 /* APP */
 .app{display:flex;flex-direction:column;height:100vh;}
 .topbar{background:var(--card);border-bottom:1px solid var(--bdr);padding:0 28px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--shd);}
-.tb-brand{font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;letter-spacing:4px;color:var(--caramelDk);}
-.tb-brand span{color:var(--caramel);font-weight:400;}
-.tb-ttl{font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--caramelDk);letter-spacing:0.08em;}
+.tb-brand{font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;letter-spacing:4px;color:var(--roseDk);}
+.tb-brand span{color:var(--rose);font-weight:400;}
+.tb-ttl{font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--roseDk);letter-spacing:0.08em;}
 .tb-right{display:flex;align-items:center;gap:12px;}
 .sync-dot{width:8px;height:8px;border-radius:50%;background:#bbb;transition:all .3s;flex-shrink:0;}
 .sync-dot.synced{background:var(--grn);box-shadow:0 0 10px rgba(122,158,132,.6);}
@@ -85,16 +88,16 @@ h1,h2,h3,.serif{font-family:'Noto Serif TC',serif;letter-spacing:0.08em;}
 .sync-lbl{font-size:12px;color:var(--mut);letter-spacing:0.1em;}
 .btn-out{background:#FFFFFF;border:1.5px solid var(--bdr);color:var(--brown);border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;letter-spacing:0.08em;transition:all .25s;font-weight:500;}
 .btn-out:hover{border-color:var(--pur);color:var(--pur);}
-.btn-search{background:linear-gradient(135deg,var(--caramel),var(--caramelDk));color:#fff;border:none;border-radius:10px;padding:8px 16px;font-size:13px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;letter-spacing:0.08em;font-weight:600;transition:all .25s;box-shadow:0 2px 8px rgba(176,129,87,0.35);}
+.btn-search{background:linear-gradient(135deg,var(--rose),var(--roseDk));color:#fff;border:none;border-radius:10px;padding:8px 16px;font-size:13px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;letter-spacing:0.08em;font-weight:600;transition:all .25s;box-shadow:0 2px 8px rgba(194,116,122,0.35);}
 /* 金額輸入欄：藏原生上下箭頭 spinner */
 .amt-input::-webkit-outer-spin-button,
 .amt-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
 .amt-input{-moz-appearance:textfield;appearance:textfield;}
-.btn-search:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(176,129,87,0.5);}
+.btn-search:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(194,116,122,0.5);}
 
 /* LAYOUT */
 .layout{display:flex;flex:1;overflow:hidden;}
-.sidebar{width:220px;background:linear-gradient(180deg,#4A3020 0%,#6B4C3A 100%);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0;padding:14px 0;border-right:none;box-shadow:2px 0 20px rgba(74,48,32,0.15);}
+.sidebar{width:220px;background:linear-gradient(180deg,var(--roseDk) 0%,var(--brown) 100%);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0;padding:14px 0;border-right:none;box-shadow:2px 0 20px rgba(158,90,96,0.15);}
 .sb-sec-lbl{font-size:11px;font-weight:500;color:rgba(255,255,255,0.45);letter-spacing:3px;text-transform:uppercase;padding:18px 22px 8px;font-family:'Noto Serif TC',serif;}
 .sb-item{display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;font-size:16px;color:rgba(255,255,255,0.78);font-weight:500;transition:.2s;border-left:4px solid transparent;letter-spacing:0.06em;position:relative;}
 .sb-item:hover{background:rgba(255,255,255,0.1);color:#fff;}
@@ -777,11 +780,12 @@ const CARD_SCENARIOS=[
 ];
 
 const PAGES=[
-  // 極簡版主要頁面（4 個）
+  // 極簡版主要頁面
   {id:'simple',   ico:'🏠',lbl:'我的錢',group:'main'},
   {id:'quickInc', ico:'💵',lbl:'記一筆收入',group:'main'},
   {id:'quickExp', ico:'💸',lbl:'記一筆支出',group:'main'},
   {id:'fixedNew', ico:'📌',lbl:'固定支出',group:'main'},
+  {id:'guardian', ico:'🛡️',lbl:'守財工具箱',group:'main'},
   {id:'settings', ico:'⚙️',lbl:'進階功能',group:'main'},
   // 以下全部隱藏（保留資料 & 功能，未來還能用）
   {id:'home',     ico:'📊',lbl:'總覽',group:'hidden'},
@@ -849,6 +853,10 @@ let S={
     coachChecks:{},  // 教練每週檢查記錄
     coachPlan90:null,  // 90 天計畫 {startDate, tasks:{taskId:bool}}
     coachWeeklyReports:{},  // 每週財務回報 {YYYY-WW: {income, saved, isolated, impulsive, asset, energy, note}}
+    // 🛡️ 守財工具箱資料（從沐蜜 v40 拉進來）
+    coolingDecisions:[],  // 大額採購冷靜期 [{id,createDate,item,amount,reason,decision,decisionNote}]
+    houseFund:[],         // 買房頭期專款 [{id,date,amount,note}]
+    advisorChats:[],      // 情緒踩剎車自我提問 [{id,date,title,amount,q1,q2,q3,q4,q5,verdict,_at}]
     importStaging:[]
   }
 };
@@ -907,6 +915,9 @@ function startSync(){
       S.data.coachChecks=d.coachChecks||{};
       S.data.coachPlan90=d.coachPlan90||null;
       S.data.coachWeeklyReports=d.coachWeeklyReports||{};
+      S.data.coolingDecisions=d.coolingDecisions||[];
+      S.data.houseFund=d.houseFund||[];
+      S.data.advisorChats=d.advisorChats||[];
       S.data.investNotes=d.investNotes||{};
     }
     setSyncing('synced');
@@ -1019,14 +1030,14 @@ function topBar(){
   <div class="tb-right">
     <div class="fb g8"><div class="sync-dot ${S.sync}"></div><span class="sync-lbl">${S.sync==='synced'?'已同步':S.sync==='syncing'?'同步中…':'離線'}</span></div>
     <button class="btn-search" onclick="openGlobalSearch()">🔍 搜尋</button>
-    <button class="btn-out" onclick="toggleWatermark()" title="切換背景浮水印">🍮</button>
+    <button class="btn-out" onclick="toggleWatermark()" title="切換背景浮水印">🌸</button>
     <button class="btn-out" onclick="exportCSV()">⬇ 匯出</button>
     <button class="btn-out" onclick="doOut()">登出</button>
   </div>
 </div>`;}
 function sidebar(){return`<nav class="sidebar">
 <div style="padding:20px 22px 24px;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:8px;">
-  <div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:#fff;letter-spacing:5px;">🏡 家庭錢包</div>
+  <div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:#fff;letter-spacing:5px;">🌸 家庭錢包</div>
   <div style="font-size:11px;color:rgba(255,255,255,0.5);letter-spacing:0.3em;margin-top:4px;font-weight:500;">MY MONEY</div>
 </div>
 ${PAGES.filter(p=>p.group==='main').map(p=>`<div class="sb-item${S.page===p.id?' active':''}" data-pg="${p.id}" onclick="setP('${p.id}')"><span class="ico">${p.ico}</span><span>${p.lbl}</span></div>`).join('')}
@@ -1047,6 +1058,7 @@ function page(){
     case'quickInc': return pgQuickIncome();
     case'quickExp': return pgQuickExpense();
     case'fixedNew': return pgFixedNew();
+    case'guardian': return pgGuardian();
     // 新版 6 大主頁（V7 重構）
     case'home':     return pgOverviewNew();
     case'incomes':  return pgIncomesNew();
@@ -1494,12 +1506,12 @@ function pgSimple(){
 
     <!-- 🌸 大標題 -->
     <div style="text-align:center;padding:20px 0 10px;">
-      <div style="font-family:'Noto Serif TC',serif;font-size:32px;font-weight:700;color:var(--caramelDk);letter-spacing:0.15em;">${S.month} 月</div>
+      <div style="font-family:'Noto Serif TC',serif;font-size:32px;font-weight:700;color:var(--roseDk);letter-spacing:0.15em;">${S.month} 月</div>
       <div class="tm" style="font-size:13px;letter-spacing:0.2em;margin-top:2px;">${yr()} · ${['一','二','三','四','五','六','七','八','九','十','十一','十二'][S.month-1]}月的錢</div>
     </div>
 
     <!-- 💰 頂部主卡：本月狀況 -->
-    <div style="background:linear-gradient(135deg,#FFF,var(--caramelL));border-radius:22px;padding:26px 28px;box-shadow:0 8px 32px rgba(176,129,87,0.15);border:1.5px solid rgba(176,129,87,0.15);margin-bottom:16px;">
+    <div style="background:linear-gradient(135deg,#FFF,var(--roseL));border-radius:22px;padding:26px 28px;box-shadow:0 8px 32px rgba(194,116,122,0.15);border:1.5px solid rgba(194,116,122,0.15);margin-bottom:16px;">
 
       <!-- 兩欄：收入 vs 支出 -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
@@ -1514,21 +1526,21 @@ function pgSimple(){
       </div>
 
       <!-- 剩餘 -->
-      <div style="padding:16px 20px;background:${remain>=0?'linear-gradient(135deg,var(--caramelL),#fff)':'var(--redl)'};border-radius:16px;border:2px solid ${remain>=0?'var(--caramel)':'var(--red)'};">
+      <div style="padding:16px 20px;background:${remain>=0?'linear-gradient(135deg,var(--roseL),#fff)':'var(--redl)'};border-radius:16px;border:2px solid ${remain>=0?'var(--rose)':'var(--red)'};">
         <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;">
           <span style="font-size:14px;color:var(--brown);font-weight:600;letter-spacing:0.1em;">${remain>=0?'✨ 這個月還剩':'⚠️ 這個月超支了'}</span>
-          <span style="font-family:'Noto Serif TC',serif;font-size:32px;font-weight:700;color:${remain>=0?'var(--caramelDk)':'var(--red)'};">${remain>=0?'+':''}$${fmt(remain)}</span>
+          <span style="font-family:'Noto Serif TC',serif;font-size:32px;font-weight:700;color:${remain>=0?'var(--roseDk)':'var(--red)'};">${remain>=0?'+':''}$${fmt(remain)}</span>
         </div>
         <!-- 進度條 -->
         <div style="margin-top:10px;height:10px;background:#fff;border-radius:10px;overflow:hidden;box-shadow:inset 0 1px 3px rgba(0,0,0,0.06);">
-          <div style="height:100%;width:${Math.min(spentPct,100)}%;background:linear-gradient(90deg,var(--caramel),${spentPct>100?'var(--red)':'var(--caramelDk)'});border-radius:10px;transition:width 0.5s;"></div>
+          <div style="height:100%;width:${Math.min(spentPct,100)}%;background:linear-gradient(90deg,var(--rose),${spentPct>100?'var(--red)':'var(--roseDk)'});border-radius:10px;transition:width 0.5s;"></div>
         </div>
-        <div class="tm" style="font-size:11.5px;margin-top:6px;text-align:right;">已花掉 <b style="color:${spentPct>100?'var(--red)':'var(--caramelDk)'};">${spentPct}%</b> 的收入</div>
+        <div class="tm" style="font-size:11.5px;margin-top:6px;text-align:right;">已花掉 <b style="color:${spentPct>100?'var(--red)':'var(--roseDk)'};">${spentPct}%</b> 的收入</div>
       </div>
     </div>
 
     <!-- 💵 錢從哪裡來 -->
-    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(176,129,87,0.10);margin-bottom:16px;border-top:4px solid var(--grn);">
+    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(194,116,122,0.10);margin-bottom:16px;border-top:4px solid var(--grn);">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
         <span style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--brown);letter-spacing:0.1em;">💵 錢從哪裡來？</span>
         <button onclick="setP('quickInc')" style="background:var(--grn);color:#fff;border:none;padding:6px 14px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">＋ 記一筆</button>
@@ -1556,7 +1568,7 @@ function pgSimple(){
     </div>
 
     <!-- 💸 錢花到哪裡 -->
-    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(176,129,87,0.10);margin-bottom:16px;border-top:4px solid var(--red);">
+    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(194,116,122,0.10);margin-bottom:16px;border-top:4px solid var(--red);">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
         <span style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--brown);letter-spacing:0.1em;">💸 錢花到哪裡？</span>
         <button onclick="setP('quickExp')" style="background:var(--red);color:#fff;border:none;padding:6px 14px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">＋ 記一筆</button>
@@ -1585,7 +1597,7 @@ function pgSimple(){
     </div>
 
     <!-- 📌 每月固定支出 -->
-    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(176,129,87,0.10);margin-bottom:16px;border-top:4px solid var(--gold);">
+    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(194,116,122,0.10);margin-bottom:16px;border-top:4px solid var(--gold);">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
         <span style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--brown);letter-spacing:0.1em;">📌 每月固定要花</span>
         <button onclick="setP('fixedNew')" style="background:var(--gold);color:#fff;border:none;padding:6px 14px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">管理</button>
@@ -1672,7 +1684,7 @@ function pgQuickIncome(){
     </div>
 
     <!-- 本月已記錄 -->
-    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(176,129,87,0.10);">
+    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(194,116,122,0.10);">
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px;">
         <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);">本月已記錄</span>
         <span style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--grn);">$${fmt(total)}</span>
@@ -1749,7 +1761,7 @@ function pgQuickExpense(){
     </div>
 
     <!-- 本月已記錄 -->
-    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(176,129,87,0.10);">
+    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(194,116,122,0.10);">
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px;">
         <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);">本月已花</span>
         <span style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--red);">$${fmt(total)}</span>
@@ -1802,7 +1814,7 @@ function pgFixedNew(){
     </button>
 
     <!-- 類別統計 -->
-    ${sortedCat.length>0?`<div style="background:#fff;border-radius:20px;padding:20px 22px;box-shadow:0 4px 16px rgba(176,129,87,0.08);margin-bottom:16px;">
+    ${sortedCat.length>0?`<div style="background:#fff;border-radius:20px;padding:20px 22px;box-shadow:0 4px 16px rgba(194,116,122,0.08);margin-bottom:16px;">
       <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--brown);margin-bottom:12px;">📊 依類別</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;">
         ${sortedCat.map(([cat,amt])=>{
@@ -1817,7 +1829,7 @@ function pgFixedNew(){
     </div>`:''}
 
     <!-- 明細清單 -->
-    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(176,129,87,0.10);">
+    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(194,116,122,0.10);">
       <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);margin-bottom:14px;">📋 全部項目（${fixedItems.length}）</div>
       ${fixedItems.length===0?`<div style="text-align:center;padding:40px 20px;color:var(--mut);">
         <div style="font-size:48px;">📋</div>
@@ -1842,6 +1854,179 @@ function pgFixedNew(){
         <button onclick="delFixed('${f.id}')" style="background:none;border:none;color:var(--red);font-size:20px;cursor:pointer;padding:4px 8px;flex-shrink:0;">×</button>
       </div>`).join('')}
     </div>
+  </div>`;
+}
+
+// 🛡️ 守財工具箱（3 個功能：冷靜期 + 頭期專款 + 情緒踩剎車）
+function pgGuardian(){
+  const cooling=(S.data.coolingDecisions||[]).sort((a,b)=>(b.createDate||'').localeCompare(a.createDate||''));
+  const houseFund=(S.data.houseFund||[]).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const totalHouseFund=houseFund.reduce((s,h)=>s+toN(h.amount),0);
+  const chats=(S.data.advisorChats||[]).sort((a,b)=>b._at-a._at);
+
+  // 統計
+  const coolingWait=cooling.filter(c=>!c.decision);
+  const coolingRejected=cooling.filter(c=>c.decision==='reject').reduce((s,c)=>s+toN(c.amount),0);
+  const chatsRejected=chats.filter(c=>c.verdict==='no').length;
+
+  return`
+  <div style="max-width:820px;margin:0 auto;">
+
+    <!-- 標題 -->
+    <div style="text-align:center;padding:20px 0 16px;">
+      <div style="font-size:48px;">🛡️</div>
+      <div style="font-family:'Noto Serif TC',serif;font-size:24px;font-weight:700;color:var(--roseDk);letter-spacing:0.2em;margin-top:4px;">守財工具箱</div>
+      <div class="tm" style="font-size:12.5px;margin-top:4px;">衝動消費前的最後一道防線</div>
+    </div>
+
+    <!-- 🏆 成就統計 -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:20px;">
+      <div style="background:linear-gradient(135deg,var(--purL),var(--card));border-radius:14px;padding:16px;text-align:center;border:1.5px solid var(--pur);">
+        <div class="tm" style="font-size:11.5px;color:var(--pur);font-weight:600;">🏠 頭期款累積</div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--pur);margin-top:2px;">$${fmt(totalHouseFund)}</div>
+        <div class="tm" style="font-size:10.5px;">${houseFund.length} 筆撥款</div>
+      </div>
+      <div style="background:linear-gradient(135deg,var(--grnL),var(--card));border-radius:14px;padding:16px;text-align:center;border:1.5px solid var(--grn);">
+        <div class="tm" style="font-size:11.5px;color:var(--grn);font-weight:600;">💪 冷靜期擋下</div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--grn);margin-top:2px;">$${fmt(coolingRejected)}</div>
+        <div class="tm" style="font-size:10.5px;">放棄了 ${cooling.filter(c=>c.decision==='reject').length} 個衝動</div>
+      </div>
+      <div style="background:linear-gradient(135deg,var(--goldL),var(--card));border-radius:14px;padding:16px;text-align:center;border:1.5px solid var(--gold);">
+        <div class="tm" style="font-size:11.5px;color:var(--goldDk);font-weight:600;">💬 踩剎車次數</div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--goldDk);margin-top:2px;">${chatsRejected}</div>
+        <div class="tm" style="font-size:10.5px;">自問自答放棄了</div>
+      </div>
+    </div>
+
+    <!-- 🏠 買房頭期專款 -->
+    <div style="background:#fff;border-radius:20px;padding:24px 26px;box-shadow:0 4px 16px rgba(180,100,100,0.10);margin-bottom:16px;border-top:4px solid var(--pur);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+        <span style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--brown);letter-spacing:0.1em;">🏠 買房頭期專款</span>
+        <button onclick="openM('addHouseFund')" style="background:var(--pur);color:#fff;border:none;padding:8px 16px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">＋ 撥一筆進來</button>
+      </div>
+
+      <!-- 累積大字 -->
+      <div style="background:linear-gradient(135deg,var(--purL),var(--bluL));padding:22px;border-radius:14px;text-align:center;margin-bottom:14px;">
+        <div class="tm" style="font-size:12px;letter-spacing:0.2em;color:var(--pur);font-weight:600;">累積頭期款</div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:38px;font-weight:900;color:var(--pur);letter-spacing:0.05em;margin-top:4px;">$${fmt(totalHouseFund)}</div>
+        <div class="tm" style="font-size:12px;margin-top:4px;">每月撥錢進來 → 一點一點靠近目標</div>
+      </div>
+
+      <!-- 撥款紀錄 -->
+      ${houseFund.length===0?`<div style="text-align:center;padding:30px 20px;color:var(--mut);">
+        <div style="font-size:36px;">🏠</div>
+        <div style="margin-top:8px;font-size:14px;">還沒開始撥款</div>
+        <div class="tm" style="font-size:12px;margin-top:4px;">建議：每月薪水進帳當天，先撥 30% 到這個專款</div>
+      </div>`:`<div style="max-height:280px;overflow-y:auto;">
+        ${houseFund.slice(0,15).map(h=>`<div style="display:flex;justify-content:space-between;padding:10px 4px;border-bottom:1px dashed var(--bdr);">
+          <div>
+            <div style="font-size:13.5px;color:var(--brown);font-weight:600;">${h.date||'-'}</div>
+            <div class="tm" style="font-size:11px;">${h.note||'從薪水/收入撥入'}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--pur);">+$${fmt(toN(h.amount))}</span>
+            <button onclick="delHouseFund('${h.id}')" style="background:none;border:none;color:var(--red);font-size:18px;cursor:pointer;padding:4px 6px;">×</button>
+          </div>
+        </div>`).join('')}
+        ${houseFund.length>15?`<div class="tm" style="text-align:center;font-size:11px;margin-top:8px;">…還有 ${houseFund.length-15} 筆</div>`:''}
+      </div>`}
+    </div>
+
+    <!-- 🧊 大額採購冷靜期 -->
+    <div style="background:#fff;border-radius:20px;padding:24px 26px;box-shadow:0 4px 16px rgba(180,100,100,0.10);margin-bottom:16px;border-top:4px solid var(--blu);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+        <span style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--brown);letter-spacing:0.1em;">🧊 大額採購冷靜期</span>
+        <button onclick="openM('addCooling')" style="background:var(--blu);color:#fff;border:none;padding:8px 16px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">＋ 想買貴東西</button>
+      </div>
+
+      <div style="background:var(--bluL);padding:12px 16px;border-radius:10px;font-size:12.5px;color:var(--blu);margin-bottom:14px;line-height:1.7;">
+        💡 <b>怎麼用</b>：想買超過 <b>$3,000</b> 的東西 → 先寫下來 → <b>強制 3 天不能決定</b> → 3 天後再看還想不想買
+      </div>
+
+      ${cooling.length===0?`<div style="text-align:center;padding:30px 20px;color:var(--mut);">
+        <div style="font-size:36px;">🧊</div>
+        <div style="margin-top:8px;font-size:14px;">目前沒有任何評估中的採購</div>
+      </div>`:cooling.slice(0,10).map(c=>{
+        const created=new Date(c.createDate);
+        const today_=new Date();
+        const days=Math.floor((today_-created)/86400000);
+        const ready=days>=3;
+        let status,statusColor,bg;
+        if(c.decision==='buy'){status='✅ 已購買';statusColor='var(--grn)';bg='var(--grnL)';}
+        else if(c.decision==='reject'){status='❌ 放棄了！省下了';statusColor='var(--grn)';bg='var(--grnL)';}
+        else if(ready){status='⏰ 冷靜期已滿，可以做決定了';statusColor='var(--gold)';bg='var(--goldL)';}
+        else{status=`⏳ 冷靜中（還剩 ${3-days} 天才能決定）`;statusColor='var(--blu)';bg='var(--bluL)';}
+
+        return`<div style="border:1.5px solid var(--bdr);border-radius:12px;padding:14px 16px;margin-bottom:10px;background:${bg};">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:180px;">
+              <div style="font-size:15px;font-weight:700;color:var(--brown);">${c.item||'-'}</div>
+              <div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:var(--red);margin-top:2px;">$${fmt(toN(c.amount))}</div>
+              <div class="tm" style="font-size:11.5px;margin-top:4px;">📅 ${c.createDate}　·　<span style="color:${statusColor};font-weight:600;">${status}</span></div>
+              <div class="tm" style="font-size:11.5px;margin-top:4px;">💭 想買原因：${c.reason||'-'}</div>
+              ${c.decisionNote?`<div class="tm" style="font-size:11.5px;margin-top:4px;">📝 決定：${c.decisionNote}</div>`:''}
+            </div>
+            <button onclick="delCooling('${c.id}')" style="background:none;border:none;color:var(--red);font-size:18px;cursor:pointer;">×</button>
+          </div>
+          ${!c.decision&&ready?`<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+            <button onclick="decideCooling('${c.id}','buy')" style="flex:1;min-width:120px;background:var(--grn);color:#fff;border:none;padding:10px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">✅ 還是要買</button>
+            <button onclick="decideCooling('${c.id}','reject')" style="flex:1;min-width:120px;background:var(--red);color:#fff;border:none;padding:10px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">❌ 放棄了</button>
+          </div>`:''}
+        </div>`;
+      }).join('')}
+    </div>
+
+    <!-- 💬 情緒踩剎車 -->
+    <div style="background:#fff;border-radius:20px;padding:24px 26px;box-shadow:0 4px 16px rgba(180,100,100,0.10);margin-bottom:16px;border-top:4px solid var(--gold);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+        <span style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--brown);letter-spacing:0.1em;">💬 情緒踩剎車</span>
+        <button onclick="openM('newChat')" style="background:var(--gold);color:#fff;border:none;padding:8px 16px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">＋ 開始自問自答</button>
+      </div>
+
+      <div style="background:var(--goldL);padding:12px 16px;border-radius:10px;font-size:12.5px;color:var(--goldDk);margin-bottom:14px;line-height:1.7;">
+        💡 <b>怎麼用</b>：想衝動花錢時 → 寫下來 → 回答 <b>5 個自我問題</b> → 給自己一個決定：✅可以花 / ⏰再等等 / ❌別花
+      </div>
+
+      ${chats.length===0?`<div style="text-align:center;padding:30px 20px;color:var(--mut);">
+        <div style="font-size:36px;">💬</div>
+        <div style="margin-top:8px;font-size:14px;">還沒有任何踩剎車紀錄</div>
+      </div>`:chats.slice(0,10).map(c=>{
+        const verdictText=c.verdict==='go'?'✅ 可以花':c.verdict==='wait'?'⏰ 再等等':'❌ 別花';
+        const verdictColor=c.verdict==='go'?'var(--grn)':c.verdict==='wait'?'var(--gold)':'var(--red)';
+        return`<div style="border:1.5px solid var(--bdr);border-radius:12px;padding:14px 16px;margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:180px;">
+              <div style="font-size:15px;font-weight:700;color:var(--brown);">${c.title||'-'}</div>
+              <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--red);margin-top:2px;">$${fmt(toN(c.amount))}</div>
+              <div class="tm" style="font-size:11.5px;margin-top:4px;">📅 ${c.date}　·　<span style="background:${verdictColor};color:#fff;padding:2px 8px;border-radius:8px;font-weight:600;">${verdictText}</span></div>
+            </div>
+            <button onclick="delChat('${c.id}')" style="background:none;border:none;color:var(--red);font-size:18px;cursor:pointer;">×</button>
+          </div>
+          <details style="margin-top:8px;">
+            <summary style="cursor:pointer;font-size:12px;color:var(--mut);">查看 5 個自我問答</summary>
+            <div style="margin-top:8px;padding:12px;background:var(--bg2);border-radius:8px;font-size:12.5px;line-height:1.8;">
+              <div><b>1. 這筆錢能讓我/家人的生活明顯更好嗎？</b><br>${c.q1||'-'}</div>
+              <div style="margin-top:6px;"><b>2. 不買的話最壞會發生什麼？</b><br>${c.q2||'-'}</div>
+              <div style="margin-top:6px;"><b>3. 3 個月後我還會記得需要它嗎？</b><br>${c.q3||'-'}</div>
+              <div style="margin-top:6px;"><b>4. 這筆錢如果存進頭期款，會累積到多少？</b><br>${c.q4||'-'}</div>
+              <div style="margin-top:6px;"><b>5. 我的最終判斷是？</b><br>${c.q5||'-'}</div>
+            </div>
+          </details>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <!-- 💡 使用建議 -->
+    <div style="background:linear-gradient(135deg,var(--roseL),#fff);border-radius:16px;padding:18px 22px;border:1.5px solid var(--rose);">
+      <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--roseDk);margin-bottom:8px;">💡 這 3 個工具怎麼搭配用</div>
+      <div style="font-size:13px;line-height:1.9;color:var(--brown);">
+        · 想買 <b>$3,000 以下</b> 的東西 → 用「💬 情緒踩剎車」5 個自問<br>
+        · 想買 <b>$3,000 以上</b> 的東西 → 用「🧊 冷靜期」強制等 3 天<br>
+        · 每個月薪水一進帳 → 立刻撥 30% 到「🏠 頭期款」<br>
+        · 冷靜期擋下的錢 → 直接撥去「🏠 頭期款」看得到成長
+      </div>
+    </div>
+
   </div>`;
 }
 
@@ -8023,6 +8208,70 @@ function modal(){
     <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="saveDebt()">✓ 確認</button></div>`;}
 
   // 🔍 全域搜尋 modal
+  // 🏠 買房頭期專款 modal
+  if(m.t==='addHouseFund'){c=`<div class="mttl">🏠 撥一筆進頭期款</div>
+    <div class="fg fg2">
+      <div class="fgrp"><label>日期</label><input type="date" id="hf-date" value="${today()}"></div>
+      <div class="fgrp"><label>金額（元）</label><input type="number" inputmode="decimal" id="hf-amt" placeholder="0" class="amt-input" style="font-size:20px;font-weight:700;color:var(--pur);"></div>
+      <div class="fgrp" style="grid-column:1/-1"><label>備註（選填）</label><input type="text" id="hf-note" placeholder="例：7 月薪水撥入 30%、獎金全額存入"></div>
+    </div>
+    <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="saveHouseFund()" style="background:var(--pur);">✓ 撥款</button></div>`;}
+
+  // 🧊 大額採購冷靜期 modal
+  if(m.t==='addCooling'){c=`<div class="mttl">🧊 想買貴東西 — 先冷靜 3 天</div>
+    <div style="background:var(--bluL);padding:10px 14px;border-radius:8px;font-size:12.5px;color:var(--blu);margin-bottom:14px;">
+      💡 寫下來 → 3 天後系統才會讓你決定買或不買
+    </div>
+    <div class="fg fg2">
+      <div class="fgrp" style="grid-column:1/-1"><label>想買什麼？</label><input type="text" id="cool-item" placeholder="例：新的吹風機、iPad、名牌包"></div>
+      <div class="fgrp"><label>金額（元）</label><input type="number" inputmode="decimal" id="cool-amt" placeholder="0" class="amt-input" style="font-size:20px;font-weight:700;color:var(--red);"></div>
+      <div class="fgrp"><label>今天日期</label><input type="date" id="cool-date" value="${today()}"></div>
+      <div class="fgrp" style="grid-column:1/-1"><label>想買原因（老實寫）</label><textarea id="cool-reason" rows="3" style="width:100%;padding:10px;border:1px solid var(--bdr);border-radius:8px;font-family:inherit;font-size:14px;resize:vertical;" placeholder="例：舊的壞了、看到別人有很心動、剛好在打折"></textarea></div>
+    </div>
+    <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="saveCooling()" style="background:var(--blu);">✓ 開始冷靜 3 天</button></div>`;}
+
+  // 💬 情緒踩剎車 modal（5 個自我問答）
+  if(m.t==='newChat'){c=`<div class="mttl">💬 自問自答 — 5 個問題救自己</div>
+    <div style="background:var(--goldL);padding:10px 14px;border-radius:8px;font-size:12.5px;color:var(--goldDk);margin-bottom:14px;">
+      💡 老實回答每一題，最後給自己一個決定
+    </div>
+    <div class="fg fg2">
+      <div class="fgrp" style="grid-column:1/-1"><label>想買什麼？</label><input type="text" id="ch-title" placeholder="例：新衣服、外食、飲料"></div>
+      <div class="fgrp"><label>多少錢</label><input type="number" inputmode="decimal" id="ch-amt" placeholder="0" class="amt-input" style="font-size:18px;font-weight:700;color:var(--red);"></div>
+      <div class="fgrp"><label>今天日期</label><input type="date" id="ch-date" value="${today()}"></div>
+    </div>
+    <div style="margin-top:12px;padding:14px;background:var(--bg2);border-radius:10px;">
+      <div style="font-size:13px;font-weight:700;color:var(--brown);margin-bottom:8px;">1. 這筆錢能讓我 / 家人的生活明顯更好嗎？</div>
+      <textarea id="ch-q1" rows="2" style="width:100%;padding:8px;border:1px solid var(--bdr);border-radius:6px;font-family:inherit;font-size:13px;resize:vertical;" placeholder="老實回答..."></textarea>
+
+      <div style="font-size:13px;font-weight:700;color:var(--brown);margin:12px 0 8px;">2. 不買的話最壞會發生什麼？</div>
+      <textarea id="ch-q2" rows="2" style="width:100%;padding:8px;border:1px solid var(--bdr);border-radius:6px;font-family:inherit;font-size:13px;resize:vertical;" placeholder="想想看..."></textarea>
+
+      <div style="font-size:13px;font-weight:700;color:var(--brown);margin:12px 0 8px;">3. 3 個月後我還會記得需要它嗎？</div>
+      <textarea id="ch-q3" rows="2" style="width:100%;padding:8px;border:1px solid var(--bdr);border-radius:6px;font-family:inherit;font-size:13px;resize:vertical;" placeholder="會 / 不會 / 忘光光..."></textarea>
+
+      <div style="font-size:13px;font-weight:700;color:var(--brown);margin:12px 0 8px;">4. 這筆錢如果存進頭期款會累積到多少？</div>
+      <textarea id="ch-q4" rows="2" style="width:100%;padding:8px;border:1px solid var(--bdr);border-radius:6px;font-family:inherit;font-size:13px;resize:vertical;" placeholder="例：1 年 12 次 = $18,000..."></textarea>
+
+      <div style="font-size:13px;font-weight:700;color:var(--brown);margin:12px 0 8px;">5. 我的最終判斷是？</div>
+      <textarea id="ch-q5" rows="2" style="width:100%;padding:8px;border:1px solid var(--bdr);border-radius:6px;font-family:inherit;font-size:13px;resize:vertical;" placeholder="給自己一個誠實的答案..."></textarea>
+    </div>
+    <div style="margin-top:14px;padding:12px;background:var(--roseL);border-radius:10px;">
+      <div style="font-size:13px;font-weight:700;color:var(--roseDk);margin-bottom:8px;">最終決定：</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <label style="flex:1;min-width:100px;cursor:pointer;padding:12px;text-align:center;background:#fff;border:2px solid var(--bdr);border-radius:10px;font-size:14px;font-weight:600;">
+          <input type="radio" name="ch-verdict" value="go" style="margin-right:6px;">✅ 可以花
+        </label>
+        <label style="flex:1;min-width:100px;cursor:pointer;padding:12px;text-align:center;background:#fff;border:2px solid var(--bdr);border-radius:10px;font-size:14px;font-weight:600;">
+          <input type="radio" name="ch-verdict" value="wait" style="margin-right:6px;">⏰ 再等等
+        </label>
+        <label style="flex:1;min-width:100px;cursor:pointer;padding:12px;text-align:center;background:#fff;border:2px solid var(--bdr);border-radius:10px;font-size:14px;font-weight:600;">
+          <input type="radio" name="ch-verdict" value="no" style="margin-right:6px;">❌ 別花
+        </label>
+      </div>
+    </div>
+    <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="saveChat()" style="background:var(--gold);">✓ 儲存決定</button></div>`;}
+
   if(m.t==='globalSearch'){c=`<div class="mttl">🔍 全域搜尋</div>
     <div style="padding:0 0 12px;">
       <input type="text" id="global-search-input" value="${(m.x||'').replace(/"/g,'&quot;')}" placeholder="輸入商家名、類別、金額、日期…" autofocus autocomplete="off" oninput="doGlobalSearch(this.value)" style="width:100%;padding:14px 18px;border:2px solid var(--pur);border-radius:12px;font-size:16px;font-family:inherit;color:var(--brown);background:var(--purl);">
@@ -9214,7 +9463,97 @@ window.quickSaveExpense=async()=>{
     setTimeout(()=>render(),300);
   }catch(err){alert('儲存失敗：'+err.message);}
 };
-// 📒 addExp modal：選預備金帳本後 → 類別下拉動態切換為該帳本的細項
+
+// 🛡️ 守財工具箱 — 6 個 actions
+
+// 🏠 買房頭期專款
+window.saveHouseFund=async()=>{
+  const date=g('hf-date');
+  const amount=toN(g('hf-amt'));
+  const note=g('hf-note')||'';
+  if(!date||!amount){alert('請填日期和金額');return;}
+  const newItem={id:'hf_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),date,amount,note};
+  const list=[...(S.data.houseFund||[]),newItem];
+  await saveMain({houseFund:list});
+  toast(`✅ +$${fmt(amount)} 撥進頭期款`);
+  closeMod();
+};
+window.delHouseFund=async(id)=>{
+  if(!confirm('確定要刪除這筆撥款紀錄？'))return;
+  const list=(S.data.houseFund||[]).filter(h=>h.id!==id);
+  await saveMain({houseFund:list});
+  toast('已刪除');
+  render();
+};
+
+// 🧊 大額採購冷靜期
+window.saveCooling=async()=>{
+  const createDate=g('cool-date');
+  const item=g('cool-item')||'';
+  const amount=toN(g('cool-amt'));
+  const reason=g('cool-reason')||'';
+  if(!createDate||!item||!amount){alert('請填想買什麼跟金額');return;}
+  const newItem={
+    id:'cd_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+    createDate,item,amount,reason,
+    decision:null,decisionNote:''
+  };
+  const list=[...(S.data.coolingDecisions||[]),newItem];
+  await saveMain({coolingDecisions:list});
+  toast('🧊 開始 3 天冷靜期！記得等到 3 天後再決定');
+  closeMod();
+};
+window.decideCooling=async(id,decision)=>{
+  const decisionNote=prompt(decision==='buy'?'為什麼還是要買？（老實寫）':'為什麼放棄？（讚美一下自己）')||'';
+  const list=(S.data.coolingDecisions||[]).map(c=>c.id===id?{...c,decision,decisionNote}:c);
+  await saveMain({coolingDecisions:list});
+  if(decision==='reject'){
+    const item=list.find(c=>c.id===id);
+    toast(`💪 你省下了 $${fmt(toN(item?.amount||0))}！要不要撥進頭期款？`);
+  }else{
+    toast('✅ 已記錄');
+  }
+  render();
+};
+window.delCooling=async(id)=>{
+  if(!confirm('確定要刪除這筆冷靜期紀錄？'))return;
+  const list=(S.data.coolingDecisions||[]).filter(c=>c.id!==id);
+  await saveMain({coolingDecisions:list});
+  toast('已刪除');
+  render();
+};
+
+// 💬 情緒踩剎車自我問答
+window.saveChat=async()=>{
+  const date=g('ch-date');
+  const title=g('ch-title')||'';
+  const amount=toN(g('ch-amt'));
+  const q1=g('ch-q1')||'';
+  const q2=g('ch-q2')||'';
+  const q3=g('ch-q3')||'';
+  const q4=g('ch-q4')||'';
+  const q5=g('ch-q5')||'';
+  const verdict=document.querySelector('input[name="ch-verdict"]:checked')?.value||'';
+  if(!date||!title||!amount){alert('請填想買什麼、金額、日期');return;}
+  if(!verdict){alert('請選擇最終決定：可以花 / 再等等 / 別花');return;}
+  const newItem={
+    id:'chat_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+    date,title,amount,q1,q2,q3,q4,q5,verdict,_at:Date.now()
+  };
+  const list=[...(S.data.advisorChats||[]),newItem];
+  await saveMain({advisorChats:list});
+  const msg=verdict==='go'?'✅ 決定了！':verdict==='wait'?'⏰ 再等等看':'❌ 省下來了';
+  toast(msg);
+  closeMod();
+};
+window.delChat=async(id)=>{
+  if(!confirm('確定要刪除這筆踩剎車紀錄？'))return;
+  const list=(S.data.advisorChats||[]).filter(c=>c.id!==id);
+  await saveMain({advisorChats:list});
+  toast('已刪除');
+  render();
+};
+
 window.updateAddExpCats=(lid)=>{
   const catSel=document.getElementById('m2');
   const leSel=document.getElementById('m_le');
