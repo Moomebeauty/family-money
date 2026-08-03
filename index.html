@@ -8,54 +8,56 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700;900&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  /* 🍵 煎茶綠 + 米黃 — 自然清新、療癒不刺眼 */
-  --brown:#3D4A2E;--bl:#5A6B48;--acc:#7A9E6B;--acc2:#9AB88A;--accL:#E5EBD0;
-  --bg:#FBF7E8;--bg2:#F5EFD5;--bg3:#EDE4BE;--card:#FFFEF6;--bdr:#D5D2AC;
-  --grn:#7A9E6B;--grnl:#E8EFDA;--red:#C57862;--redl:#F5E2DA;
-  --yel:#FFF3C8;--yelb:#C99B45;--blu:#8DA9AC;--blul:#E0EAEB;
-  --pur:#A38FA8;--purl:#EFE8F0;--gold:#C99B45;--goldL:#F5E8C8;
-  --rose:#C89882;--roseL:#F2E2D5;
-  --tea:#7A9E6B;--teaD:#5A7D50;--teaL:#E5EBD0;--teaDeep:#3D5535;
-  /* 頁面主色（煎茶調系） */
-  --pg-home:#7A9E6B;
-  --pg-incomes:#7A9E6B;
-  --pg-savings:#8DA9AC;
-  --pg-expenses:#C57862;
-  --pg-ledger:#C99B45;
-  --pg-stocks:#C99B45;
-  --pg-networth:#9AB88A;
-  --pg-trends:#A38FA8;
-  --pg-coach:#3D5535;
-  --pg-settings:#8B9270;
-  --txt:#2A3520;--mut:#8B9270;
-  --shd:0 1px 3px rgba(90,125,80,.08),0 2px 8px rgba(61,74,46,.06);
-  --shd2:0 4px 16px rgba(90,125,80,.12),0 8px 32px rgba(61,74,46,.08);
+  /* 🍮 焦糖太妃 + 香檳金 — 沐蜜氛圍但主色不同 */
+  --caramel:#B08157;--caramelDk:#8C5F3E;--caramelL:#F5EBDE;--caramelMid:#E8CFB5;
+  --gold:#C4A46B;--goldL:#F9F0E0;--goldDk:#8C6B3A;
+  --grn:#5A8C6B;--grnL:#E8F5ED;--grnl:#E8F5ED;
+  --red:#C25A5A;--redL:#FAEAEA;--redl:#FAEAEA;
+  --blu:#5A7AC2;--bluL:#E8EEFA;--blul:#E8EEFA;
+  --pur:#8C5AC2;--purL:#F0E8FA;--purl:#F0E8FA;
+  --yel:#FFF8E5;--yelb:#C99B45;--goldL:#F9F0E0;
+  --rose:#C89882;--roseL:#F5E5D8;--roseL:#F5E5D8;
+  --brown:#6B4C3A;--bl:#7E6860;--txt:#2D1F1A;--mut:#8B7565;--bdr:#EAE0D8;
+  --bg:#FDFAF8;--bg2:#F7F0EC;--bg3:#F0E8E2;--card:#FFFFFF;--accL:#F5EBDE;
+  --acc:#B08157;--acc2:#D4B090;
+  /* 頁面主色（焦糖調系） */
+  --pg-home:#B08157;
+  --pg-incomes:#5A8C6B;
+  --pg-savings:#5A7AC2;
+  --pg-expenses:#C25A5A;
+  --pg-ledger:#C4A46B;
+  --pg-stocks:#B08157;
+  --pg-networth:#C4A46B;
+  --pg-trends:#8C5AC2;
+  --pg-coach:#4A3020;
+  --pg-settings:#7E6860;
+  --shd:0 2px 16px rgba(176,129,87,0.08);
+  --shd2:0 4px 32px rgba(176,129,87,0.14);
   --r:16px;--r-sm:12px;
 }
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;letter-spacing:0.02em;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;letter-spacing:0.04em;}
 html,body{height:100%;}
-body{font-family:'Noto Sans TC',sans-serif;background:#FBF7E8;color:var(--txt);min-height:100vh;overflow-x:hidden;font-size:16px;line-height:1.75;position:relative;}
-/* 🍵 煎茶光暈浮水印 — 自然清新 */
+body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;overflow-x:hidden;font-size:17px;line-height:1.65;position:relative;}
+/* 🍮 焦糖光暈浮水印 */
 body.with-watermark::before{
   content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   background-image:
-    radial-gradient(ellipse 700px 500px at 15% 20%,rgba(155,185,135,0.28),transparent 60%),
-    radial-gradient(ellipse 600px 400px at 85% 30%,rgba(180,200,150,0.24),transparent 65%),
-    radial-gradient(ellipse 800px 600px at 50% 75%,rgba(190,205,160,0.22),transparent 60%),
-    radial-gradient(ellipse 450px 320px at 90% 85%,rgba(170,195,145,0.20),transparent 60%);
+    radial-gradient(ellipse 700px 500px at 15% 20%,rgba(210,175,140,0.24),transparent 60%),
+    radial-gradient(ellipse 600px 400px at 85% 30%,rgba(200,170,135,0.22),transparent 65%),
+    radial-gradient(ellipse 800px 600px at 50% 75%,rgba(220,185,150,0.20),transparent 60%);
   background-attachment:fixed;
 }
 body.with-watermark::after{
   content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
-  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 800'><g opacity='0.04' fill='%237A9E6B'><circle cx='150' cy='180' r='55'/><circle cx='600' cy='300' r='50'/><circle cx='400' cy='620' r='45'/><circle cx='720' cy='700' r='40'/><circle cx='80' cy='650' r='42'/></g></svg>");
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 800'><g opacity='0.04' fill='%23B08157'><circle cx='150' cy='180' r='55'/><circle cx='600' cy='300' r='50'/><circle cx='400' cy='620' r='45'/><circle cx='720' cy='700' r='40'/></g></svg>");
   background-size:cover;background-attachment:fixed;background-position:center;
   opacity:0.5;
 }
 .app{position:relative;z-index:1;}
-h1,h2,h3,.serif{font-family:'Noto Serif TC',serif;letter-spacing:0.06em;}
+h1,h2,h3,.serif{font-family:'Noto Serif TC',serif;letter-spacing:0.08em;}
 
 /* LOGIN */
-.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#5A7D50,#7A9E6B,#9AB88A);padding:20px;}
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#4A3020,#6B4C3A,#8C5F3E);padding:20px;}
 .login-box{background:var(--card);border-radius:24px;padding:40px 36px;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center;animation:fadeIn .4s ease;}
 @keyframes fadeIn{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 .login-ico{font-size:56px;margin-bottom:12px;}
@@ -70,10 +72,10 @@ h1,h2,h3,.serif{font-family:'Noto Serif TC',serif;letter-spacing:0.06em;}
 
 /* APP */
 .app{display:flex;flex-direction:column;height:100vh;}
-.topbar{background:#FFFFFF;color:var(--brown);padding:0 26px;display:flex;align-items:center;justify-content:space-between;height:64px;flex-shrink:0;z-index:100;box-shadow:0 1px 0 var(--bdr),0 2px 8px rgba(93,78,109,.06);border-bottom:1px solid var(--bdr);}
-.tb-brand{font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;letter-spacing:4px;color:var(--pg-coach);}
-.tb-brand span{color:var(--acc);font-weight:400;}
-.tb-ttl{font-family:'Noto Serif TC',serif;font-size:19px;font-weight:700;color:var(--pg-coach);letter-spacing:0.1em;}
+.topbar{background:var(--card);border-bottom:1px solid var(--bdr);padding:0 28px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--shd);}
+.tb-brand{font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;letter-spacing:4px;color:var(--caramelDk);}
+.tb-brand span{color:var(--caramel);font-weight:400;}
+.tb-ttl{font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--caramelDk);letter-spacing:0.08em;}
 .tb-right{display:flex;align-items:center;gap:12px;}
 .sync-dot{width:8px;height:8px;border-radius:50%;background:#bbb;transition:all .3s;flex-shrink:0;}
 .sync-dot.synced{background:var(--grn);box-shadow:0 0 10px rgba(122,158,132,.6);}
@@ -83,21 +85,22 @@ h1,h2,h3,.serif{font-family:'Noto Serif TC',serif;letter-spacing:0.06em;}
 .sync-lbl{font-size:12px;color:var(--mut);letter-spacing:0.1em;}
 .btn-out{background:#FFFFFF;border:1.5px solid var(--bdr);color:var(--brown);border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;letter-spacing:0.08em;transition:all .25s;font-weight:500;}
 .btn-out:hover{border-color:var(--pur);color:var(--pur);}
-.btn-search{background:linear-gradient(135deg,var(--tea),var(--teaD));color:#fff;border:none;border-radius:10px;padding:8px 16px;font-size:13px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;letter-spacing:0.08em;font-weight:600;transition:all .25s;box-shadow:0 2px 8px rgba(122,158,107,0.35);}
-/* 金額輸入欄：藏原生上下箭頭 spinner（釋放空間給數字） */
+.btn-search{background:linear-gradient(135deg,var(--caramel),var(--caramelDk));color:#fff;border:none;border-radius:10px;padding:8px 16px;font-size:13px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;letter-spacing:0.08em;font-weight:600;transition:all .25s;box-shadow:0 2px 8px rgba(176,129,87,0.35);}
+/* 金額輸入欄：藏原生上下箭頭 spinner */
 .amt-input::-webkit-outer-spin-button,
 .amt-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
 .amt-input{-moz-appearance:textfield;appearance:textfield;}
-.btn-search:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(122,158,107,0.5);}
+.btn-search:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(176,129,87,0.5);}
 
 /* LAYOUT */
 .layout{display:flex;flex:1;overflow:hidden;}
-.sidebar{width:220px;background:linear-gradient(180deg,#F0EBD0 0%,#DDE3B5 100%);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0;padding:20px 0;border-right:1px solid rgba(122,158,107,0.25);}
-.sb-sec-lbl{font-size:11px;font-weight:600;color:var(--teaD);letter-spacing:3px;text-transform:uppercase;padding:18px 22px 8px;font-family:'Noto Serif TC',serif;}
-.sb-item{display:flex;align-items:center;gap:14px;padding:14px 22px;cursor:pointer;font-size:15px;color:var(--brown);font-weight:600;transition:all .25s cubic-bezier(.4,0,.2,1);border-left:4px solid transparent;letter-spacing:0.10em;position:relative;}
-.sb-item:hover{background:rgba(255,255,255,0.5);color:var(--teaDeep);padding-left:26px;}
-.sb-item.active{background:rgba(255,255,255,0.75);color:var(--teaDeep);font-weight:700;border-left-color:var(--tea);box-shadow:0 2px 8px rgba(122,158,107,0.20);}
-.sb-item.active::after{content:'';position:absolute;right:16px;top:50%;transform:translateY(-50%);width:6px;height:6px;border-radius:50%;background:var(--tea);box-shadow:0 0 10px rgba(122,158,107,0.6);}
+.sidebar{width:220px;background:linear-gradient(180deg,#4A3020 0%,#6B4C3A 100%);display:flex;flex-direction:column;overflow-y:auto;flex-shrink:0;padding:14px 0;border-right:none;box-shadow:2px 0 20px rgba(74,48,32,0.15);}
+.sb-sec-lbl{font-size:11px;font-weight:500;color:rgba(255,255,255,0.45);letter-spacing:3px;text-transform:uppercase;padding:18px 22px 8px;font-family:'Noto Serif TC',serif;}
+.sb-item{display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;font-size:16px;color:rgba(255,255,255,0.78);font-weight:500;transition:.2s;border-left:4px solid transparent;letter-spacing:0.06em;position:relative;}
+.sb-item:hover{background:rgba(255,255,255,0.1);color:#fff;}
+.sb-item.active{background:rgba(255,255,255,0.18);color:#fff;font-weight:700;border-left-color:var(--gold);}
+.sb-item.active::after{content:'';position:absolute;right:16px;top:50%;transform:translateY(-50%);width:6px;height:6px;border-radius:50%;background:var(--gold);box-shadow:0 0 10px rgba(196,164,107,0.8);}
+.sb-item .ico{font-size:20px;width:26px;text-align:center;}
 /* 沐蜜風格：每個項目有自己的主色（左邊小色條） */
 .sb-item[data-pg="home"].active{border-left-color:var(--pg-home);}
 .sb-item[data-pg="incomes"].active{border-left-color:var(--pg-incomes);}
@@ -1016,15 +1019,15 @@ function topBar(){
   <div class="tb-right">
     <div class="fb g8"><div class="sync-dot ${S.sync}"></div><span class="sync-lbl">${S.sync==='synced'?'已同步':S.sync==='syncing'?'同步中…':'離線'}</span></div>
     <button class="btn-search" onclick="openGlobalSearch()">🔍 搜尋</button>
-    <button class="btn-out" onclick="toggleWatermark()" title="切換背景浮水印">🍃</button>
+    <button class="btn-out" onclick="toggleWatermark()" title="切換背景浮水印">🍮</button>
     <button class="btn-out" onclick="exportCSV()">⬇ 匯出</button>
     <button class="btn-out" onclick="doOut()">登出</button>
   </div>
 </div>`;}
 function sidebar(){return`<nav class="sidebar">
-<div style="padding:8px 22px 20px;">
-  <div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:var(--teaDeep);letter-spacing:4px;">🍵 家庭錢包</div>
-  <div style="font-size:11px;color:var(--teaD);letter-spacing:0.2em;margin-top:2px;font-weight:600;">MY MONEY</div>
+<div style="padding:20px 22px 24px;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:8px;">
+  <div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:#fff;letter-spacing:5px;">🏡 家庭錢包</div>
+  <div style="font-size:11px;color:rgba(255,255,255,0.5);letter-spacing:0.3em;margin-top:4px;font-weight:500;">MY MONEY</div>
 </div>
 ${PAGES.filter(p=>p.group==='main').map(p=>`<div class="sb-item${S.page===p.id?' active':''}" data-pg="${p.id}" onclick="setP('${p.id}')"><span class="ico">${p.ico}</span><span>${p.lbl}</span></div>`).join('')}
 </nav>`;}
@@ -1491,12 +1494,12 @@ function pgSimple(){
 
     <!-- 🌸 大標題 -->
     <div style="text-align:center;padding:20px 0 10px;">
-      <div style="font-family:'Noto Serif TC',serif;font-size:32px;font-weight:700;color:var(--teaD);letter-spacing:0.15em;">${S.month} 月</div>
+      <div style="font-family:'Noto Serif TC',serif;font-size:32px;font-weight:700;color:var(--caramelDk);letter-spacing:0.15em;">${S.month} 月</div>
       <div class="tm" style="font-size:13px;letter-spacing:0.2em;margin-top:2px;">${yr()} · ${['一','二','三','四','五','六','七','八','九','十','十一','十二'][S.month-1]}月的錢</div>
     </div>
 
     <!-- 💰 頂部主卡：本月狀況 -->
-    <div style="background:linear-gradient(135deg,#FFF,var(--teaL));border-radius:22px;padding:26px 28px;box-shadow:0 8px 32px rgba(122,158,107,0.15);border:1.5px solid rgba(122,158,107,0.15);margin-bottom:16px;">
+    <div style="background:linear-gradient(135deg,#FFF,var(--caramelL));border-radius:22px;padding:26px 28px;box-shadow:0 8px 32px rgba(176,129,87,0.15);border:1.5px solid rgba(176,129,87,0.15);margin-bottom:16px;">
 
       <!-- 兩欄：收入 vs 支出 -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
@@ -1511,21 +1514,21 @@ function pgSimple(){
       </div>
 
       <!-- 剩餘 -->
-      <div style="padding:16px 20px;background:${remain>=0?'linear-gradient(135deg,var(--teaL),#fff)':'var(--redl)'};border-radius:16px;border:2px solid ${remain>=0?'var(--tea)':'var(--red)'};">
+      <div style="padding:16px 20px;background:${remain>=0?'linear-gradient(135deg,var(--caramelL),#fff)':'var(--redl)'};border-radius:16px;border:2px solid ${remain>=0?'var(--caramel)':'var(--red)'};">
         <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;">
           <span style="font-size:14px;color:var(--brown);font-weight:600;letter-spacing:0.1em;">${remain>=0?'✨ 這個月還剩':'⚠️ 這個月超支了'}</span>
-          <span style="font-family:'Noto Serif TC',serif;font-size:32px;font-weight:700;color:${remain>=0?'var(--teaD)':'var(--red)'};">${remain>=0?'+':''}$${fmt(remain)}</span>
+          <span style="font-family:'Noto Serif TC',serif;font-size:32px;font-weight:700;color:${remain>=0?'var(--caramelDk)':'var(--red)'};">${remain>=0?'+':''}$${fmt(remain)}</span>
         </div>
         <!-- 進度條 -->
         <div style="margin-top:10px;height:10px;background:#fff;border-radius:10px;overflow:hidden;box-shadow:inset 0 1px 3px rgba(0,0,0,0.06);">
-          <div style="height:100%;width:${Math.min(spentPct,100)}%;background:linear-gradient(90deg,var(--tea),${spentPct>100?'var(--red)':'var(--teaD)'});border-radius:10px;transition:width 0.5s;"></div>
+          <div style="height:100%;width:${Math.min(spentPct,100)}%;background:linear-gradient(90deg,var(--caramel),${spentPct>100?'var(--red)':'var(--caramelDk)'});border-radius:10px;transition:width 0.5s;"></div>
         </div>
-        <div class="tm" style="font-size:11.5px;margin-top:6px;text-align:right;">已花掉 <b style="color:${spentPct>100?'var(--red)':'var(--teaD)'};">${spentPct}%</b> 的收入</div>
+        <div class="tm" style="font-size:11.5px;margin-top:6px;text-align:right;">已花掉 <b style="color:${spentPct>100?'var(--red)':'var(--caramelDk)'};">${spentPct}%</b> 的收入</div>
       </div>
     </div>
 
     <!-- 💵 錢從哪裡來 -->
-    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(122,158,107,0.10);margin-bottom:16px;border-top:4px solid var(--grn);">
+    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(176,129,87,0.10);margin-bottom:16px;border-top:4px solid var(--grn);">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
         <span style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--brown);letter-spacing:0.1em;">💵 錢從哪裡來？</span>
         <button onclick="setP('quickInc')" style="background:var(--grn);color:#fff;border:none;padding:6px 14px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">＋ 記一筆</button>
@@ -1553,7 +1556,7 @@ function pgSimple(){
     </div>
 
     <!-- 💸 錢花到哪裡 -->
-    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(122,158,107,0.10);margin-bottom:16px;border-top:4px solid var(--red);">
+    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(176,129,87,0.10);margin-bottom:16px;border-top:4px solid var(--red);">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
         <span style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--brown);letter-spacing:0.1em;">💸 錢花到哪裡？</span>
         <button onclick="setP('quickExp')" style="background:var(--red);color:#fff;border:none;padding:6px 14px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">＋ 記一筆</button>
@@ -1582,7 +1585,7 @@ function pgSimple(){
     </div>
 
     <!-- 📌 每月固定支出 -->
-    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(122,158,107,0.10);margin-bottom:16px;border-top:4px solid var(--gold);">
+    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(176,129,87,0.10);margin-bottom:16px;border-top:4px solid var(--gold);">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
         <span style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--brown);letter-spacing:0.1em;">📌 每月固定要花</span>
         <button onclick="setP('fixedNew')" style="background:var(--gold);color:#fff;border:none;padding:6px 14px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">管理</button>
@@ -1669,7 +1672,7 @@ function pgQuickIncome(){
     </div>
 
     <!-- 本月已記錄 -->
-    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(122,158,107,0.10);">
+    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(176,129,87,0.10);">
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px;">
         <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);">本月已記錄</span>
         <span style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--grn);">$${fmt(total)}</span>
@@ -1746,7 +1749,7 @@ function pgQuickExpense(){
     </div>
 
     <!-- 本月已記錄 -->
-    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(122,158,107,0.10);">
+    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(176,129,87,0.10);">
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px;">
         <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);">本月已花</span>
         <span style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--red);">$${fmt(total)}</span>
@@ -1799,7 +1802,7 @@ function pgFixedNew(){
     </button>
 
     <!-- 類別統計 -->
-    ${sortedCat.length>0?`<div style="background:#fff;border-radius:20px;padding:20px 22px;box-shadow:0 4px 16px rgba(122,158,107,0.08);margin-bottom:16px;">
+    ${sortedCat.length>0?`<div style="background:#fff;border-radius:20px;padding:20px 22px;box-shadow:0 4px 16px rgba(176,129,87,0.08);margin-bottom:16px;">
       <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--brown);margin-bottom:12px;">📊 依類別</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;">
         ${sortedCat.map(([cat,amt])=>{
@@ -1814,7 +1817,7 @@ function pgFixedNew(){
     </div>`:''}
 
     <!-- 明細清單 -->
-    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(122,158,107,0.10);">
+    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(176,129,87,0.10);">
       <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);margin-bottom:14px;">📋 全部項目（${fixedItems.length}）</div>
       ${fixedItems.length===0?`<div style="text-align:center;padding:40px 20px;color:var(--mut);">
         <div style="font-size:48px;">📋</div>
