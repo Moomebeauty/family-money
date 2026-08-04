@@ -2263,7 +2263,7 @@ function pgExpDash(){
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
               <div style="flex:1;min-width:0;">
                 <div style="font-size:14px;color:var(--brown);font-weight:700;">${a.name}</div>
-                <div class="tm" style="font-size:11px;margin-top:2px;">${a.category||''}${a.dueMonth?` · 到期月 ${a.dueMonth}月`:''}${a.note?` · ${a.note}`:''}</div>
+                <div class="tm" style="font-size:11px;margin-top:2px;">${a.category||''}${a.dueMonth?` · 到期月 ${a.dueMonth}月`:''}${a.linkedLedger?` · 🔗 ${((getAllLedgers().find(x=>x.id===a.linkedLedger)||{}).name)||'?'}`:''}${a.note?` · ${a.note}`:''}</div>
               </div>
               <button onclick="delAmort('${a.id}')" style="background:none;border:none;color:var(--red);font-size:20px;cursor:pointer;padding:0 4px;">×</button>
             </div>
@@ -2350,7 +2350,7 @@ function pgAmortNew(){
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
             <div style="flex:1;">
               <div style="font-size:15px;color:var(--brown);font-weight:700;">${a.name}</div>
-              <div class="tm" style="font-size:11.5px;margin-top:2px;">${a.category||''}${a.dueMonth?` · 到期月 ${a.dueMonth}月`:''}${a.note?` · ${a.note}`:''}</div>
+              <div class="tm" style="font-size:11.5px;margin-top:2px;">${a.category||''}${a.dueMonth?` · 到期月 ${a.dueMonth}月`:''}${a.linkedLedger?` · 🔗 ${((getAllLedgers().find(x=>x.id===a.linkedLedger)||{}).name)||'?'}`:''}${a.note?` · ${a.note}`:''}</div>
             </div>
             <button onclick="delAmort('${a.id}')" style="background:none;border:none;color:var(--red);font-size:20px;cursor:pointer;padding:0 4px;">×</button>
           </div>
@@ -7643,6 +7643,32 @@ function pgLedger(){
       ${moSel()}
     </div>
 
+    <!-- 🔔 年繳提醒條（連動年繳攤提，提前 1 個月） -->
+    ${(()=>{
+      const amortItems=S.data.amortizedItems||[];
+      // 找出對應此帳本、且下個月要繳的年繳項目
+      const nextMonth=S.month===12?1:S.month+1;
+      const linkedItems=amortItems.filter(a=>a.linkedLedger===l.id&&toN(a.dueMonth)===nextMonth);
+      if(linkedItems.length===0)return'';
+      return`<div style="background:linear-gradient(135deg,#FFF3D8,#FFEAD0);border:2px solid var(--yelb);border-radius:12px;padding:12px 18px;margin-bottom:16px;">
+        ${linkedItems.map(a=>{
+          const paid=toN(a.paidThisYear);
+          const annual=toN(a.annualAmount);
+          const shortage=annual-paid;
+          return`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:200px;">
+              <div style="font-size:14px;color:var(--brown);font-weight:700;">⚠️ 下個月要繳「${a.name}」</div>
+              <div class="tm" style="font-size:11.5px;margin-top:3px;line-height:1.6;">
+                需 <b style="color:var(--red);">$${fmt(annual)}</b>　·　已存 <b style="color:var(--grn);">$${fmt(paid)}</b>
+                ${shortage>0?`　·　<b style="color:var(--red);">還差 $${fmt(shortage)}</b>`:'　·　<b style="color:var(--grn);">✅ 已存夠</b>'}
+              </div>
+            </div>
+            <button onclick="setP('amortNew')" style="background:var(--yelb);color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">看年繳</button>
+          </div>`;
+        }).join('<div style="height:1px;background:var(--bdr);margin:10px 0;"></div>')}
+      </div>`;
+    })()}
+
     <!-- 3 大數字卡（本月支出、本月存入、餘額） -->
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;">
       <div style="background:#fff;border-radius:16px;padding:16px 12px;text-align:center;box-shadow:0 4px 12px rgba(194,116,122,0.10);border-top:3px solid var(--red);">
@@ -7658,6 +7684,25 @@ function pgLedger(){
         <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:${balance>=0?'var(--goldDk)':'var(--red)'};margin-top:4px;">$${fmt(balance)}</div>
       </div>
     </div>
+
+    <!-- 🔔 年繳到期提醒（如果有對應此帳本的年繳項目 & 下個月要繳）-->
+    ${(()=>{
+      const amortItems=S.data.amortizedItems||[];
+      const nextMonth=S.month===12?1:S.month+1;
+      const linkedItems=amortItems.filter(a=>a.linkedLedger===l.id&&toN(a.dueMonth)===nextMonth);
+      if(linkedItems.length===0)return'';
+      return linkedItems.map(a=>{
+        const paid=toN(a.paidThisYear);
+        const annual=toN(a.annualAmount);
+        const isPaid=paid>=annual;
+        return`<div style="background:${isPaid?'var(--grnL)':'var(--yel)'};border-left:4px solid ${isPaid?'var(--grn)':'var(--yelb)'};border-radius:10px;padding:12px 16px;margin-bottom:12px;">
+          <div style="font-size:13px;color:${isPaid?'var(--grn)':'var(--brown)'};font-weight:600;line-height:1.6;">
+            ${isPaid?'✅':'⚠️'} <b>下個月（${nextMonth} 月）要繳「${a.name} $${fmt(annual)}」</b>
+            ${isPaid?' · 今年已預備滿了':paid>0?` · 已存 $${fmt(paid)} / $${fmt(annual)}（還差 $${fmt(annual-paid)}）`:` · <b style="color:var(--red);">還沒開始存！</b>`}
+          </div>
+        </div>`;
+      }).join('');
+    })()}
 
     <!-- 💡 智能攤提建議 -->
     ${avgOut>0?`<div style="background:linear-gradient(135deg,var(--bluL),#fff);border-radius:14px;padding:16px 20px;border-left:4px solid var(--blu);margin-bottom:16px;">
@@ -8428,6 +8473,12 @@ function modal(){
       <div class="fgrp"><label>到期月份</label>
         <select id="am-due">
           ${Array.from({length:12},(_,i)=>`<option value="${i+1}">${i+1} 月</option>`).join('')}
+        </select>
+      </div>
+      <div class="fgrp" style="grid-column:1/-1"><label>🔗 對應儲蓄帳本（到期前 1 個月會提醒）</label>
+        <select id="am-linked">
+          <option value="">— 不對應 —</option>
+          ${(typeof getAllLedgers==='function'?getAllLedgers():[]).map(led=>`<option value="${led.id}">${led.name}</option>`).join('')}
         </select>
       </div>
       <div class="fgrp" style="grid-column:1/-1"><label>備註（選填）</label><input type="text" id="am-note" placeholder="說明或備忘"></div>
@@ -9768,12 +9819,13 @@ window.saveAmort=async()=>{
   const annualAmount=toN(g('am-annual'));
   const category=g('am-cat')||'其他';
   const dueMonth=parseInt(g('am-due'))||1;
+  const linkedLedger=g('am-linked')||'';
   const note=g('am-note')||'';
   if(!name||!annualAmount){alert('請填項目名稱和年繳總額');return;}
   const monthlyAmortize=Math.ceil(annualAmount/12);
   const newItem={
     id:'am_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
-    name,category,annualAmount,monthlyAmortize,dueMonth,
+    name,category,annualAmount,monthlyAmortize,dueMonth,linkedLedger,
     paidThisYear:0,paidDate:'',note
   };
   const list=[...(S.data.amortizedItems||[]),newItem];
