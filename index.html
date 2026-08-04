@@ -1084,7 +1084,7 @@ ${allLedgers.length>0?`
 ${allLedgers.map((l,idx)=>{
   const isActive=S.page==='ledger'&&S.ledgerIdx===idx;
   const ico=ledgerIco(l.name||'');
-  return`<div class="sb-item${isActive?' active':''}" onclick="S.ledgerIdx=${idx};setP('ledger');" style="font-size:14px;padding:11px 22px 11px 26px;">
+  return`<div class="sb-item${isActive?' active':''}" onclick="selLedger(${idx})" style="font-size:14px;padding:11px 22px 11px 26px;">
     <span class="ico" style="font-size:17px;width:22px;">${ico}</span>
     <span>${l.name}</span>
   </div>`;
@@ -2059,7 +2059,7 @@ function pgLedgerHome(){
           </div>
 
           <!-- 看歷史 -->
-          <button onclick="S.ledgerIdx=${idx};setP('ledger');" style="width:100%;margin-top:8px;padding:8px;background:var(--bg2);color:var(--brown);border:1px solid var(--bdr);border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;">📋 看 ${c.entriesCount} 筆歷史</button>
+          <button onclick="selLedger(${idx})" style="width:100%;margin-top:8px;padding:8px;background:var(--bg2);color:var(--brown);border:1px solid var(--bdr);border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;">📋 看 ${c.entriesCount} 筆歷史</button>
         </div>`;
       }).join('')}
     </div>`}
@@ -9594,6 +9594,8 @@ function renderSearchResults(query){
 }
 window.setU=u=>{S.user=u;render();};
 window.setP=p=>{S.page=p;S.subTab=0;S.modal=null;render();};
+// 📒 選帳本並跳到單一帳本頁（inline onclick 用）
+window.selLedger=(idx)=>{S.ledgerIdx=idx;S.subTab=0;S.modal=null;S.page='ledger';render();};
 window.setMo=m=>{S.month=m;render();};
 window.setT=t=>{S.subTab=t;render();};
 window.setLI=i=>{S.ledgerIdx=i;S.openLedgerCat=null;render();};
