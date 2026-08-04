@@ -785,6 +785,7 @@ const PAGES=[
   {id:'quickInc', ico:'💵',lbl:'記一筆收入',group:'main'},
   {id:'quickExp', ico:'💸',lbl:'記一筆支出',group:'main'},
   {id:'expDash',  ico:'📊',lbl:'支出總覽',group:'main'},
+  {id:'ledgerHome',ico:'📒',lbl:'預備金帳本',group:'main'},
   {id:'guardian', ico:'🛡️',lbl:'守財工具箱',group:'main'},
   {id:'settings', ico:'⚙️',lbl:'進階功能',group:'main'},
   // 舊「固定支出」跟「年繳攤提」改為隱藏（保留路由與資料）
@@ -862,6 +863,8 @@ let S={
     advisorChats:[],      // 情緒踩剎車自我提問 [{id,date,title,amount,q1,q2,q3,q4,q5,verdict,_at}]
     // 🏺 年繳攤提項目（每月存一點準備繳）
     amortizedItems:[],    // [{id,name,category,annualAmount,monthlyAmortize,dueMonth,paidThisYear,paidDate,note}]
+    // 📒 預備金帳本目標金額（by ledger id）
+    ledgerTargets:{},     // {ledger_id: target_amount}
     // 💳 常用信用卡銀行清單（讓下拉快選）
     cardBanks:['中信','玉山','國泰','聯邦','富邦','台新','星展','其他'],
     importStaging:[]
@@ -926,6 +929,7 @@ function startSync(){
       S.data.houseFund=d.houseFund||[];
       S.data.advisorChats=d.advisorChats||[];
       S.data.amortizedItems=d.amortizedItems||[];
+      S.data.ledgerTargets=d.ledgerTargets||{};
       S.data.cardBanks=d.cardBanks||['中信','玉山','國泰','聯邦','富邦','台新','星展','其他'];
       S.data.investNotes=d.investNotes||{};
     }
@@ -1067,6 +1071,7 @@ function page(){
     case'quickInc': return pgQuickIncome();
     case'quickExp': return pgQuickExpense();
     case'expDash':  return pgExpDash();
+    case'ledgerHome':return pgLedgerHome();
     case'fixedNew': return pgFixedNew();
     case'amortNew': return pgAmortNew();
     case'guardian': return pgGuardian();
@@ -1908,6 +1913,122 @@ function pgFixedNew(){
 
 // 🛡️ 守財工具箱（3 個功能：冷靜期 + 頭期專款 + 情緒踩剎車）
 // 📊 支出總覽 — 一頁看完預算/實花/付款方式/攤提
+// 📒 預備金帳本總覽（卡片式一目了然）
+function pgLedgerHome(){
+  const ALL_LEDGERS=getAllLedgers();
+  const ldTargets=S.data.ledgerTargets||{}; // 每個帳本的目標金額
+
+  // 計算每個帳本的當前餘額（所有歷史累積）
+  const cards=ALL_LEDGERS.map(l=>{
+    const entries=getLedgerAll(l.id);
+    const balance=entries.reduce((s,e)=>s+toN(e.amount),0);
+    const target=toN(ldTargets[l.id])||0;
+    const pct=target>0?Math.round(balance/target*100):0;
+    return{...l,balance,target,pct,entriesCount:entries.length};
+  });
+
+  // 統計總數
+  const totalBalance=cards.reduce((s,c)=>s+c.balance,0);
+  const totalTarget=cards.reduce((s,c)=>s+c.target,0);
+
+  return`
+  <div style="max-width:820px;margin:0 auto;">
+
+    <!-- 標題 -->
+    <div style="text-align:center;padding:20px 0 16px;">
+      <div style="font-size:48px;">📒</div>
+      <div style="font-family:'Noto Serif TC',serif;font-size:24px;font-weight:700;color:var(--brown);letter-spacing:0.2em;margin-top:4px;">預備金帳本</div>
+      <div class="tm" style="font-size:12.5px;margin-top:4px;">目標型儲蓄一目了然（女兒基金、旅遊、進修等專款專用）</div>
+    </div>
+
+    <!-- 💡 使用建議 -->
+    <div style="background:linear-gradient(135deg,var(--purl),#fff);border-radius:14px;padding:14px 18px;margin-bottom:16px;border-left:4px solid var(--pur);">
+      <div style="font-size:12.5px;color:var(--pur);font-weight:700;margin-bottom:4px;">💡 預備金 vs 其他花費</div>
+      <div style="font-size:11.5px;color:var(--brown);line-height:1.7;">
+        · <b>預備金帳本</b> = 有<b>特定目標</b>的存錢桶（女兒教育、旅遊、進修）<br>
+        · <b>日常花費</b>（吃喝、加油、購物）→ 用「💸 記一筆支出」<br>
+        · <b>每月固定</b>（房貸、保險）→ 用「📊 支出總覽 → 固定支出」<br>
+        · <b>年繳大筆</b>（汽保、房稅）→ 用「📊 支出總覽 → 年繳攤提」
+      </div>
+    </div>
+
+    <!-- 📊 總覽卡 -->
+    <div style="background:linear-gradient(135deg,#fff,var(--goldL));border-radius:22px;padding:24px 28px;box-shadow:0 8px 24px rgba(194,116,122,0.12);border:2px solid var(--gold);margin-bottom:16px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div style="text-align:center;padding:14px;background:var(--card);border-radius:14px;">
+          <div class="tm" style="font-size:11.5px;color:var(--brown);font-weight:600;letter-spacing:0.15em;">💰 全部餘額</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:28px;font-weight:700;color:var(--gold);margin-top:4px;">$${fmt(totalBalance)}</div>
+        </div>
+        <div style="text-align:center;padding:14px;background:var(--card);border-radius:14px;">
+          <div class="tm" style="font-size:11.5px;color:var(--brown);font-weight:600;letter-spacing:0.15em;">🎯 目標合計</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:28px;font-weight:700;color:var(--rose);margin-top:4px;">$${fmt(totalTarget)}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 新增帳本按鈕 -->
+    <button onclick="openM('addLedger')" style="width:100%;padding:14px;background:linear-gradient(135deg,var(--rose),var(--roseDk));color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;letter-spacing:0.1em;cursor:pointer;box-shadow:0 4px 12px rgba(194,116,122,0.3);margin-bottom:16px;">
+      ＋ 新增儲蓄帳本
+    </button>
+
+    <!-- 卡片列表 -->
+    ${cards.length===0?`<div style="background:#fff;border-radius:20px;padding:40px 24px;text-align:center;color:var(--mut);box-shadow:0 4px 16px rgba(194,116,122,0.10);">
+      <div style="font-size:48px;">📒</div>
+      <div style="margin-top:8px;font-size:14px;">還沒有任何帳本</div>
+      <div class="tm" style="font-size:12px;margin-top:8px;line-height:1.8;">
+        建議先建 4 個「有目標」的帳本：<br>
+        🎓 女兒基金 · ✈️ 旅遊基金 · 📚 進修基金 · 🚨 緊急預備金
+      </div>
+    </div>`:`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
+      ${cards.map((c,idx)=>{
+        const isNegative=c.balance<0;
+        const isMet=c.target>0&&c.balance>=c.target;
+        return`<div style="background:#fff;border-radius:18px;padding:22px 20px;box-shadow:0 4px 16px rgba(194,116,122,0.10);border-top:4px solid ${isMet?'var(--grn)':isNegative?'var(--red)':'var(--rose)'};position:relative;">
+
+          <!-- 帳本名稱 -->
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:16px;">
+            <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);letter-spacing:0.1em;">${c.name}</div>
+            <button onclick="editLedgerTarget('${c.id}','${c.name.replace(/'/g,"\\'")}')" style="background:none;border:1px solid var(--bdr);color:var(--mut);font-size:11px;padding:4px 8px;border-radius:6px;cursor:pointer;">🎯 設目標</button>
+          </div>
+
+          <!-- 目前餘額（大字） -->
+          <div style="text-align:center;padding:10px 0;">
+            <div class="tm" style="font-size:11px;letter-spacing:0.2em;font-weight:600;">目前餘額</div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:32px;font-weight:700;color:${isNegative?'var(--red)':'var(--rose)'};letter-spacing:0.03em;margin-top:2px;">${isNegative?'-':''}$${fmt(Math.abs(c.balance))}</div>
+          </div>
+
+          ${c.target>0?`
+          <!-- 目標金額 -->
+          <div style="text-align:center;padding:8px 0;border-top:1px dashed var(--bdr);">
+            <div class="tm" style="font-size:11px;letter-spacing:0.2em;font-weight:600;">🎯 目標</div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:var(--goldDk);margin-top:2px;">$${fmt(c.target)}</div>
+          </div>
+
+          <!-- 進度條 -->
+          <div style="margin-top:10px;">
+            <div style="height:10px;background:var(--bg2);border-radius:5px;overflow:hidden;">
+              <div style="height:100%;width:${Math.min(c.pct,100)}%;background:linear-gradient(90deg,${isMet?'var(--grn)':'var(--rose)'},${isMet?'#4A7A5B':'var(--roseDk)'});border-radius:5px;transition:width 0.5s;"></div>
+            </div>
+            <div class="tm" style="font-size:11px;text-align:right;margin-top:4px;font-weight:600;color:${isMet?'var(--grn)':'var(--brown)'};">${isMet?'✅ 達標！':`${c.pct}%`}</div>
+          </div>
+          `:`<div style="text-align:center;padding:8px 0;border-top:1px dashed var(--bdr);">
+            <div class="tm" style="font-size:11px;">還沒設定目標 → 點右上「🎯 設目標」</div>
+          </div>`}
+
+          <!-- 動作按鈕 -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:14px;">
+            <button onclick="quickLedgerDeposit('${c.id}','${c.name.replace(/'/g,"\\'")}')" style="padding:10px;background:var(--grn);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">＋ 存一筆</button>
+            <button onclick="quickLedgerSpend('${c.id}','${c.name.replace(/'/g,"\\'")}')" style="padding:10px;background:var(--red);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">− 花一筆</button>
+          </div>
+
+          <!-- 看歷史 -->
+          <button onclick="S.ledgerIdx=${idx};setP('ledger');" style="width:100%;margin-top:8px;padding:8px;background:var(--bg2);color:var(--brown);border:1px solid var(--bdr);border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;">📋 看 ${c.entriesCount} 筆歷史</button>
+        </div>`;
+      }).join('')}
+    </div>`}
+  </div>`;
+}
+
 function pgExpDash(){
   // 資料收集
   const fixedItems=S.data.fixedItems||[];
@@ -9962,6 +10083,62 @@ window.editVariableBudget=async()=>{
   if(num<=0){alert('請輸入正數');return;}
   await saveMain({variableBudget:num});
   toast(`✅ 變動預算設為 $${fmt(num)}`);
+  render();
+};
+
+// 📒 預備金帳本：設定目標金額
+window.editLedgerTarget=async(lid,lname)=>{
+  const cur=toN((S.data.ledgerTargets||{})[lid])||0;
+  const v=prompt(`為「${lname}」設定目標金額？\n\n例如：\n· 女兒教育基金 → 200000\n· 家庭旅遊基金 → 50000\n· 緊急預備金 → 180000（6 個月生活費）\n· 進修基金 → 30000\n\n目前目標：$${fmt(cur)}\n（輸入 0 = 取消目標）`,cur);
+  if(v===null)return;
+  const num=toN(v);
+  const targets={...(S.data.ledgerTargets||{})};
+  if(num>0)targets[lid]=num;
+  else delete targets[lid];
+  await saveMain({ledgerTargets:targets});
+  toast(num>0?`✅ 目標設為 $${fmt(num)}`:'已取消目標');
+  render();
+};
+
+// 📒 預備金帳本：快速存入一筆
+window.quickLedgerDeposit=async(lid,lname)=>{
+  const amt=prompt(`為「${lname}」存入多少錢？`,'');
+  if(amt===null)return;
+  const num=toN(amt);
+  if(num<=0){alert('請輸入正數');return;}
+  const note=prompt('備註（選填，例：8月薪水撥入）','')||'';
+  const d=new Date();
+  const date=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const newEntry={
+    id:'le_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+    lid,date,amount:num,cat:'存入',note,
+    month:d.getMonth()+1,year:d.getFullYear(),
+    user:S.user||''
+  };
+  const list=[...(S.data.ledgerEntries||[]),newEntry];
+  await saveMain({ledgerEntries:list});
+  toast(`✅ 已存入 +$${fmt(num)}`);
+  render();
+};
+
+// 📒 預備金帳本：快速花出一筆
+window.quickLedgerSpend=async(lid,lname)=>{
+  const amt=prompt(`從「${lname}」花掉多少錢？`,'');
+  if(amt===null)return;
+  const num=toN(amt);
+  if(num<=0){alert('請輸入正數');return;}
+  const note=prompt('花在什麼？（例：女兒補習費）','')||'';
+  const d=new Date();
+  const date=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const newEntry={
+    id:'le_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+    lid,date,amount:-num,cat:'支出',note,
+    month:d.getMonth()+1,year:d.getFullYear(),
+    user:S.user||''
+  };
+  const list=[...(S.data.ledgerEntries||[]),newEntry];
+  await saveMain({ledgerEntries:list});
+  toast(`✅ 已花出 -$${fmt(num)}`);
   render();
 };
 
