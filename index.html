@@ -1048,13 +1048,50 @@ function topBar(){
     <button class="btn-out" onclick="doOut()">登出</button>
   </div>
 </div>`;}
-function sidebar(){return`<nav class="sidebar">
+function sidebar(){
+  // 取得所有預備金帳本（動態列出）
+  const allLedgers=(typeof getAllLedgers==='function')?getAllLedgers():(S.data.ledgers||[]);
+  // 依帳本名稱找 emoji（沒有就用 📁）
+  const ledgerIco=(name)=>{
+    if(/交通|汽車|加油/.test(name))return'🚗';
+    if(/飲食|吃|食|外食/.test(name))return'🍽️';
+    if(/購物|買/.test(name))return'🛍️';
+    if(/住|家/.test(name))return'🏡';
+    if(/通訊|手機|電/.test(name))return'📱';
+    if(/女兒|孩子|小孩/.test(name))return'👧';
+    if(/愛美|美容|紋繡/.test(name))return'✨';
+    if(/醫療|健康/.test(name))return'🏥';
+    if(/娛樂|遊/.test(name))return'🎮';
+    if(/旅遊|旅行|出遊/.test(name))return'✈️';
+    if(/教育|進修|課程/.test(name))return'📚';
+    if(/孝親|媽媽|父母/.test(name))return'👵';
+    if(/緊急|預備/.test(name))return'🚨';
+    if(/房|買房|頭期/.test(name))return'🏠';
+    if(/其他/.test(name))return'📦';
+    return'📁';
+  };
+
+  return`<nav class="sidebar">
 <div style="padding:20px 22px 24px;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:8px;">
   <div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:#fff;letter-spacing:5px;">🌸 家庭錢包</div>
   <div style="font-size:11px;color:rgba(255,255,255,0.5);letter-spacing:0.3em;margin-top:4px;font-weight:500;">MY MONEY</div>
 </div>
 ${PAGES.filter(p=>p.group==='main').map(p=>`<div class="sb-item${S.page===p.id?' active':''}" data-pg="${p.id}" onclick="setP('${p.id}')"><span class="ico">${p.ico}</span><span>${p.lbl}</span></div>`).join('')}
-</nav>`;}
+
+${allLedgers.length>0?`
+<!-- 分隔線 + 帳本 section -->
+<div class="sb-sec-lbl" style="border-top:1px solid rgba(255,255,255,0.1);padding-top:14px;margin-top:8px;">📒 我的儲蓄帳本</div>
+${allLedgers.map((l,idx)=>{
+  const isActive=S.page==='ledger'&&S.ledgerIdx===idx;
+  const ico=ledgerIco(l.name||'');
+  return`<div class="sb-item${isActive?' active':''}" onclick="S.ledgerIdx=${idx};setP('ledger');" style="font-size:14px;padding:11px 22px 11px 26px;">
+    <span class="ico" style="font-size:17px;width:22px;">${ico}</span>
+    <span>${l.name}</span>
+  </div>`;
+}).join('')}
+`:''}
+</nav>`;
+}
 function mobNav(){
   const mp=PAGES.filter(p=>MOB.includes(p.id));
   const isOther=!MOB.includes(S.page);
@@ -7537,506 +7574,163 @@ function pgCC(){
 function pgLedger(){
   const ALL_LEDGERS=getAllLedgers();
   const l=ALL_LEDGERS[S.ledgerIdx]||ALL_LEDGERS[0];
-  if(!l)return`<div class="pg-ttl">📒 流水帳</div><div class="empty"><p>請新增帳本</p><button class="btn btn-p" style="margin-top:14px;" onclick="openM('addLedger')">＋ 新增帳本</button></div>`;
-  const ledgerType=getLedgerType(l.id);
-  const ledgerCfg=getLedgerCfg(l.id);
-  const ldBudgets=S.data.ledgerBudgets||{};
-  const budget=ldBudgets[l.id]!==undefined?ldBudgets[l.id]:l.budget;
-  // 預備金帳本獨立的「檢視年份」，預設為當前年份
+  if(!l)return`<div style="max-width:820px;margin:0 auto;text-align:center;padding:60px 20px;">
+    <div style="font-size:64px;">📒</div>
+    <div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:var(--brown);margin-top:10px;">還沒有任何帳本</div>
+    <button class="btn btn-p" style="margin-top:20px;" onclick="openM('addLedger')">＋ 新增第一個帳本</button>
+  </div>`;
+
+  // 資料計算
   const viewYear=S.ledgerViewYear||yr();
   const allEntries=getLedgerAll(l.id);
-  // 用 viewYear + S.month 篩選本月（取代 getLedger）
-  const entries=allEntries.filter(e=>e.month===S.month&&e.year===viewYear).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
-  let running=0;
-  const rows=entries.map((e,i)=>{running+=toN(e.amount);return{...e,run:running,oi:i};});
-  const cumTotal=allEntries.reduce((s,e)=>s+toN(e.amount),0);
-  const mIn=entries.filter(e=>toN(e.amount)>0).reduce((s,e)=>s+toN(e.amount),0);
-  const mOut=entries.filter(e=>toN(e.amount)<0).reduce((s,e)=>s+Math.abs(toN(e.amount)),0);
+  const monthEntries=allEntries.filter(e=>e.month===S.month&&e.year===viewYear);
 
-  // 取出所有有資料的年份（用於切換器）
-  const yearSet=new Set(allEntries.map(e=>e.year).filter(y=>y));
-  yearSet.add(yr()); // 一定要有「今年」
-  yearSet.add(viewYear); // 也要有目前選的
-  const allYears=[...yearSet].sort();
+  // 本月統計
+  const mIn=monthEntries.filter(e=>toN(e.amount)>0).reduce((s,e)=>s+toN(e.amount),0);
+  const mOut=monthEntries.filter(e=>toN(e.amount)<0).reduce((s,e)=>s+Math.abs(toN(e.amount)),0);
+  // 帳本總餘額（所有歷史累積）
+  const balance=allEntries.reduce((s,e)=>s+toN(e.amount),0);
 
-  // 智能月存計算
-  const yearlyTarget=toN(ledgerCfg.yearlyTarget);
-  const activeMonths=ledgerCfg.activeMonths||[1,2,3,4,5,6,7,8,9,10,11,12];
-  const autoMonthly=(ledgerType==='year'&&yearlyTarget>0&&activeMonths.length>0)
-    ? Math.ceil(yearlyTarget/activeMonths.length)
-    : 0;
-  const recommendedDeposit=ledgerType==='year'
-    ? (ledgerCfg.autoCalc!==false?autoMonthly:toN(ledgerCfg.monthlyDeposit)||budget)
-    : budget;
-  const thisMonthInSchedule=ledgerType==='year'?activeMonths.includes(S.month):true;
+  // 目標
+  const ldTargets=S.data.ledgerTargets||{};
+  const target=toN(ldTargets[l.id])||0;
 
-  // 年度進度
-  const curYear=yr();
-  const yearEntries=allEntries.filter(e=>{if(!e.date)return false;const d=new Date(e.date);return d.getFullYear()===curYear;});
-  const yearDeposit=yearEntries.filter(e=>e.cat==='存入').reduce((s,e)=>s+toN(e.amount),0);
-  const yearOutflow=yearEntries.filter(e=>toN(e.amount)<0).reduce((s,e)=>s+Math.abs(toN(e.amount)),0);
-  const yearProgress=yearlyTarget>0?Math.min(100,Math.round(yearDeposit/yearlyTarget*100)):0;
+  // 智能攤提建議：算過去 3 個月平均支出
+  const now=new Date();
+  const past3=[];
+  for(let i=1;i<=3;i++){
+    const m=new Date(now.getFullYear(),now.getMonth()-i,1);
+    const y=m.getFullYear();
+    const mo=m.getMonth()+1;
+    const outT=allEntries.filter(e=>e.year===y&&e.month===mo&&toN(e.amount)<0).reduce((s,e)=>s+Math.abs(toN(e.amount)),0);
+    past3.push(outT);
+  }
+  const avgOut=past3.length>0?Math.round(past3.reduce((s,v)=>s+v,0)/past3.length):0;
 
-  // 累計分類統計（全部記錄）
-  const cumCats={};
-  let cumBudgetIn=0;
-  allEntries.forEach(e=>{
-    const a=toN(e.amount);
-    if(e.cat==='存入'){cumBudgetIn+=a;}
-    else if(a<0){cumCats[e.cat]=(cumCats[e.cat]||0)+Math.abs(a);}
+  // 季度排名（by category）
+  const curQ=Math.ceil(S.month/3);
+  const qStartMonth=(curQ-1)*3+1;
+  const qMonths=[qStartMonth,qStartMonth+1,qStartMonth+2];
+  const qExps=allEntries.filter(e=>e.year===yr()&&qMonths.includes(e.month)&&toN(e.amount)<0);
+  const byCat={};
+  qExps.forEach(e=>{
+    const c=(e.cat||'未分類').trim()||'未分類';
+    byCat[c]=(byCat[c]||0)+Math.abs(toN(e.amount));
   });
+  const rankedCats=Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+  const totalQ=rankedCats.reduce((s,[,v])=>s+v,0);
 
-  // 月份小計（全年各月）
-  const moMap={};
-  allEntries.forEach(e=>{
-    if(!e.date)return;
-    const d=new Date(e.date),mk2=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    if(!moMap[mk2])moMap[mk2]={in:0,out:0,net:0};
-    const a=toN(e.amount);
-    if(a>0)moMap[mk2].in+=a; else moMap[mk2].out+=Math.abs(a);
-    moMap[mk2].net+=a;
-  });
-  const moKeys=Object.keys(moMap).sort().slice(-12);
-
-  // 月份中文
-  const moLabel=k=>{const[y,m]=k.split('-');const mn=['一','二','三','四','五','六','七','八','九','十','十一','十二'];return mn[+m-1]+'月';};
-
-  const recKey=l.id+'_'+mk();
-  const recVal=(S.data.reconcile||{})[recKey]||'';
-  const diff=recVal!==''?toN(recVal)-cumTotal:null;
+  // 本月明細（時間排序，新的在上）
+  const monthList=[...monthEntries].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
 
   return`
-  <div class="pg-ttl">📒 預備金帳本</div>
-  <div class="pg-sub">月度＝每月變動支出預備金　／　年度＝大筆年費預先攤提存錢</div>
+  <div style="max-width:820px;margin:0 auto;">
 
-  <!-- 年份切換器 + 月份切換器 -->
-  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
-    <span class="tm" style="font-size:12px;letter-spacing:0.08em;">📅 年份：</span>
-    ${allYears.map(y=>{
-      const active=y===viewYear;
-      return`<button onclick="setLedgerYear(${y})" style="padding:5px 14px;border-radius:18px;border:1.5px solid ${active?'var(--pur)':'var(--bdr)'};background:${active?'var(--pur)':'#fff'};color:${active?'#fff':'var(--brown)'};font-weight:${active?'700':'500'};font-size:13px;cursor:pointer;transition:all .2s;">${y}</button>`;
-    }).join('')}
-    <button onclick="addLedgerYear()" title="新增年份（未來規劃用）" style="padding:5px 12px;border-radius:18px;border:1.5px dashed var(--bdr);background:transparent;color:var(--mut);font-size:12px;cursor:pointer;">＋</button>
-  </div>
+    <!-- 標題 -->
+    <div style="text-align:center;padding:16px 0;">
+      <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--brown);letter-spacing:0.15em;">${l.name}</div>
+      <div class="tm" style="font-size:12px;margin-top:2px;">${yr()} 年 ${S.month} 月</div>
+    </div>
 
-  <!-- 月份切換器 -->
-  ${moSel()}
+    <!-- 月份切換 -->
+    <div style="text-align:center;padding:0 0 16px;">
+      ${moSel()}
+    </div>
 
-  <!-- 帳本切換 + 新增 -->
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;align-items:center;">
-    ${ALL_LEDGERS.map((ld,i)=>{
-      const t=getLedgerType(ld.id);
-      const tIco=t==='year'?'📅':'📆';
-      const active=S.ledgerIdx===i;
-      return`<button onclick="setLI(${i})" style="padding:10px 18px;border-radius:22px;border:1.5px solid ${active?'var(--acc)':'var(--bdr)'};background:${active?'var(--acc)':'#fff'};color:${active?'#fff':'var(--brown)'};font-weight:${active?'700':'500'};font-size:14px;cursor:pointer;letter-spacing:0.06em;transition:all .2s;">${ld.name} <span style="font-size:11px;opacity:.85;margin-left:4px;">${tIco}${t==='year'?'年度':'月度'}</span></button>`;
-    }).join('')}
-    <button class="btn btn-s btn-sm" onclick="openM('addLedger')" style="margin-left:auto;">＋ 新增帳本</button>
-  </div>
-
-  <!-- 📊 資料分佈診斷（看這本帳本各月份有多少筆）-->
-  ${(()=>{
-    if(allEntries.length===0)return'';
-    const dist={};
-    allEntries.forEach(e=>{
-      const k=`${e.year||'??'}/${e.month||'??'}`;
-      if(!dist[k])dist[k]={cnt:0,sum:0};
-      dist[k].cnt++;
-      dist[k].sum+=toN(e.amount);
-    });
-    const keys=Object.keys(dist).sort();
-    const curKey=`${yr()}/${S.month}`;
-    return`<div style="background:linear-gradient(135deg,var(--blul),#fff);padding:12px 16px;border-radius:10px;border:1px solid var(--blu);margin-bottom:14px;">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
-        <b style="font-family:'Noto Serif TC',serif;font-size:13px;color:var(--blu);">📊 「${l.name}」各月份分佈　${allEntries.length} 筆 / 累積 $${fmt(cumTotal)}</b>
-        <span class="tm" style="font-size:11px;">📌 點月份標籤可快速切換</span>
+    <!-- 3 大數字卡（本月支出、本月存入、餘額） -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;">
+      <div style="background:#fff;border-radius:16px;padding:16px 12px;text-align:center;box-shadow:0 4px 12px rgba(194,116,122,0.10);border-top:3px solid var(--red);">
+        <div class="tm" style="font-size:11px;letter-spacing:0.1em;font-weight:600;color:var(--red);">💸 本月支出</div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--red);margin-top:4px;">$${fmt(mOut)}</div>
       </div>
-      <div style="display:flex;flex-wrap:wrap;gap:5px;">
-        ${keys.map(k=>{
-          const[y,m]=k.split('/');
-          const isCur=k===curKey;
-          return`<span onclick="setMo(${+m})" style="padding:4px 10px;background:${isCur?'var(--acc)':'#fff'};color:${isCur?'#fff':'var(--brown)'};border:1px solid ${isCur?'var(--acc)':'var(--bdr)'};border-radius:6px;font-size:11px;cursor:pointer;font-weight:${isCur?'700':'500'};">${k}: ${dist[k].cnt} 筆${dist[k].sum!==0?` (${dist[k].sum>=0?'+':''}$${fmt(dist[k].sum)})`:''}</span>`;
+      <div style="background:#fff;border-radius:16px;padding:16px 12px;text-align:center;box-shadow:0 4px 12px rgba(194,116,122,0.10);border-top:3px solid var(--grn);">
+        <div class="tm" style="font-size:11px;letter-spacing:0.1em;font-weight:600;color:var(--grn);">💰 本月存入</div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--grn);margin-top:4px;">$${fmt(mIn)}</div>
+      </div>
+      <div style="background:linear-gradient(135deg,#fff,var(--goldL));border-radius:16px;padding:16px 12px;text-align:center;box-shadow:0 4px 12px rgba(194,116,122,0.10);border-top:3px solid var(--gold);">
+        <div class="tm" style="font-size:11px;letter-spacing:0.1em;font-weight:600;color:var(--goldDk);">🏦 餘額</div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:${balance>=0?'var(--goldDk)':'var(--red)'};margin-top:4px;">$${fmt(balance)}</div>
+      </div>
+    </div>
+
+    <!-- 💡 智能攤提建議 -->
+    ${avgOut>0?`<div style="background:linear-gradient(135deg,var(--bluL),#fff);border-radius:14px;padding:16px 20px;border-left:4px solid var(--blu);margin-bottom:16px;">
+      <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--blu);margin-bottom:8px;">💡 智能攤提建議</div>
+      <div style="font-size:13px;color:var(--brown);line-height:1.9;">
+        <div>· 本月存入：<b style="color:var(--grn);">$${fmt(mIn)}</b></div>
+        <div>· 過去 3 個月平均花：<b style="color:var(--red);">$${fmt(avgOut)}</b></div>
+        <div style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--bdr);">
+          ${mIn>=avgOut?'✅ <b style="color:var(--grn);">存款符合支出，很好！</b>':mIn>0?`⚠️ <b style="color:var(--yelb);">存款不夠，建議每月多存 $${fmt(avgOut-mIn)}</b>`:'⛔ <b style="color:var(--red);">本月還沒存入，記得撥錢！</b>'}
+        </div>
+      </div>
+    </div>`:''}
+
+    <!-- 快速動作 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+      <button onclick="quickLedgerDeposit('${l.id}','${(l.name||'').replace(/'/g,"\\'")}')" style="padding:14px;background:linear-gradient(135deg,var(--grn),#5B9E7A);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(125,184,154,0.3);">＋ 存一筆</button>
+      <button onclick="openM('addLE')" style="padding:14px;background:linear-gradient(135deg,var(--red),#B85850);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(232,107,92,0.3);">− 花一筆（含分類）</button>
+    </div>
+
+    <!-- 本月明細 -->
+    <div style="background:#fff;border-radius:18px;padding:20px 22px;box-shadow:0 4px 16px rgba(194,116,122,0.10);margin-bottom:16px;border-top:4px solid var(--rose);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+        <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);">📋 ${S.month} 月明細（${monthList.length} 筆）</span>
+        ${monthList.length>0?`<button onclick="openM('batchLE')" style="background:var(--rose);color:#fff;border:none;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">📋 批次輸入</button>`:''}
+      </div>
+
+      ${monthList.length===0?`<div style="text-align:center;padding:30px 20px;color:var(--mut);">
+        <div style="font-size:36px;">📋</div>
+        <div style="margin-top:8px;font-size:13px;">本月還沒有紀錄</div>
+      </div>`:`<div style="max-height:400px;overflow-y:auto;">
+        ${monthList.map(r=>{
+          const isIn=toN(r.amount)>=0;
+          return`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 4px;border-bottom:1px dashed var(--bdr);gap:10px;">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13.5px;color:var(--brown);font-weight:600;">${r.date||''}　<span style="font-size:11px;color:var(--mut);font-weight:400;background:var(--bg2);padding:1px 6px;border-radius:4px;">${r.cat||'未分類'}</span></div>
+              ${r.note?`<div class="tm" style="font-size:11px;margin-top:2px;">${r.note}</div>`:''}
+            </div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:${isIn?'var(--grn)':'var(--red)'};white-space:nowrap;">${isIn?'+':'−'}$${fmt(Math.abs(toN(r.amount)))}</div>
+            <button onclick="openM('editLE','${r.id}')" style="background:none;border:none;color:var(--mut);font-size:13px;cursor:pointer;padding:2px 4px;">✏️</button>
+            <button onclick="delLE('${r.id}')" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;padding:2px 4px;">×</button>
+          </div>`;
+        }).join('')}
+      </div>`}
+    </div>
+
+    <!-- 🏆 分類排名（季度） -->
+    ${rankedCats.length>0?`<div style="background:#fff;border-radius:18px;padding:20px 22px;box-shadow:0 4px 16px rgba(194,116,122,0.10);margin-bottom:16px;border-top:4px solid var(--gold);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+        <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);">🏆 分類項目排名（${yr()} Q${curQ}）</span>
+        <span class="tm" style="font-size:11px;">${qStartMonth}-${qStartMonth+2}月　·　合計 <b style="color:var(--red);">$${fmt(totalQ)}</b></span>
+      </div>
+      <div style="display:grid;gap:8px;">
+        ${rankedCats.slice(0,10).map(([cat,amt],i)=>{
+          const pct=totalQ>0?Math.round(amt/totalQ*100):0;
+          const medal=['🥇','🥈','🥉'][i]||`${i+1}.`;
+          return`<div style="padding:10px 14px;background:var(--bg2);border-radius:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
+              <div style="font-size:13.5px;font-weight:700;color:var(--brown);"><span style="margin-right:6px;">${medal}</span>${cat}</div>
+              <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--red);">$${fmt(amt)}</div>
+            </div>
+            <div style="height:6px;background:#fff;border-radius:3px;overflow:hidden;">
+              <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--red),var(--rose));border-radius:3px;"></div>
+            </div>
+            <div class="tm" style="font-size:10.5px;text-align:right;margin-top:2px;">${pct}%</div>
+          </div>`;
         }).join('')}
       </div>
-      ${entries.length===0?`<div style="margin-top:8px;padding:8px 12px;background:var(--redl);border-radius:6px;color:var(--red);font-size:12px;font-weight:600;">⚠️ 本月（${curKey}）抓到 0 筆。如果你以為輸入過，可能日期月份不對，請從上方分佈找到正確月份點過去。</div>`:''}
-    </div>`;
-  })()}
-
-  <!-- 💰 帳本目前餘額 + 安全水位（最重要！）-->
-  ${(()=>{
-    // 重算過去 6 個月平均支出（不在這 if 內，便於計算安全水位）
-    const curMonth=S.month,curYear=yr();
-    const monthsData=[];
-    for(let i=1;i<=6;i++){
-      let m=curMonth-i,y=curYear;
-      while(m<=0){m+=12;y--;}
-      const monthEntries=allEntries.filter(e=>e.month===m&&e.year===y);
-      const out=monthEntries.filter(e=>toN(e.amount)<0).reduce((s,e)=>s+Math.abs(toN(e.amount)),0);
-      monthsData.push({m,y,out,count:monthEntries.length});
-    }
-    const validMonths=monthsData.filter(d=>d.count>0);
-    const avgMonthlyOut=validMonths.length>0?Math.round(monthsData.reduce((s,d)=>s+d.out,0)/validMonths.length):0;
-    // 用平均月支出算「能撐幾個月」
-    const monthsCanCover=avgMonthlyOut>0?cumTotal/avgMonthlyOut:null;
-    // 安全水位判斷
-    let lvl,lvlColor,lvlBg,lvlLabel,lvlAdvice;
-    if(cumTotal<0){
-      lvl='danger';lvlColor='var(--red)';lvlBg='var(--redl)';lvlLabel='🔴 透支';
-      lvlAdvice=`目前帳本為負，先補滿 $${fmt(Math.abs(cumTotal))} 回到 0`;
-    }else if(avgMonthlyOut===0){
-      lvl='unknown';lvlColor='var(--mut)';lvlBg='var(--bg2)';lvlLabel='⚪ 資料不足';
-      lvlAdvice='還沒有支出記錄，無法判斷安全水位';
-    }else if(monthsCanCover<1){
-      lvl='warning';lvlColor='var(--yelb)';lvlBg='var(--yel)';lvlLabel='🟡 緊張';
-      lvlAdvice=`只能撐 ${monthsCanCover.toFixed(1)} 個月，建議補到 1 個月以上 ($${fmt(avgMonthlyOut)})`;
-    }else if(monthsCanCover<3){
-      lvl='ok';lvlColor='var(--blu)';lvlBg='var(--blul)';lvlLabel='🔵 健康';
-      lvlAdvice=`可撐 ${monthsCanCover.toFixed(1)} 個月，建議朝 3 個月目標前進 ($${fmt(avgMonthlyOut*3)})`;
-    }else{
-      lvl='safe';lvlColor='var(--grn)';lvlBg='var(--grnl)';lvlLabel='🟢 充足';
-      lvlAdvice=`可撐 ${monthsCanCover.toFixed(1)} 個月，安全水位達標`;
-    }
-
-    return`<div style="background:linear-gradient(135deg,${lvlBg},#fff);padding:18px 22px;border-radius:14px;border:2px solid ${lvlColor};margin-bottom:14px;">
-      <!-- 大字餘額 -->
-      <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:14px;margin-bottom:10px;">
-        <div>
-          <div class="tm" style="font-size:12px;letter-spacing:0.1em;">💰 ${l.name}　目前餘額</div>
-          <div style="font-family:'Noto Serif TC',serif;font-size:36px;font-weight:700;color:${cumTotal>=0?'var(--brown)':'var(--red)'};margin-top:4px;line-height:1;">$${fmt(cumTotal)}</div>
-          <div class="tm" style="font-size:11px;margin-top:4px;">含所有時間的存入與支出</div>
-        </div>
-        <div style="text-align:right;">
-          <div class="tm" style="font-size:11px;letter-spacing:0.1em;">安全水位</div>
-          <div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:${lvlColor};margin-top:2px;">${lvlLabel}</div>
-          ${monthsCanCover!==null?`<div class="tm" style="font-size:11px;margin-top:2px;">可撐 <b style="color:${lvlColor};">${monthsCanCover.toFixed(1)}</b> 個月</div>`:''}
-        </div>
+      ${rankedCats.length>10?`<div class="tm" style="text-align:center;font-size:11px;margin-top:8px;">…還有 ${rankedCats.length-10} 個分類</div>`:''}
+      <div class="tm" style="font-size:11px;margin-top:10px;padding:8px 12px;background:var(--yel);border-radius:8px;line-height:1.6;">
+        💡 <b>依季度排名</b>看得到「哪個分類最花錢」→ 有意識地在下季控制
       </div>
+    </div>`:''}
 
-      <!-- 安全水位提示 -->
-      <div style="padding:10px 14px;background:#fff;border-radius:8px;border-left:3px solid ${lvlColor};font-size:12.5px;color:var(--brown);line-height:1.7;">
-        💡 ${lvlAdvice}
-      </div>
-
-      ${avgMonthlyOut>0?`
-      <!-- 水位刻度 -->
-      <div style="margin-top:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
-        <div style="padding:6px 8px;text-align:center;background:${cumTotal<avgMonthlyOut?'var(--redl)':'#fff'};border:1px solid var(--bdr);border-radius:6px;">
-          <div class="tm" style="font-size:10px;">最低保底</div>
-          <div style="font-family:'Noto Serif TC',serif;font-size:13px;font-weight:700;color:var(--red);">$${fmt(avgMonthlyOut)}</div>
-          <div class="tm" style="font-size:9px;">1 個月</div>
-        </div>
-        <div style="padding:6px 8px;text-align:center;background:${cumTotal>=avgMonthlyOut&&cumTotal<avgMonthlyOut*3?'var(--blul)':'#fff'};border:1px solid var(--bdr);border-radius:6px;">
-          <div class="tm" style="font-size:10px;">健康目標</div>
-          <div style="font-family:'Noto Serif TC',serif;font-size:13px;font-weight:700;color:var(--blu);">$${fmt(avgMonthlyOut*3)}</div>
-          <div class="tm" style="font-size:9px;">3 個月</div>
-        </div>
-        <div style="padding:6px 8px;text-align:center;background:${cumTotal>=avgMonthlyOut*3?'var(--grnl)':'#fff'};border:1px solid var(--bdr);border-radius:6px;">
-          <div class="tm" style="font-size:10px;">完全安全</div>
-          <div style="font-family:'Noto Serif TC',serif;font-size:13px;font-weight:700;color:var(--grn);">$${fmt(avgMonthlyOut*6)}</div>
-          <div class="tm" style="font-size:9px;">6 個月</div>
-        </div>
-      </div>
-      `:''}
-    </div>`;
-  })()}
-
-  <!-- 💡 智能建議攤提（根據過去 6 個月平均） -->
-  ${(()=>{
-    // 計算過去 6 個月（含本月之前）的支出總和與平均
-    const curMonth=S.month,curYear=yr();
-    const monthsData=[];
-    for(let i=1;i<=6;i++){
-      let m=curMonth-i,y=curYear;
-      while(m<=0){m+=12;y--;}
-      const monthEntries=allEntries.filter(e=>e.month===m&&e.year===y);
-      const out=monthEntries.filter(e=>toN(e.amount)<0).reduce((s,e)=>s+Math.abs(toN(e.amount)),0);
-      monthsData.push({m,y,out,count:monthEntries.length});
-    }
-    const validMonths=monthsData.filter(d=>d.count>0);
-    const totalOut=monthsData.reduce((s,d)=>s+d.out,0);
-    const avgOut=validMonths.length>0?Math.round(totalOut/validMonths.length):0;
-    const curBudget=toN(budget);
-    const diff=avgOut-curBudget;
-
-    return`<div style="background:linear-gradient(135deg,var(--purl),#fff);padding:16px 20px;border-radius:12px;border:1.5px solid var(--pur);margin-bottom:14px;">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
-        <b style="font-family:'Noto Serif TC',serif;font-size:15px;color:var(--pur);">💡 智能攤提建議（過去 6 個月平均）</b>
-        <span class="tm" style="font-size:11px;">${validMonths.length} 個有效月份</span>
-      </div>
-
-      ${validMonths.length===0?`<div style="padding:12px;background:var(--bg2);border-radius:8px;font-size:13px;color:var(--mut);">
-        過去 6 個月還沒有支出記錄，無法計算平均。等累積幾個月資料後系統會自動算給你。
-      </div>`:`
-      <!-- 大字主要建議 -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-        <div style="padding:12px 14px;background:#fff;border-radius:8px;border-left:4px solid var(--mut);">
-          <div class="tm" style="font-size:11px;">目前設定攤提</div>
-          <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--brown);margin-top:3px;">$${fmt(curBudget)}</div>
-          <div class="tm" style="font-size:10px;">/ 月</div>
-        </div>
-        <div style="padding:12px 14px;background:linear-gradient(135deg,var(--purl),#fff);border-radius:8px;border-left:4px solid var(--pur);">
-          <div class="tm" style="font-size:11px;color:var(--pur);">💡 建議攤提</div>
-          <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--pur);margin-top:3px;">$${fmt(avgOut)}</div>
-          <div class="tm" style="font-size:10px;">/ 月（6 個月平均）</div>
-        </div>
-      </div>
-
-      <!-- 差距提醒 -->
-      ${curBudget===0?`<div style="padding:10px 14px;background:var(--yel);border-radius:8px;font-size:12.5px;color:var(--brown);border-left:3px solid var(--yelb);">
-        ⚠️ 你還沒設定每月攤提金額。建議設成 <b style="color:var(--pur);">$${fmt(avgOut)}</b>，這樣才能對應實際花費。
-      </div>`:diff>500?`<div style="padding:10px 14px;background:var(--redl);border-radius:8px;font-size:12.5px;color:var(--brown);border-left:3px solid var(--red);">
-        ⚠️ 你的攤提 <b style="color:var(--red);">不夠</b>，每月差 <b>$${fmt(diff)}</b>。長期下去會入不敷出，建議調高到 $${fmt(avgOut)}。
-      </div>`:diff<-500?`<div style="padding:10px 14px;background:var(--grnl);border-radius:8px;font-size:12.5px;color:var(--brown);border-left:3px solid var(--grn);">
-        ✓ 你的攤提 <b style="color:var(--grn);">綽綽有餘</b>，每月多 <b>$${fmt(-diff)}</b>。可以考慮降到 $${fmt(avgOut)}，或保留當作緩衝。
-      </div>`:`<div style="padding:10px 14px;background:var(--grnl);border-radius:8px;font-size:12.5px;color:var(--brown);border-left:3px solid var(--grn);">
-        ✓ <b style="color:var(--grn);">攤提抓得剛剛好</b>，跟實際花費接近。繼續保持！
-      </div>`}
-
-      <!-- 過去 6 個月明細 -->
-      <details style="margin-top:10px;">
-        <summary style="cursor:pointer;font-size:12px;color:var(--mut);padding:4px;">📊 看過去 6 個月實際支出明細</summary>
-        <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;">
-          ${monthsData.slice().reverse().map(d=>{
-            const isHigh=d.out>avgOut*1.3;
-            const isLow=d.out>0&&d.out<avgOut*0.7;
-            const bg=d.count===0?'var(--bg2)':isHigh?'var(--redl)':isLow?'var(--grnl)':'#fff';
-            const c=d.count===0?'var(--mut)':isHigh?'var(--red)':isLow?'var(--grn)':'var(--brown)';
-            return`<div style="padding:6px 10px;background:${bg};border:1px solid var(--bdr);border-radius:6px;font-size:11px;min-width:90px;">
-              <div class="tm" style="font-size:10px;">${d.y}/${d.m}</div>
-              <div style="font-family:'Noto Serif TC',serif;font-weight:700;color:${c};">${d.count===0?'無記錄':'$'+fmt(d.out)}</div>
-              ${isHigh?'<div style="font-size:9px;color:var(--red);">⬆️ 偏高</div>':isLow?'<div style="font-size:9px;color:var(--grn);">⬇️ 偏低</div>':''}
-            </div>`;
-          }).join('')}
-        </div>
-        <div style="margin-top:8px;padding:8px 12px;background:var(--bg2);border-radius:6px;font-size:11px;color:var(--brown);">
-          💡 平均計算：${validMonths.map(d=>'$'+fmt(d.out)).join(' + ')} = $${fmt(totalOut)}<br>
-          $${fmt(totalOut)} ÷ ${validMonths.length} 個月 = <b style="color:var(--pur);">$${fmt(avgOut)} / 月</b>
-        </div>
-      </details>
-
-      <div class="tm" style="font-size:11px;margin-top:8px;text-align:right;">
-        要調整攤提金額？點 <b>⚙️ 帳本設定</b> 即可手動修改
-      </div>
-      `}
-    </div>`;
-  })()}
-
-  <!-- 帳本資訊 + 設定按鈕 -->
-  <div class="notice ${ledgerType==='year'?'gold':'info'}">
-    ${ledgerType==='year'?`📅 <b>年度預備金帳本</b>：${l.name} 屬於「大筆年費」（保險、稅金、紅包等）。${yearlyTarget>0?`年度目標 <b>$${fmt(yearlyTarget)}</b>，分 ${activeMonths.length} 個月攤提，每月該存 <b>$${fmt(autoMonthly)}</b>。${!thisMonthInSchedule?'<br>📌 本月不在攤提月份內，可暫不存入。':''}`:'點右下「⚙️ 帳本設定」設定年度目標，系統會自動算每月該存多少。'}`:`📆 <b>月度變動預備金帳本</b>：${l.name} 屬於「每月日常變動支出」（水電、交通、生活費等），每月固定存入預算金額。`}
-    <button class="btn btn-s btn-sm" style="margin-left:10px;" onclick="openM('editLedger','${l.id}')">⚙️ 帳本設定</button>
-  </div>
-
-  <div style="display:flex;gap:14px;align-items:flex-start;">
-    <!-- 左側主內容 -->
-    <div style="flex:1;min-width:0;">
-      <div class="sg sg4" style="margin-bottom:14px;">
-        <div class="sc gold">
-          <div class="sl">💰 每月該存</div>
-          <div class="sv gold sm">$${fmt(recommendedDeposit)}</div>
-          <div class="ss">${ledgerType==='year'&&ledgerCfg.autoCalc!==false&&yearlyTarget>0?'系統計算':'你設定的'}</div>
-        </div>
-        <div class="sc grn"><div class="sl">本月存入</div><div class="sv grn sm">$${fmt(mIn)}</div><div class="ss">${mIn>=recommendedDeposit&&recommendedDeposit>0?'✅ 達標':mIn>0?`剩 $${fmt(Math.max(0,recommendedDeposit-mIn))}`:'尚未存入'}</div></div>
-        <div class="sc red"><div class="sl">本月支出</div><div class="sv red sm">$${fmt(mOut)}</div></div>
-        <div class="sc ${cumTotal>=0?'blu':'red'}"><div class="sl">累計餘額</div><div class="sv ${cumTotal>=0?'blu':'red'} sm">$${fmt(cumTotal)}</div><div class="ss">${cumTotal<0?'⚠️ 餘額不足':'帳本存款'}</div></div>
-      </div>
-
-      ${ledgerType==='year'&&yearlyTarget>0?`<!-- 年度進度條 -->
-      <div class="card" style="margin-bottom:14px;">
-        <div class="card-bd" style="padding:18px 22px;">
-          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;">
-            <span style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:600;color:var(--brown);letter-spacing:0.08em;">📅 ${curYear} 年累積進度</span>
-            <span style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:${yearProgress>=100?'var(--grn)':'var(--acc)'};">${yearProgress}%</span>
-          </div>
-          <div class="pb-lg"><div class="pf" style="width:${yearProgress}%;background:${yearProgress>=100?'var(--grn)':'linear-gradient(90deg,var(--acc),var(--acc2))'};"></div></div>
-          <div class="tm" style="margin-top:8px;text-align:right;">已累積 $${fmt(yearDeposit)} / 目標 $${fmt(yearlyTarget)}　${yearProgress<100?`還需 $${fmt(yearlyTarget-yearDeposit)}`:'🎉 已達標'}　已支出 $${fmt(yearOutflow)}</div>
-        </div>
-      </div>
-
-      ${(ledgerCfg.yearlyItems||[]).length>0?`<!-- 年度明細項目清單 -->
-      <div class="card card-feature" style="margin-bottom:14px;">
-        <div class="card-hd">
-          <span class="card-ttl">📋 年度支出明細（每月 $${fmt(recommendedDeposit)} 從這算出）</span>
-          <button class="btn btn-s btn-sm" onclick="openM('editLedger','${l.id}')">⚙️ 編輯</button>
-        </div>
-        <div class="card-bd">
-          <div class="tw"><table>
-            <thead><tr><th>項目名稱</th><th style="text-align:right;">年金額</th><th>幾月扣</th><th style="text-align:right;">攤提每月</th></tr></thead>
-            <tbody>${(ledgerCfg.yearlyItems||[]).map(it=>`<tr>
-              <td><b>${it.name||'-'}</b></td>
-              <td class="an">$${fmt(it.amount)}</td>
-              <td><span class="bdg">${it.dueMonth||'未指定'}</span></td>
-              <td class="an" style="color:var(--acc);">$${fmt(Math.ceil(toN(it.amount)/((ledgerCfg.activeMonths||[1,2,3,4,5,6,7,8,9,10,11,12]).length||12)))}</td>
-            </tr>`).join('')}
-            <tr style="background:var(--bg2);font-weight:700;">
-              <td><b>合計</b></td>
-              <td class="an" style="color:var(--gold);font-family:'Noto Serif TC',serif;font-size:16px;">$${fmt(yearlyTarget)}</td>
-              <td></td>
-              <td class="an" style="color:var(--acc);font-family:'Noto Serif TC',serif;font-size:16px;">$${fmt(recommendedDeposit)}</td>
-            </tr>
-            </tbody>
-          </table></div>
-        </div>
-      </div>`:`<div class="notice tip" style="margin-bottom:14px;">
-        💡 還沒列出年度支出明細項目？點右上「⚙️ 帳本設定」加入「保險、稅金、紅包」等項目，系統會自動算出每月該存多少。
-      </div>`}`:''}
-
-      <!-- 對帳 -->
-      <div class="rec-box">
-        <div style="font-weight:700;font-size:13px;color:var(--brown);margin-bottom:8px;">🔍 帳戶對帳</div>
-        <div class="fb g8" style="flex-wrap:wrap;">
-          <span class="tm">帳戶實際餘額（從手機銀行查）</span>
-          <input type="number" class="yinp" style="width:160px;padding:6px 10px;font-size:14px;"
-            value="${recVal}" placeholder="輸入銀行餘額" onchange="saveRec('${l.id}','${mk()}',this.value)">
-          <span class="tm">帳本累計：$${fmt(cumTotal)}</span>
-        </div>
-        ${diff!==null?`<div style="margin-top:8px;font-weight:700;font-size:13px;color:${diff===0?'var(--grn)':'var(--red)'};">
-          ${diff===0?'✅ 帳戶核對一致！':`⚠️ 差額：$${fmt(Math.abs(diff))}，請檢查！`}
-        </div>`:''}
-      </div>
-
-      <div class="card">
-        <div class="card-hd">
-          <span class="card-ttl">${l.name}</span>
-          <div class="fb g8">
-            ${moSel().replace('class="mo-scroll"','class="mo-scroll" style="margin:0;max-width:220px;"')}
-            <button class="btn btn-s btn-sm" onclick="openM('batchLE')">📋 批次輸入</button>
-            <button class="btn btn-p btn-sm" onclick="openM('addLE')">＋ 記一筆</button>
-          </div>
-        </div>
-
-        <!-- 📊 本月各類別統計方塊（沐蜜風格） -->
-        ${(()=>{
-          if(entries.length===0)return'';
-          // 分類統計（只算支出，也就是負數）
-          const byCat={};
-          entries.forEach(e=>{
-            if(toN(e.amount)>=0)return; // 只算支出
-            const cat=e.cat||'未分類';
-            byCat[cat]=(byCat[cat]||0)+Math.abs(toN(e.amount));
-          });
-          const sortedCats=Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
-          if(sortedCats.length===0)return'';
-          const totalOut=sortedCats.reduce((s,[,v])=>s+v,0);
-          return`<div style="background:linear-gradient(135deg,var(--goldL),var(--card));padding:14px 18px;border-bottom:1px solid var(--bdr);">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
-              <b style="font-family:'Noto Serif TC',serif;font-size:13.5px;color:var(--brown);">📊 本月各類別支出（${sortedCats.length} 個類別）</b>
-              ${S.ledgerCatFilter?`<button class="btn btn-y btn-sm" style="font-size:11.5px;" onclick="S.ledgerCatFilter=null;render();">✕ 清除篩選</button>`:''}
-            </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;">
-              ${sortedCats.map(([cat,amt])=>{
-                const pct=totalOut>0?Math.round(amt/totalOut*100):0;
-                const active=S.ledgerCatFilter===cat;
-                const catEscaped=cat.replace(/'/g,"\\'");
-                return`<button onclick="setLedgerCatFilter(${active?'null':`'${catEscaped}'`})" style="text-align:left;padding:10px 12px;background:${active?'var(--gold)':'#fff'};color:${active?'#fff':'var(--txt)'};border:1.5px solid ${active?'var(--gold)':'var(--bdr)'};border-radius:8px;cursor:pointer;transition:all 0.15s;font-family:inherit;">
-                  <div style="font-size:11.5px;opacity:0.8;">${cat}</div>
-                  <div style="font-size:17px;font-weight:700;color:${active?'#fff':'var(--red)'};margin:2px 0;font-family:'Noto Serif TC',serif;">$${fmt(amt)}</div>
-                  <div style="font-size:10.5px;opacity:0.7;">佔 ${pct}%</div>
-                </button>`;
-              }).join('')}
-            </div>
-          </div>`;
-        })()}
-
-        <div class="tw"><table>
-          <thead><tr><th>日期</th><th>金額</th><th>類別</th><th>說明</th><th style="text-align:center;">同步</th><th title="本月內逐筆累積（不是帳本總餘額）">本月累積</th><th></th></tr></thead>
-          <tbody>${(()=>{
-            // 依類別篩選（如果有）
-            const displayRows=S.ledgerCatFilter?rows.filter(r=>(r.cat||'未分類')===S.ledgerCatFilter):rows;
-            if(displayRows.length===0)return`<tr><td colspan="7"><div class="empty"><div class="empty-ico">📒</div><p>${S.ledgerCatFilter?`類別「${S.ledgerCatFilter}」本月無紀錄`:'本月尚無紀錄'}</p></div></td></tr>`;
-            return displayRows.map(r=>{
-              const hasLink=!!r.linkId;
-              const hasCardText=r.linkedCardBank||(r.note||'').includes('💳');
-              const isOrphan=!hasLink&&hasCardText;
-              return`<tr style="${isOrphan?'background:linear-gradient(90deg,var(--redl),transparent);':''}">
-              <td>${r.date||''}</td>
-              <td class="${toN(r.amount)>=0?'ap':'an'}">${toN(r.amount)>=0?'+':''}$${fmt(r.amount)}</td>
-              <td><span class="bdg">${r.cat||''}</span></td>
-              <td class="tm">${r.note||''}</td>
-              <td style="text-align:center;font-size:11px;">${hasLink?`<span class="bdg" style="background:var(--grn);color:#fff;" title="已連動信用卡明細">🔗 ${r.linkedCardBank||'已同步'}</span>`:isOrphan?`<span class="bdg" style="background:var(--red);color:#fff;" title="備註提到信用卡但沒同步！">⚠️ 未連動</span>`:'<span class="tm">－</span>'}</td>
-              <td class="run-bal">$${fmt(r.run)}</td>
-              <td style="white-space:nowrap;"><button class="bdel" style="color:#aaa;font-size:13px;" onclick="openM('editLE','${r.id}')">✏️</button><button class="bdel" onclick="delLE('${r.id}')">×</button></td>
-            </tr>`;}).join('');
-          })()}
-          </tbody>
-        </table></div>
-
-        <!-- 本月合計（沐蜜風格） -->
-        <div style="padding:14px 20px;border-top:1px solid var(--bdr);background:var(--bg2);display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:12px;">
-          <div>
-            <b style="font-size:13.5px;color:var(--brown);">${S.ledgerCatFilter?`類別「${S.ledgerCatFilter}」合計`:'本月合計'}：</b>
-            <span style="font-family:'Noto Serif TC',serif;font-size:19px;font-weight:700;color:${mOut>0?'var(--red)':'var(--grn)'};margin-left:6px;">$${fmt(S.ledgerCatFilter?entries.filter(e=>(e.cat||'未分類')===S.ledgerCatFilter&&toN(e.amount)<0).reduce((s,e)=>s+Math.abs(toN(e.amount)),0):mOut)}</span>
-          </div>
-          <div class="tm" style="font-size:12px;">
-            本月存入 <b style="color:var(--grn);">$${fmt(mIn)}</b>　·　本月支出 <b style="color:var(--red);">$${fmt(mOut)}</b>　·　本月淨額 <b style="color:${(mIn-mOut)>=0?'var(--grn)':'var(--red)'};">${(mIn-mOut)>=0?'+':''}$${fmt(mIn-mOut)}</b>
-          </div>
-        </div>
-      </div>
+    <!-- 底部：設目標、刪除帳本、新增帳本 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:20px;">
+      <button onclick="editLedgerTarget('${l.id}','${(l.name||'').replace(/'/g,"\\'")}')" style="padding:10px;background:var(--bg2);color:var(--brown);border:1px solid var(--bdr);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">🎯 設定目標（目前 ${target>0?'$'+fmt(target):'未設'}）</button>
+      <button onclick="setP('ledgerHome')" style="padding:10px;background:var(--bg2);color:var(--brown);border:1px solid var(--bdr);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">📒 回總覽</button>
     </div>
 
-    <!-- 右側統計面板 -->
-    <div style="width:240px;flex-shrink:0;">
-      <!-- 累計分類統計（可點擊展開） -->
-      <div class="card" style="margin-bottom:12px;">
-        <div class="card-hd"><span class="card-ttl">📊 累計分類統計</span></div>
-        <div class="card-bd" style="padding:12px;">
-          <div class="tm" style="font-size:11px;margin-bottom:8px;color:var(--mut);">💡 點類別可展開該分類的所有明細</div>
-          ${Object.entries(cumCats).sort((a,b)=>b[1]-a[1]).map(([c,v])=>{
-            const isOpen=(S.openLedgerCat||'')===c;
-            const catEntries=allEntries.filter(e=>(e.cat||'')===c).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-            // 用 base64 編碼類別名，避免引號/特殊字元問題
-            const catB64=btoa(unescape(encodeURIComponent(c)));
-            return`
-            <div style="border-bottom:1px solid var(--bdr);">
-              <div class="led-cat-toggle" data-cat-b64="${catB64}" style="display:flex;justify-content:space-between;align-items:center;padding:8px 6px;cursor:pointer;border-radius:6px;background:${isOpen?'var(--accL)':'transparent'};transition:all .15s;user-select:none;">
-                <span style="font-size:13px;color:var(--brown);font-weight:${isOpen?'700':'500'};">
-                  <span style="display:inline-block;width:14px;color:var(--acc);">${isOpen?'▼':'▶'}</span>
-                  ${c} <span class="tm" style="font-size:10px;">(${catEntries.length})</span>
-                </span>
-                <span style="font-size:12px;font-weight:700;color:var(--red);">${fmt(v)}</span>
-              </div>
-              ${isOpen?`<div style="background:var(--bg2);padding:8px 6px;border-radius:6px;margin:4px 0 8px;max-height:300px;overflow-y:auto;">
-                ${catEntries.length===0?'<div class="tm" style="text-align:center;padding:8px;font-size:11px;">無記錄</div>':catEntries.map(e=>`
-                  <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:6px 4px;border-bottom:1px dashed var(--bdr);gap:4px;">
-                    <div style="flex:1;min-width:0;">
-                      <div style="font-size:11px;color:var(--brown);font-weight:600;">${e.date||''}</div>
-                      ${e.note?`<div style="font-size:11px;color:var(--mut);word-break:break-all;line-height:1.4;">${e.note}</div>`:''}
-                    </div>
-                    <span style="font-size:12px;font-weight:700;color:${toN(e.amount)>=0?'var(--grn)':'var(--red)'};white-space:nowrap;">${toN(e.amount)>=0?'+':''}${fmt(e.amount)}</span>
-                  </div>`).join('')}
-              </div>`:''}
-            </div>`;}).join('')}
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 6px 5px;border-bottom:1px solid var(--bdr);">
-            <span style="font-size:13px;color:var(--brown);font-weight:500;">💰 本月預算存入</span>
-            <span style="font-size:12px;font-weight:700;color:var(--grn);">${fmt(cumBudgetIn)}</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 6px 4px;margin-top:2px;background:var(--accL);border-radius:6px;">
-            <span style="font-size:13px;font-weight:700;color:var(--brown);">合計</span>
-            <span style="font-size:15px;font-weight:700;font-family:'Noto Serif TC',serif;color:${cumTotal>=0?'var(--grn)':'var(--red)'};">${fmt(cumTotal)}</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 每月小計 -->
-      <div class="card">
-        <div class="card-hd"><span class="card-ttl">📅 每月小計</span></div>
-        <div class="card-bd" style="padding:12px;">
-          <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-            <span style="font-size:10px;font-weight:700;color:var(--mut);">月份</span>
-            <span style="font-size:10px;font-weight:700;color:var(--mut);">收支合計</span>
-          </div>
-          ${moKeys.map(k=>{
-            const mo=moMap[k];
-            const net=mo.net;
-            return`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--bdr);">
-              <span style="font-size:12px;color:var(--mut);">${moLabel(k)}</span>
-              <span style="font-size:12px;font-weight:700;color:${net>=0?'var(--grn)':'var(--red)'};">${net>=0?'+':''}${fmt(net)}</span>
-            </div>`;
-          }).join('')}
-          ${moKeys.length===0?'<div class="tm" style="text-align:center;padding:8px 0;">尚無記錄</div>':''}
-          <div class="tm" style="font-size:10px;margin-top:6px;">每月月底從流水帳加總後填入🗓️12月份記點</div>
-        </div>
-      </div>
-    </div>
   </div>`;
 }
 
