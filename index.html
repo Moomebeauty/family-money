@@ -785,10 +785,11 @@ const PAGES=[
   {id:'quickInc', ico:'💵',lbl:'記一筆收入',group:'main'},
   {id:'quickExp', ico:'💸',lbl:'記一筆支出',group:'main'},
   {id:'expDash',  ico:'📊',lbl:'支出總覽',group:'main'},
-  {id:'fixedNew', ico:'📌',lbl:'固定支出',group:'main'},
-  {id:'amortNew', ico:'🏺',lbl:'年繳攤提',group:'main'},
   {id:'guardian', ico:'🛡️',lbl:'守財工具箱',group:'main'},
   {id:'settings', ico:'⚙️',lbl:'進階功能',group:'main'},
+  // 舊「固定支出」跟「年繳攤提」改為隱藏（保留路由與資料）
+  {id:'fixedNew', ico:'📌',lbl:'固定支出',group:'hidden'},
+  {id:'amortNew', ico:'🏺',lbl:'年繳攤提',group:'hidden'},
   // 以下全部隱藏（保留資料 & 功能，未來還能用）
   {id:'home',     ico:'📊',lbl:'總覽',group:'hidden'},
   {id:'incomes',  ico:'💵',lbl:'收入記帳',group:'hidden'},
@@ -1976,17 +1977,17 @@ function pgExpDash(){
     <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(194,116,122,0.10);margin-bottom:16px;border-top:4px solid var(--gold);">
       <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);margin-bottom:12px;">📋 這個月「該花」多少</div>
       <div style="display:grid;grid-template-columns:1fr;gap:8px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--goldL);border-radius:12px;cursor:pointer;" onclick="setP('fixedNew')">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--goldL);border-radius:12px;cursor:pointer;" onclick="scrollToFixed()">
           <div>
             <div style="font-size:14px;font-weight:700;color:var(--brown);">📌 固定支出（月繳）</div>
-            <div class="tm" style="font-size:11.5px;">${fixedItems.length} 個項目 · 房貸/保險/訂閱</div>
+            <div class="tm" style="font-size:11.5px;">${fixedItems.length} 個項目 · 房貸/保險/訂閱 <span style="color:var(--gold);">↓ 展開管理</span></div>
           </div>
           <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--gold);">$${fmt(fixedTotal)}</div>
         </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--purl);border-radius:12px;cursor:pointer;" onclick="setP('amortNew')">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--purl);border-radius:12px;cursor:pointer;" onclick="scrollToAmort()">
           <div>
             <div style="font-size:14px;font-weight:700;color:var(--brown);">🏺 年繳攤提（每月存起來）</div>
-            <div class="tm" style="font-size:11.5px;">${amortItems.length} 個項目 · 汽保/房稅/保養</div>
+            <div class="tm" style="font-size:11.5px;">${amortItems.length} 個項目 · 汽保/房稅/保養 <span style="color:var(--pur);">↓ 展開管理</span></div>
           </div>
           <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--pur);">$${fmt(amortMonthly)}</div>
         </div>
@@ -2039,36 +2040,96 @@ function pgExpDash(){
       </div>`:''}
     </div>
 
-    <!-- 🏺 年繳預備金追蹤 -->
-    ${amortItems.length>0?`
-    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(194,116,122,0.10);margin-bottom:16px;border-top:4px solid var(--pur);">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
-        <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);">🏺 年繳預備金追蹤</span>
-        <button onclick="setP('amortNew')" style="background:var(--pur);color:#fff;border:none;padding:6px 14px;border-radius:10px;font-size:12.5px;font-weight:600;cursor:pointer;">管理</button>
+    <!-- ═════════ 分隔線 ═════════ -->
+    <div style="margin:24px 0 16px;text-align:center;">
+      <div style="font-family:'Noto Serif TC',serif;font-size:13px;color:var(--mut);letter-spacing:0.4em;">━━ 管理支出項目 ━━</div>
+    </div>
+
+    <!-- 📌 固定支出管理（可展開） -->
+    <details style="background:#fff;border-radius:20px;padding:0;box-shadow:0 4px 16px rgba(194,116,122,0.10);margin-bottom:12px;border-top:4px solid var(--gold);overflow:hidden;" ${fixedItems.length===0?'':'open'}>
+      <summary style="padding:20px 24px;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <div>
+          <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);">📌 固定支出（月繳）</span>
+          <div class="tm" style="font-size:11.5px;margin-top:2px;">${fixedItems.length} 項　·　每月合計 <b style="color:var(--gold);">$${fmt(fixedTotal)}</b></div>
+        </div>
+        <span style="font-size:12px;color:var(--mut);">▼ 點擊展開／收合</span>
+      </summary>
+      <div style="padding:0 24px 20px;">
+        <button onclick="openM('addFixed')" style="width:100%;padding:12px;background:linear-gradient(135deg,var(--gold),#B8853A);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:12px;">
+          ＋ 新增固定支出
+        </button>
+        ${fixedItems.length===0?`<div style="text-align:center;padding:24px 20px;color:var(--mut);">
+          <div style="font-size:36px;">📋</div>
+          <div style="margin-top:6px;font-size:13px;">還沒新增任何固定支出</div>
+          <div class="tm" style="font-size:11.5px;margin-top:6px;">例：房貸、保險、Netflix、健身房</div>
+        </div>`:fixedItems.map(f=>`<div style="padding:12px 14px;background:var(--bg2);border-radius:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:14px;color:var(--brown);font-weight:700;">${f.name||'-'}</div>
+            <div class="tm" style="font-size:11px;margin-top:2px;">${f.category||''}${f.payDay?' · 每月 '+f.payDay+' 號扣款':''}${f.note?' · '+f.note:''}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--gold);">$${fmt(toN(f.amount))}</div>
+            <div class="tm" style="font-size:10px;">/ 月</div>
+          </div>
+          <button onclick="delFixed('${f.id}')" style="background:none;border:none;color:var(--red);font-size:20px;cursor:pointer;padding:0 4px;flex-shrink:0;">×</button>
+        </div>`).join('')}
       </div>
-      <div style="display:grid;grid-template-columns:1fr;gap:8px;">
-        ${amortItems.slice(0,5).map(a=>{
+    </details>
+
+    <!-- 🏺 年繳攤提管理（可展開） -->
+    <details style="background:#fff;border-radius:20px;padding:0;box-shadow:0 4px 16px rgba(194,116,122,0.10);margin-bottom:12px;border-top:4px solid var(--pur);overflow:hidden;" ${amortItems.length===0?'':'open'}>
+      <summary style="padding:20px 24px;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <div>
+          <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);">🏺 年繳攤提</span>
+          <div class="tm" style="font-size:11.5px;margin-top:2px;">${amortItems.length} 項　·　每月要存 <b style="color:var(--pur);">$${fmt(amortMonthly)}</b>　·　年繳合計 <b style="color:var(--pur);">$${fmt(amortItems.reduce((s,a)=>s+toN(a.annualAmount),0))}</b></div>
+        </div>
+        <span style="font-size:12px;color:var(--mut);">▼ 點擊展開／收合</span>
+      </summary>
+      <div style="padding:0 24px 20px;">
+        <div style="background:var(--purl);padding:10px 14px;border-radius:10px;font-size:12px;color:var(--pur);margin-bottom:12px;line-height:1.6;">
+          💡 <b>年繳項目每月存一點</b>，到期時就有錢繳。汽保、房稅、保養、意外險等。
+        </div>
+        <button onclick="openM('addAmort')" style="width:100%;padding:12px;background:linear-gradient(135deg,var(--pur),#7040A0);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:12px;">
+          ＋ 新增年繳項目
+        </button>
+        ${amortItems.length===0?`<div style="text-align:center;padding:24px 20px;color:var(--mut);">
+          <div style="font-size:36px;">🏺</div>
+          <div style="margin-top:6px;font-size:13px;">還沒新增任何年繳項目</div>
+          <div class="tm" style="font-size:11.5px;margin-top:6px;line-height:1.7;">例：汽車強制險 / 房屋稅 / 汽車保養 / 意外險 / 節慶紅包</div>
+        </div>`:amortItems.map(a=>{
           const annual=toN(a.annualAmount);
           const paid=toN(a.paidThisYear);
-          const pct=annual>0?Math.round(paid/annual*100):0;
           const monthly=toN(a.monthlyAmortize)||Math.ceil(annual/12);
-          return`<div style="padding:12px 14px;background:var(--bg2);border-radius:10px;">
-            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
-              <div>
-                <span style="font-size:13.5px;font-weight:700;color:var(--brown);">${a.name}</span>
-                <span class="tm" style="font-size:11px;margin-left:6px;">每月存 $${fmt(monthly)}　到期月 ${a.dueMonth||'?'}月</span>
+          const pct=annual>0?Math.round(paid/annual*100):0;
+          return`<div style="padding:12px 14px;background:var(--bg2);border-radius:10px;margin-bottom:8px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:14px;color:var(--brown);font-weight:700;">${a.name}</div>
+                <div class="tm" style="font-size:11px;margin-top:2px;">${a.category||''}${a.dueMonth?` · 到期月 ${a.dueMonth}月`:''}${a.note?` · ${a.note}`:''}</div>
               </div>
-              <span style="font-family:'Noto Serif TC',serif;font-size:13px;font-weight:700;color:${pct>=100?'var(--grn)':'var(--pur)'};">$${fmt(paid)} / $${fmt(annual)}</span>
+              <button onclick="delAmort('${a.id}')" style="background:none;border:none;color:var(--red);font-size:20px;cursor:pointer;padding:0 4px;">×</button>
             </div>
-            <div style="height:8px;background:#fff;border-radius:4px;overflow:hidden;">
-              <div style="height:100%;width:${Math.min(pct,100)}%;background:linear-gradient(90deg,var(--pur),var(--rose));border-radius:4px;"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px;">
+              <div style="padding:6px 8px;background:#fff;border-radius:8px;text-align:center;">
+                <div class="tm" style="font-size:10px;">年繳</div>
+                <div style="font-family:'Noto Serif TC',serif;font-size:13px;font-weight:700;color:var(--brown);">$${fmt(annual)}</div>
+              </div>
+              <div style="padding:6px 8px;background:#fff;border-radius:8px;text-align:center;">
+                <div class="tm" style="font-size:10px;">每月存</div>
+                <div style="font-family:'Noto Serif TC',serif;font-size:13px;font-weight:700;color:var(--rose);">$${fmt(monthly)}</div>
+              </div>
+              <div style="padding:6px 8px;background:#fff;border-radius:8px;text-align:center;">
+                <div class="tm" style="font-size:10px;">已存</div>
+                <div style="font-family:'Noto Serif TC',serif;font-size:13px;font-weight:700;color:${pct>=100?'var(--grn)':'var(--pur)'};">$${fmt(paid)}</div>
+              </div>
             </div>
-            <div class="tm" style="font-size:10.5px;text-align:right;margin-top:2px;">${pct}%</div>
+            <div style="height:6px;background:#fff;border-radius:3px;overflow:hidden;margin-top:6px;">
+              <div style="height:100%;width:${Math.min(pct,100)}%;background:linear-gradient(90deg,var(--pur),var(--rose));border-radius:3px;"></div>
+            </div>
           </div>`;
         }).join('')}
       </div>
-      ${amortItems.length>5?`<div class="tm" style="text-align:center;font-size:11px;margin-top:8px;">…還有 ${amortItems.length-5} 個項目</div>`:''}
-    </div>`:''}
+    </details>
 
   </div>`;
 }
@@ -9902,6 +9963,23 @@ window.editVariableBudget=async()=>{
   await saveMain({variableBudget:num});
   toast(`✅ 變動預算設為 $${fmt(num)}`);
   render();
+};
+
+// 📌 滾動到固定支出管理區（打開摺疊）
+window.scrollToFixed=()=>{
+  const details=document.querySelectorAll('details');
+  if(details[0]){
+    details[0].open=true;
+    details[0].scrollIntoView({behavior:'smooth',block:'start'});
+  }
+};
+// 🏺 滾動到年繳攤提管理區（打開摺疊）
+window.scrollToAmort=()=>{
+  const details=document.querySelectorAll('details');
+  if(details[1]){
+    details[1].open=true;
+    details[1].scrollIntoView({behavior:'smooth',block:'start'});
+  }
 };
 
 // 🏠 買房頭期專款
