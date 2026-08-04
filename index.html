@@ -2263,26 +2263,19 @@ function pgExpDash(){
             <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
               <div style="flex:1;min-width:0;">
                 <div style="font-size:14px;color:var(--brown);font-weight:700;">${a.name}</div>
-                <div class="tm" style="font-size:11px;margin-top:2px;">${a.category||''}${a.dueMonth?` · 到期月 ${a.dueMonth}月`:''}${a.linkedLedger?` · 🔗 ${((getAllLedgers().find(x=>x.id===a.linkedLedger)||{}).name)||'?'}`:''}${a.note?` · ${a.note}`:''}</div>
+                <div class="tm" style="font-size:11px;margin-top:2px;">${a.category||''}${(()=>{const ms=a.dueMonths&&a.dueMonths.length?a.dueMonths:(a.dueMonth?[a.dueMonth]:[]);return ms.length?` · 到期月 ${ms.join('、')} 月`:'';})()}${a.linkedLedger?` · 🔗 ${((getAllLedgers().find(x=>x.id===a.linkedLedger)||{}).name)||'?'}`:''}${a.note?` · ${a.note}`:''}</div>
               </div>
               <button onclick="editAmort('${a.id}')" style="background:none;border:none;color:var(--mut);font-size:16px;cursor:pointer;padding:0 6px;" title="編輯">✏️</button><button onclick="delAmort('${a.id}')" style="background:none;border:none;color:var(--red);font-size:20px;cursor:pointer;padding:0 4px;">×</button>
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px;">
-              <div style="padding:6px 8px;background:#fff;border-radius:8px;text-align:center;">
-                <div class="tm" style="font-size:10px;">年繳</div>
-                <div style="font-family:'Noto Serif TC',serif;font-size:13px;font-weight:700;color:var(--brown);">$${fmt(annual)}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;">
+              <div style="padding:8px 10px;background:#fff;border-radius:8px;text-align:center;">
+                <div class="tm" style="font-size:10.5px;">年繳總額</div>
+                <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--brown);">$${fmt(annual)}</div>
               </div>
-              <div style="padding:6px 8px;background:#fff;border-radius:8px;text-align:center;">
-                <div class="tm" style="font-size:10px;">每月存</div>
-                <div style="font-family:'Noto Serif TC',serif;font-size:13px;font-weight:700;color:var(--rose);">$${fmt(monthly)}</div>
+              <div style="padding:8px 10px;background:#fff;border-radius:8px;text-align:center;">
+                <div class="tm" style="font-size:10.5px;">每月要存</div>
+                <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--rose);">$${fmt(monthly)}</div>
               </div>
-              <div style="padding:6px 8px;background:#fff;border-radius:8px;text-align:center;">
-                <div class="tm" style="font-size:10px;">已存</div>
-                <div style="font-family:'Noto Serif TC',serif;font-size:13px;font-weight:700;color:${pct>=100?'var(--grn)':'var(--pur)'};">$${fmt(paid)}</div>
-              </div>
-            </div>
-            <div style="height:6px;background:#fff;border-radius:3px;overflow:hidden;margin-top:6px;">
-              <div style="height:100%;width:${Math.min(pct,100)}%;background:linear-gradient(90deg,var(--pur),var(--rose));border-radius:3px;"></div>
             </div>
           </div>`;
         }).join('')}
@@ -2350,26 +2343,19 @@ function pgAmortNew(){
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">
             <div style="flex:1;">
               <div style="font-size:15px;color:var(--brown);font-weight:700;">${a.name}</div>
-              <div class="tm" style="font-size:11.5px;margin-top:2px;">${a.category||''}${a.dueMonth?` · 到期月 ${a.dueMonth}月`:''}${a.linkedLedger?` · 🔗 ${((getAllLedgers().find(x=>x.id===a.linkedLedger)||{}).name)||'?'}`:''}${a.note?` · ${a.note}`:''}</div>
+              <div class="tm" style="font-size:11.5px;margin-top:2px;">${a.category||''}${(()=>{const ms=a.dueMonths&&a.dueMonths.length?a.dueMonths:(a.dueMonth?[a.dueMonth]:[]);return ms.length?` · 到期月 ${ms.join('、')} 月`:'';})()}${a.linkedLedger?` · 🔗 ${((getAllLedgers().find(x=>x.id===a.linkedLedger)||{}).name)||'?'}`:''}${a.note?` · ${a.note}`:''}</div>
             </div>
             <button onclick="editAmort('${a.id}')" style="background:none;border:none;color:var(--mut);font-size:16px;cursor:pointer;padding:0 6px;" title="編輯">✏️</button><button onclick="delAmort('${a.id}')" style="background:none;border:none;color:var(--red);font-size:20px;cursor:pointer;padding:0 4px;">×</button>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px;">
-            <div style="padding:8px 10px;background:#fff;border-radius:8px;text-align:center;">
-              <div class="tm" style="font-size:10.5px;">年繳</div>
-              <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--brown);">$${fmt(annual)}</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+            <div style="padding:10px 12px;background:#fff;border-radius:8px;text-align:center;">
+              <div class="tm" style="font-size:11px;">年繳總額</div>
+              <div style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:var(--brown);margin-top:2px;">$${fmt(annual)}</div>
             </div>
-            <div style="padding:8px 10px;background:#fff;border-radius:8px;text-align:center;">
-              <div class="tm" style="font-size:10.5px;">每月存</div>
-              <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--rose);">$${fmt(monthly)}</div>
+            <div style="padding:10px 12px;background:#fff;border-radius:8px;text-align:center;">
+              <div class="tm" style="font-size:11px;">每月要存</div>
+              <div style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:var(--rose);margin-top:2px;">$${fmt(monthly)}</div>
             </div>
-            <div style="padding:8px 10px;background:#fff;border-radius:8px;text-align:center;">
-              <div class="tm" style="font-size:10.5px;">今年已存</div>
-              <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:${pct>=100?'var(--grn)':'var(--pur)'};">$${fmt(paid)}</div>
-            </div>
-          </div>
-          <div style="height:8px;background:#fff;border-radius:4px;overflow:hidden;margin-top:8px;">
-            <div style="height:100%;width:${Math.min(pct,100)}%;background:linear-gradient(90deg,var(--pur),var(--rose));border-radius:4px;"></div>
           </div>
         </div>`;
       }).join('')}
@@ -7648,7 +7634,7 @@ function pgLedger(){
       const amortItems=S.data.amortizedItems||[];
       // 找出對應此帳本、且下個月要繳的年繳項目
       const nextMonth=S.month===12?1:S.month+1;
-      const linkedItems=amortItems.filter(a=>a.linkedLedger===l.id&&toN(a.dueMonth)===nextMonth);
+      const linkedItems=amortItems.filter(a=>{if(a.linkedLedger!==l.id)return false;const ms=a.dueMonths&&a.dueMonths.length?a.dueMonths:(a.dueMonth?[a.dueMonth]:[]);return ms.includes(nextMonth);});
       if(linkedItems.length===0)return'';
       return`<div style="background:linear-gradient(135deg,#FFF3D8,#FFEAD0);border:2px solid var(--yelb);border-radius:12px;padding:12px 18px;margin-bottom:16px;">
         ${linkedItems.map(a=>{
@@ -7689,7 +7675,7 @@ function pgLedger(){
     ${(()=>{
       const amortItems=S.data.amortizedItems||[];
       const nextMonth=S.month===12?1:S.month+1;
-      const linkedItems=amortItems.filter(a=>a.linkedLedger===l.id&&toN(a.dueMonth)===nextMonth);
+      const linkedItems=amortItems.filter(a=>{if(a.linkedLedger!==l.id)return false;const ms=a.dueMonths&&a.dueMonths.length?a.dueMonths:(a.dueMonth?[a.dueMonth]:[]);return ms.includes(nextMonth);});
       if(linkedItems.length===0)return'';
       return linkedItems.map(a=>{
         const paid=toN(a.paidThisYear);
@@ -8458,17 +8444,18 @@ function modal(){
     const preAnnual=editItem?editItem.annualAmount:'';
     const preMonthly=editItem?(editItem.monthlyAmortize||Math.ceil(toN(editItem.annualAmount)/12)):'';
     const preCat=editItem?editItem.category:'保險';
-    const preDue=editItem?editItem.dueMonth:1;
+    // 相容：舊資料 dueMonth (單數) → 轉成 dueMonths 陣列
+    const preDueMonths=editItem?(editItem.dueMonths&&editItem.dueMonths.length?editItem.dueMonths:(editItem.dueMonth?[editItem.dueMonth]:[])):[];
     const preLinked=editItem?(editItem.linkedLedger||''):'';
     const preNote=editItem?editItem.note:'';
     c=`<div class="mttl">🏺 ${isEdit?'編輯':'新增'}年繳項目</div>
     <div style="background:var(--purl);padding:10px 14px;border-radius:8px;font-size:12.5px;color:var(--pur);margin-bottom:14px;">
-      💡 年繳的錢分 12 個月存起來，到期就有錢繳
+      💡 年繳的錢分 12 個月存起來，到期時就有錢繳
     </div>
     <div class="fg fg2">
-      <div class="fgrp" style="grid-column:1/-1"><label>項目名稱</label><input type="text" id="am-name" value="${(preName||'').replace(/"/g,'&quot;')}" placeholder="例：汽車強制險、房屋稅、汽車保養"></div>
-      <div class="fgrp"><label>年繳總額（元）</label><input type="number" inputmode="decimal" id="am-annual" value="${preAnnual}" placeholder="0" class="amt-input" style="font-size:18px;font-weight:700;color:var(--pur);" oninput="updateAmortMonthly()"></div>
-      <div class="fgrp"><label>每月要存（自動算）</label><input type="number" id="am-monthly" value="${preMonthly}" placeholder="0" class="amt-input" readonly style="background:var(--bg2);color:var(--rose);font-weight:700;"></div>
+      <div class="fgrp" style="grid-column:1/-1"><label>項目名稱</label><input type="text" id="am-name" value="${(preName||'').replace(/"/g,'&quot;')}" placeholder="例：汽車強制險、房屋稅、工會費"></div>
+      <div class="fgrp"><label>年繳總額（一整年合計）</label><input type="number" inputmode="decimal" id="am-annual" value="${preAnnual}" placeholder="0" class="amt-input" style="font-size:18px;font-weight:700;color:var(--pur);" oninput="updateAmortMonthly()"></div>
+      <div class="fgrp"><label>每月要存（自動算 = 年繳÷12）</label><input type="number" id="am-monthly" value="${preMonthly}" placeholder="0" class="amt-input" readonly style="background:var(--bg2);color:var(--rose);font-weight:700;"></div>
       <div class="fgrp"><label>類別</label>
         <select id="am-cat">
           <option value="保險" ${preCat==='保險'?'selected':''}>🛡️ 保險</option>
@@ -8480,16 +8467,22 @@ function modal(){
           <option value="其他" ${preCat==='其他'?'selected':''}>📌 其他</option>
         </select>
       </div>
-      <div class="fgrp"><label>到期月份</label>
-        <select id="am-due">
-          ${Array.from({length:12},(_,i)=>`<option value="${i+1}" ${(i+1)==preDue?'selected':''}>${i+1} 月</option>`).join('')}
-        </select>
-      </div>
       <div class="fgrp" style="grid-column:1/-1"><label>🔗 對應儲蓄帳本（到期前 1 個月會提醒）</label>
         <select id="am-linked">
           <option value="">— 不對應 —</option>
           ${(typeof getAllLedgers==='function'?getAllLedgers():[]).map(led=>`<option value="${led.id}" ${led.id===preLinked?'selected':''}>${led.name}</option>`).join('')}
         </select>
+      </div>
+      <div class="fgrp" style="grid-column:1/-1"><label>🗓️ 到期月份（可複選 · 例如工會費 1、4、7、10 月）</label>
+        <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-top:4px;">
+          ${Array.from({length:12},(_,i)=>{
+            const mo=i+1;
+            const checked=preDueMonths.includes(mo)?'checked':'';
+            return`<label style="cursor:pointer;padding:8px 6px;background:#fff;border:2px solid var(--bdr);border-radius:8px;text-align:center;font-size:13px;font-weight:600;color:var(--brown);display:flex;align-items:center;justify-content:center;gap:4px;">
+              <input type="checkbox" name="am-dues" value="${mo}" ${checked} style="margin:0;">${mo}月
+            </label>`;
+          }).join('')}
+        </div>
       </div>
       <div class="fgrp" style="grid-column:1/-1"><label>備註（選填）</label><input type="text" id="am-note" value="${(preNote||'').replace(/"/g,'&quot;')}" placeholder="說明或備忘"></div>
     </div>
@@ -9829,25 +9822,27 @@ window.saveAmort=async(editId)=>{
   const name=g('am-name')||'';
   const annualAmount=toN(g('am-annual'));
   const category=g('am-cat')||'其他';
-  const dueMonth=parseInt(g('am-due'))||1;
+  // 讀複選 checkbox
+  const dueMonths=Array.from(document.querySelectorAll('input[name="am-dues"]:checked')).map(cb=>parseInt(cb.value)).sort((a,b)=>a-b);
   const linkedLedger=g('am-linked')||'';
   const note=g('am-note')||'';
   if(!name||!annualAmount){alert('請填項目名稱和年繳總額');return;}
+  if(dueMonths.length===0){alert('請至少選一個到期月份');return;}
   const monthlyAmortize=Math.ceil(annualAmount/12);
   const list=[...(S.data.amortizedItems||[])];
   if(editId){
-    // 編輯模式：更新現有項目
     const idx=list.findIndex(a=>a.id===editId);
     if(idx>=0){
-      list[idx]={...list[idx],name,category,annualAmount,monthlyAmortize,dueMonth,linkedLedger,note};
+      list[idx]={...list[idx],name,category,annualAmount,monthlyAmortize,dueMonths,dueMonth:dueMonths[0]||1,linkedLedger,note};
       await saveMain({amortizedItems:list});
       toast(`✅ 已更新「${name}」`);
     }
   }else{
-    // 新增模式
     const newItem={
       id:'am_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
-      name,category,annualAmount,monthlyAmortize,dueMonth,linkedLedger,
+      name,category,annualAmount,monthlyAmortize,dueMonths,
+      dueMonth:dueMonths[0]||1, // 相容舊欄位
+      linkedLedger,
       paidThisYear:0,paidDate:'',note
     };
     list.push(newItem);
