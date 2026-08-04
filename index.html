@@ -7777,6 +7777,110 @@ function pgLedger(){
       </div>
     </div>`:''}
 
+    <!-- 📊 分類歷年比較（12 個月完整表格） -->
+    ${(()=>{
+      const outEntries=allEntries.filter(e=>toN(e.amount)<0);
+      if(outEntries.length===0)return'';
+
+      // 找出所有分類（依總支出排序，最花錢的在前）
+      const catTotals={};
+      outEntries.forEach(e=>{
+        const c=(e.cat||'未分類').trim()||'未分類';
+        catTotals[c]=(catTotals[c]||0)+Math.abs(toN(e.amount));
+      });
+      const cats=Object.keys(catTotals).sort((a,b)=>catTotals[b]-catTotals[a]);
+      if(cats.length===0)return'';
+
+      // 找出所有年份
+      const yearSet=new Set(outEntries.map(e=>e.year).filter(y=>y));
+      yearSet.add(yr());
+      const allYears=[...yearSet].sort();
+
+      // 當前選的分類（預設第一個）
+      const selCat=S.ledgerCompareCat||cats[0];
+
+      // 建 12 月 × 年份 矩陣
+      const matrix=Array.from({length:12},(_,i)=>{
+        const mo=i+1;
+        const yearAmts=allYears.map(y=>{
+          const total=outEntries.filter(e=>(e.cat||'未分類').trim()===selCat&&e.year===y&&e.month===mo).reduce((s,e)=>s+Math.abs(toN(e.amount)),0);
+          return{year:y,total};
+        });
+        // 較去年同月變化（今年 vs 去年同月）
+        const cur=yearAmts.find(x=>x.year===viewYear)?.total||0;
+        const last=yearAmts.find(x=>x.year===viewYear-1)?.total||0;
+        const change=last>0?(cur-last)/last*100:(cur>0?100:0);
+        const isAnomaly=last>0&&change>=20;
+        return{month:mo,yearAmts,cur,last,change,isAnomaly};
+      });
+
+      // 每年合計
+      const yearSums=allYears.map(y=>{
+        const total=outEntries.filter(e=>(e.cat||'未分類').trim()===selCat&&e.year===y).reduce((s,e)=>s+Math.abs(toN(e.amount)),0);
+        return{year:y,total};
+      });
+
+      // 異常月份數
+      const anomalyMonths=matrix.filter(m=>m.isAnomaly);
+
+      return`<div style="background:#fff;border-radius:18px;padding:20px 22px;box-shadow:0 4px 16px rgba(194,116,122,0.10);margin-bottom:16px;border-top:4px solid var(--blu);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+          <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);">📊 分類歷年比較</span>
+          ${anomalyMonths.length>0?`<span style="background:var(--red);color:#fff;font-size:11.5px;font-weight:700;padding:3px 10px;border-radius:10px;">⚠️ ${anomalyMonths.length} 個月支出異常</span>`:''}
+        </div>
+
+        <!-- 分類切換下拉 -->
+        <div style="margin-bottom:14px;">
+          <label style="display:block;font-size:12.5px;color:var(--mut);margin-bottom:4px;">選擇分類：</label>
+          <select onchange="S.ledgerCompareCat=this.value;render();" style="width:100%;padding:10px 14px;border:2px solid var(--bdr);border-radius:10px;font-size:14px;font-weight:600;color:var(--brown);background:#fff;font-family:inherit;">
+            ${cats.map(c=>`<option value="${c}" ${c===selCat?'selected':''}>${c}　（累計 $${fmt(catTotals[c])}）</option>`).join('')}
+          </select>
+        </div>
+
+        <div class="tm" style="font-size:11.5px;margin-bottom:10px;line-height:1.6;">
+          「${selCat}」1-12 月各年度支出。漲幅 <b style="color:var(--red);">≥ 20%</b> 會標記異常 ⚠️
+        </div>
+
+        <!-- 12 月表格 -->
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+            <thead>
+              <tr style="background:var(--bg2);">
+                <th style="padding:8px 6px;text-align:center;color:var(--brown);font-weight:700;font-size:11.5px;border-bottom:2px solid var(--bdr);">月份</th>
+                ${allYears.map(y=>`<th style="padding:8px 6px;text-align:right;color:var(--brown);font-weight:700;font-size:11.5px;border-bottom:2px solid var(--bdr);">${y}</th>`).join('')}
+                <th style="padding:8px 6px;text-align:right;color:var(--brown);font-weight:700;font-size:11.5px;border-bottom:2px solid var(--bdr);">變化</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${matrix.map(m=>`<tr style="border-bottom:1px dashed var(--bdr);background:${m.isAnomaly?'var(--redL)':m.month===S.month?'var(--goldL)':'transparent'};">
+                <td style="padding:8px 6px;text-align:center;font-weight:${m.month===S.month?'700':'600'};color:${m.month===S.month?'var(--goldDk)':'var(--brown)'};">${m.month}月${m.month===S.month?' ●':''}</td>
+                ${m.yearAmts.map(y=>{
+                  const isCur=y.year===viewYear;
+                  return`<td style="padding:8px 6px;text-align:right;font-family:'Noto Serif TC',serif;font-weight:${isCur?'700':'500'};color:${y.total>0?(isCur?'var(--red)':'var(--brown)'):'var(--mut)'};">${y.total>0?'$'+fmt(y.total):'—'}</td>`;
+                }).join('')}
+                <td style="padding:8px 6px;text-align:right;font-weight:700;font-size:11.5px;color:${m.isAnomaly?'var(--red)':m.change>0?'var(--yelb)':m.change<0?'var(--grn)':'var(--mut)'};">${m.last===0?(m.cur>0?'新':'—'):(m.change>0?'+':'')+m.change.toFixed(0)+'%'}${m.isAnomaly?' ⚠️':''}</td>
+              </tr>`).join('')}
+            </tbody>
+            <tfoot>
+              <tr style="background:var(--bg2);border-top:2px solid var(--bdr);">
+                <td style="padding:10px 6px;text-align:center;font-weight:700;color:var(--brown);">全年合計</td>
+                ${yearSums.map(y=>{
+                  const isCur=y.year===viewYear;
+                  return`<td style="padding:10px 6px;text-align:right;font-family:'Noto Serif TC',serif;font-weight:700;color:${isCur?'var(--red)':'var(--brown)'};">${y.total>0?'$'+fmt(y.total):'—'}</td>`;
+                }).join('')}
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <div class="tm" style="font-size:11px;margin-top:10px;padding:8px 12px;background:var(--bluL);border-radius:8px;line-height:1.6;">
+          💡 <b>金色高亮</b> = 當前月　<b style="color:var(--red);">紅色 + ⚠️</b> = 較去年同月漲 20% 以上　<b>—</b> = 該月沒紀錄
+        </div>
+      </div>`;
+    })()}
+
+
     <!-- 底部：設目標、刪除帳本、新增帳本 -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:20px;">
       <button onclick="editLedgerTarget('${l.id}','${(l.name||'').replace(/'/g,"\\'")}')" style="padding:10px;background:var(--bg2);color:var(--brown);border:1px solid var(--bdr);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">🎯 設定目標（目前 ${target>0?'$'+fmt(target):'未設'}）</button>
