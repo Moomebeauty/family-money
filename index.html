@@ -2265,7 +2265,7 @@ function pgExpDash(){
                 <div style="font-size:14px;color:var(--brown);font-weight:700;">${a.name}</div>
                 <div class="tm" style="font-size:11px;margin-top:2px;">${a.category||''}${a.dueMonth?` · 到期月 ${a.dueMonth}月`:''}${a.linkedLedger?` · 🔗 ${((getAllLedgers().find(x=>x.id===a.linkedLedger)||{}).name)||'?'}`:''}${a.note?` · ${a.note}`:''}</div>
               </div>
-              <button onclick="delAmort('${a.id}')" style="background:none;border:none;color:var(--red);font-size:20px;cursor:pointer;padding:0 4px;">×</button>
+              <button onclick="editAmort('${a.id}')" style="background:none;border:none;color:var(--mut);font-size:16px;cursor:pointer;padding:0 6px;" title="編輯">✏️</button><button onclick="delAmort('${a.id}')" style="background:none;border:none;color:var(--red);font-size:20px;cursor:pointer;padding:0 4px;">×</button>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px;">
               <div style="padding:6px 8px;background:#fff;border-radius:8px;text-align:center;">
@@ -2352,7 +2352,7 @@ function pgAmortNew(){
               <div style="font-size:15px;color:var(--brown);font-weight:700;">${a.name}</div>
               <div class="tm" style="font-size:11.5px;margin-top:2px;">${a.category||''}${a.dueMonth?` · 到期月 ${a.dueMonth}月`:''}${a.linkedLedger?` · 🔗 ${((getAllLedgers().find(x=>x.id===a.linkedLedger)||{}).name)||'?'}`:''}${a.note?` · ${a.note}`:''}</div>
             </div>
-            <button onclick="delAmort('${a.id}')" style="background:none;border:none;color:var(--red);font-size:20px;cursor:pointer;padding:0 4px;">×</button>
+            <button onclick="editAmort('${a.id}')" style="background:none;border:none;color:var(--mut);font-size:16px;cursor:pointer;padding:0 6px;" title="編輯">✏️</button><button onclick="delAmort('${a.id}')" style="background:none;border:none;color:var(--red);font-size:20px;cursor:pointer;padding:0 4px;">×</button>
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px;">
             <div style="padding:8px 10px;background:#fff;border-radius:8px;text-align:center;">
@@ -8450,40 +8450,51 @@ function modal(){
     <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="saveDebt()">✓ 確認</button></div>`;}
 
   // 🔍 全域搜尋 modal
-  // 🏺 新增年繳攤提項目 modal
-  if(m.t==='addAmort'){c=`<div class="mttl">🏺 新增年繳項目</div>
+  // 🏺 新增/編輯年繳攤提項目 modal
+  if(m.t==='addAmort'){
+    const editItem=m.editId?(S.data.amortizedItems||[]).find(a=>a.id===m.editId):null;
+    const isEdit=!!editItem;
+    const preName=editItem?editItem.name:'';
+    const preAnnual=editItem?editItem.annualAmount:'';
+    const preMonthly=editItem?(editItem.monthlyAmortize||Math.ceil(toN(editItem.annualAmount)/12)):'';
+    const preCat=editItem?editItem.category:'保險';
+    const preDue=editItem?editItem.dueMonth:1;
+    const preLinked=editItem?(editItem.linkedLedger||''):'';
+    const preNote=editItem?editItem.note:'';
+    c=`<div class="mttl">🏺 ${isEdit?'編輯':'新增'}年繳項目</div>
     <div style="background:var(--purl);padding:10px 14px;border-radius:8px;font-size:12.5px;color:var(--pur);margin-bottom:14px;">
       💡 年繳的錢分 12 個月存起來，到期就有錢繳
     </div>
     <div class="fg fg2">
-      <div class="fgrp" style="grid-column:1/-1"><label>項目名稱</label><input type="text" id="am-name" placeholder="例：汽車強制險、房屋稅、汽車保養"></div>
-      <div class="fgrp"><label>年繳總額（元）</label><input type="number" inputmode="decimal" id="am-annual" placeholder="0" class="amt-input" style="font-size:18px;font-weight:700;color:var(--pur);" oninput="updateAmortMonthly()"></div>
-      <div class="fgrp"><label>每月要存（自動算）</label><input type="number" id="am-monthly" placeholder="0" class="amt-input" readonly style="background:var(--bg2);color:var(--rose);font-weight:700;"></div>
+      <div class="fgrp" style="grid-column:1/-1"><label>項目名稱</label><input type="text" id="am-name" value="${(preName||'').replace(/"/g,'&quot;')}" placeholder="例：汽車強制險、房屋稅、汽車保養"></div>
+      <div class="fgrp"><label>年繳總額（元）</label><input type="number" inputmode="decimal" id="am-annual" value="${preAnnual}" placeholder="0" class="amt-input" style="font-size:18px;font-weight:700;color:var(--pur);" oninput="updateAmortMonthly()"></div>
+      <div class="fgrp"><label>每月要存（自動算）</label><input type="number" id="am-monthly" value="${preMonthly}" placeholder="0" class="amt-input" readonly style="background:var(--bg2);color:var(--rose);font-weight:700;"></div>
       <div class="fgrp"><label>類別</label>
         <select id="am-cat">
-          <option value="保險">🛡️ 保險</option>
-          <option value="稅金">📋 稅金</option>
-          <option value="保養">🔧 保養/維修</option>
-          <option value="訂閱">📱 年費/訂閱</option>
-          <option value="教育">🎓 進修</option>
-          <option value="節慶">🎂 節慶/紅包</option>
-          <option value="其他">📌 其他</option>
+          <option value="保險" ${preCat==='保險'?'selected':''}>🛡️ 保險</option>
+          <option value="稅金" ${preCat==='稅金'?'selected':''}>📋 稅金</option>
+          <option value="保養" ${preCat==='保養'?'selected':''}>🔧 保養/維修</option>
+          <option value="訂閱" ${preCat==='訂閱'?'selected':''}>📱 年費/訂閱</option>
+          <option value="教育" ${preCat==='教育'?'selected':''}>🎓 進修</option>
+          <option value="節慶" ${preCat==='節慶'?'selected':''}>🎂 節慶/紅包</option>
+          <option value="其他" ${preCat==='其他'?'selected':''}>📌 其他</option>
         </select>
       </div>
       <div class="fgrp"><label>到期月份</label>
         <select id="am-due">
-          ${Array.from({length:12},(_,i)=>`<option value="${i+1}">${i+1} 月</option>`).join('')}
+          ${Array.from({length:12},(_,i)=>`<option value="${i+1}" ${(i+1)==preDue?'selected':''}>${i+1} 月</option>`).join('')}
         </select>
       </div>
       <div class="fgrp" style="grid-column:1/-1"><label>🔗 對應儲蓄帳本（到期前 1 個月會提醒）</label>
         <select id="am-linked">
           <option value="">— 不對應 —</option>
-          ${(typeof getAllLedgers==='function'?getAllLedgers():[]).map(led=>`<option value="${led.id}">${led.name}</option>`).join('')}
+          ${(typeof getAllLedgers==='function'?getAllLedgers():[]).map(led=>`<option value="${led.id}" ${led.id===preLinked?'selected':''}>${led.name}</option>`).join('')}
         </select>
       </div>
-      <div class="fgrp" style="grid-column:1/-1"><label>備註（選填）</label><input type="text" id="am-note" placeholder="說明或備忘"></div>
+      <div class="fgrp" style="grid-column:1/-1"><label>備註（選填）</label><input type="text" id="am-note" value="${(preNote||'').replace(/"/g,'&quot;')}" placeholder="說明或備忘"></div>
     </div>
-    <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="saveAmort()" style="background:var(--pur);">✓ 新增</button></div>`;}
+    <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="saveAmort(${isEdit?`'${m.editId}'`:''})" style="background:var(--pur);">✓ ${isEdit?'儲存變更':'新增'}</button></div>`;
+  }
 
   // 🏠 買房頭期專款 modal
   if(m.t==='addHouseFund'){c=`<div class="mttl">🏠 撥一筆進頭期款</div>
@@ -9814,7 +9825,7 @@ window.updateAmortMonthly=()=>{
 };
 
 // 🏺 新增年繳攤提項目
-window.saveAmort=async()=>{
+window.saveAmort=async(editId)=>{
   const name=g('am-name')||'';
   const annualAmount=toN(g('am-annual'));
   const category=g('am-cat')||'其他';
@@ -9823,15 +9834,33 @@ window.saveAmort=async()=>{
   const note=g('am-note')||'';
   if(!name||!annualAmount){alert('請填項目名稱和年繳總額');return;}
   const monthlyAmortize=Math.ceil(annualAmount/12);
-  const newItem={
-    id:'am_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
-    name,category,annualAmount,monthlyAmortize,dueMonth,linkedLedger,
-    paidThisYear:0,paidDate:'',note
-  };
-  const list=[...(S.data.amortizedItems||[]),newItem];
-  await saveMain({amortizedItems:list});
-  toast(`✅ 已新增，每月要存 $${fmt(monthlyAmortize)}`);
+  const list=[...(S.data.amortizedItems||[])];
+  if(editId){
+    // 編輯模式：更新現有項目
+    const idx=list.findIndex(a=>a.id===editId);
+    if(idx>=0){
+      list[idx]={...list[idx],name,category,annualAmount,monthlyAmortize,dueMonth,linkedLedger,note};
+      await saveMain({amortizedItems:list});
+      toast(`✅ 已更新「${name}」`);
+    }
+  }else{
+    // 新增模式
+    const newItem={
+      id:'am_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+      name,category,annualAmount,monthlyAmortize,dueMonth,linkedLedger,
+      paidThisYear:0,paidDate:'',note
+    };
+    list.push(newItem);
+    await saveMain({amortizedItems:list});
+    toast(`✅ 已新增，每月要存 $${fmt(monthlyAmortize)}`);
+  }
   closeMod();
+};
+
+// 🏺 編輯年繳攤提項目（打開 modal 預填）
+window.editAmort=(id)=>{
+  S.modal={t:'addAmort',editId:id};
+  render();
 };
 
 // 🏺 刪除年繳攤提項目
