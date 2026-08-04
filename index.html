@@ -7588,8 +7588,14 @@ function pgLedger(){
   // 本月統計
   const mIn=monthEntries.filter(e=>toN(e.amount)>0).reduce((s,e)=>s+toN(e.amount),0);
   const mOut=monthEntries.filter(e=>toN(e.amount)<0).reduce((s,e)=>s+Math.abs(toN(e.amount)),0);
-  // 帳本總餘額（所有歷史累積）
-  const balance=allEntries.reduce((s,e)=>s+toN(e.amount),0);
+  // 帳本餘額（到當前檢視年月為止的累積）
+  const balance=allEntries.filter(e=>{
+    const ey=toN(e.year)||0;
+    const em=toN(e.month)||0;
+    if(ey<viewYear)return true;
+    if(ey===viewYear&&em<=S.month)return true;
+    return false;
+  }).reduce((s,e)=>s+toN(e.amount),0);
 
   // 目標
   const ldTargets=S.data.ledgerTargets||{};
@@ -7648,7 +7654,7 @@ function pgLedger(){
         <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--grn);margin-top:4px;">$${fmt(mIn)}</div>
       </div>
       <div style="background:linear-gradient(135deg,#fff,var(--goldL));border-radius:16px;padding:16px 12px;text-align:center;box-shadow:0 4px 12px rgba(194,116,122,0.10);border-top:3px solid var(--gold);">
-        <div class="tm" style="font-size:11px;letter-spacing:0.1em;font-weight:600;color:var(--goldDk);">🏦 餘額</div>
+        <div class="tm" style="font-size:11px;letter-spacing:0.1em;font-weight:600;color:var(--goldDk);">🏦 到 ${S.month} 月餘額</div>
         <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:${balance>=0?'var(--goldDk)':'var(--red)'};margin-top:4px;">$${fmt(balance)}</div>
       </div>
     </div>
@@ -7670,6 +7676,50 @@ function pgLedger(){
       <button onclick="quickLedgerDeposit('${l.id}','${(l.name||'').replace(/'/g,"\\'")}')" style="padding:14px;background:linear-gradient(135deg,var(--grn),#5B9E7A);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(125,184,154,0.3);">＋ 存一筆</button>
       <button onclick="openM('addLE')" style="padding:14px;background:linear-gradient(135deg,var(--red),#B85850);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(232,107,92,0.3);">− 花一筆（含分類）</button>
     </div>
+
+    <!-- 📅 年份切換 + 📊 資料分佈診斷 -->
+    ${(()=>{
+      // 統計每年的紀錄數與金額
+      const byYear={};
+      allEntries.forEach(e=>{
+        const y=e.year||'未知';
+        if(!byYear[y])byYear[y]={count:0,in:0,out:0};
+        byYear[y].count++;
+        if(toN(e.amount)>0)byYear[y].in+=toN(e.amount);
+        else byYear[y].out+=Math.abs(toN(e.amount));
+      });
+      const years=Object.keys(byYear).sort();
+      if(years.length===0)return'';
+
+      return`<div style="background:linear-gradient(135deg,var(--bluL),#fff);border-radius:14px;padding:16px 20px;margin-bottom:16px;border-left:4px solid var(--blu);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+          <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--blu);">📊 資料分佈（幫你檢查有沒有異常舊資料）</div>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <span class="tm" style="font-size:11px;">檢視年份：</span>
+            <select onchange="S.ledgerViewYear=parseInt(this.value);render();" style="padding:4px 10px;border:1px solid var(--bdr);border-radius:6px;font-size:12px;background:#fff;">
+              ${years.map(y=>`<option value="${y}" ${y==viewYear?'selected':''}>${y} 年</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;">
+          ${years.map(y=>{
+            const d=byYear[y];
+            const isCur=y==viewYear;
+            return`<div onclick="S.ledgerViewYear=${y};render();" style="padding:8px 10px;background:${isCur?'var(--blu)':'#fff'};color:${isCur?'#fff':'var(--brown)'};border:1px solid ${isCur?'var(--blu)':'var(--bdr)'};border-radius:8px;font-size:11.5px;cursor:pointer;">
+              <div style="font-weight:700;">${y} 年　<span style="opacity:0.7;">${d.count} 筆</span></div>
+              <div style="margin-top:2px;font-size:10.5px;opacity:0.85;">
+                <span style="color:${isCur?'#B8F0C4':'var(--grn)'};">+$${fmt(d.in)}</span>　
+                <span style="color:${isCur?'#F5C4C4':'var(--red)'};">-$${fmt(d.out)}</span>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+        <div class="tm" style="font-size:10.5px;margin-top:8px;line-height:1.6;">
+          💡 <b>點年份切換</b>可查看該年資料。餘額 <b style="color:var(--goldDk);">$${fmt(balance)}</b> = 從最早到 ${viewYear}/${S.month} 月為止累積。<br>
+          🗑️ 若發現舊年份有異常資料，切到該年份 → 找到明細 → 點 <b>×</b> 逐筆刪除
+        </div>
+      </div>`;
+    })()}
 
     <!-- 本月明細 -->
     <div style="background:#fff;border-radius:18px;padding:20px 22px;box-shadow:0 4px 16px rgba(194,116,122,0.10);margin-bottom:16px;border-top:4px solid var(--rose);">
