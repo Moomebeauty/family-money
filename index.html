@@ -9798,43 +9798,53 @@ window.editLedgerTarget=async(lid,lname)=>{
 
 // 📒 預備金帳本：快速存入一筆
 window.quickLedgerDeposit=async(lid,lname)=>{
-  const amt=prompt(`為「${lname}」存入多少錢？`,'');
+  const amt=prompt(`為「${lname}」存入多少錢？\n\n（會記錄在 ${S.ledgerViewYear||yr()} 年 ${S.month} 月）`,'');
   if(amt===null)return;
   const num=toN(amt);
   if(num<=0){alert('請輸入正數');return;}
-  const note=prompt('備註（選填，例：8月薪水撥入）','')||'';
-  const d=new Date();
-  const date=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const note=prompt('備註（選填，例：'+S.month+'月薪水撥入）','')||'';
+  // ⭐ 用當前檢視的年月，日期用該月的今天（超出則用該月最後一日）
+  const viewYear=S.ledgerViewYear||yr();
+  const viewMonth=S.month;
+  const today=new Date();
+  const lastDay=new Date(viewYear,viewMonth,0).getDate();
+  const day=(viewYear===today.getFullYear()&&viewMonth===today.getMonth()+1)?today.getDate():Math.min(today.getDate(),lastDay);
+  const date=`${viewYear}-${String(viewMonth).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
   const newEntry={
     id:'le_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
     lid,date,amount:num,cat:'存入',note,
-    month:d.getMonth()+1,year:d.getFullYear(),
+    month:viewMonth,year:viewYear,
     user:S.user||''
   };
   const list=[...(S.data.ledgerEntries||[]),newEntry];
   await saveMain({ledgerEntries:list});
-  toast(`✅ 已存入 +$${fmt(num)}`);
+  toast(`✅ 已存入 +$${fmt(num)} 到 ${viewMonth} 月`);
   render();
 };
 
 // 📒 預備金帳本：快速花出一筆
 window.quickLedgerSpend=async(lid,lname)=>{
-  const amt=prompt(`從「${lname}」花掉多少錢？`,'');
+  const amt=prompt(`從「${lname}」花掉多少錢？\n\n（會記錄在 ${S.ledgerViewYear||yr()} 年 ${S.month} 月）`,'');
   if(amt===null)return;
   const num=toN(amt);
   if(num<=0){alert('請輸入正數');return;}
   const note=prompt('花在什麼？（例：女兒補習費）','')||'';
-  const d=new Date();
-  const date=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  // ⭐ 用當前檢視的年月
+  const viewYear=S.ledgerViewYear||yr();
+  const viewMonth=S.month;
+  const today=new Date();
+  const lastDay=new Date(viewYear,viewMonth,0).getDate();
+  const day=(viewYear===today.getFullYear()&&viewMonth===today.getMonth()+1)?today.getDate():Math.min(today.getDate(),lastDay);
+  const date=`${viewYear}-${String(viewMonth).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
   const newEntry={
     id:'le_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
     lid,date,amount:-num,cat:'支出',note,
-    month:d.getMonth()+1,year:d.getFullYear(),
+    month:viewMonth,year:viewYear,
     user:S.user||''
   };
   const list=[...(S.data.ledgerEntries||[]),newEntry];
   await saveMain({ledgerEntries:list});
-  toast(`✅ 已花出 -$${fmt(num)}`);
+  toast(`✅ 已花出 -$${fmt(num)} 在 ${viewMonth} 月`);
   render();
 };
 
