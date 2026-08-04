@@ -7677,47 +7677,18 @@ function pgLedger(){
       <button onclick="openM('addLE')" style="padding:14px;background:linear-gradient(135deg,var(--red),#B85850);color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 3px 10px rgba(232,107,92,0.3);">− 花一筆（含分類）</button>
     </div>
 
-    <!-- 📅 年份切換 + 📊 資料分佈診斷 -->
+    <!-- 📅 年份切換 -->
     ${(()=>{
-      // 統計每年的紀錄數與金額
-      const byYear={};
-      allEntries.forEach(e=>{
-        const y=e.year||'未知';
-        if(!byYear[y])byYear[y]={count:0,in:0,out:0};
-        byYear[y].count++;
-        if(toN(e.amount)>0)byYear[y].in+=toN(e.amount);
-        else byYear[y].out+=Math.abs(toN(e.amount));
-      });
-      const years=Object.keys(byYear).sort();
-      if(years.length===0)return'';
-
-      return`<div style="background:linear-gradient(135deg,var(--bluL),#fff);border-radius:14px;padding:16px 20px;margin-bottom:16px;border-left:4px solid var(--blu);">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
-          <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--blu);">📊 資料分佈（幫你檢查有沒有異常舊資料）</div>
-          <div style="display:flex;gap:6px;align-items:center;">
-            <span class="tm" style="font-size:11px;">檢視年份：</span>
-            <select onchange="S.ledgerViewYear=parseInt(this.value);render();" style="padding:4px 10px;border:1px solid var(--bdr);border-radius:6px;font-size:12px;background:#fff;">
-              ${years.map(y=>`<option value="${y}" ${y==viewYear?'selected':''}>${y} 年</option>`).join('')}
-            </select>
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;">
-          ${years.map(y=>{
-            const d=byYear[y];
-            const isCur=y==viewYear;
-            return`<div onclick="S.ledgerViewYear=${y};render();" style="padding:8px 10px;background:${isCur?'var(--blu)':'#fff'};color:${isCur?'#fff':'var(--brown)'};border:1px solid ${isCur?'var(--blu)':'var(--bdr)'};border-radius:8px;font-size:11.5px;cursor:pointer;">
-              <div style="font-weight:700;">${y} 年　<span style="opacity:0.7;">${d.count} 筆</span></div>
-              <div style="margin-top:2px;font-size:10.5px;opacity:0.85;">
-                <span style="color:${isCur?'#B8F0C4':'var(--grn)'};">+$${fmt(d.in)}</span>　
-                <span style="color:${isCur?'#F5C4C4':'var(--red)'};">-$${fmt(d.out)}</span>
-              </div>
-            </div>`;
-          }).join('')}
-        </div>
-        <div class="tm" style="font-size:10.5px;margin-top:8px;line-height:1.6;">
-          💡 <b>點年份切換</b>可查看該年資料。餘額 <b style="color:var(--goldDk);">$${fmt(balance)}</b> = 從最早到 ${viewYear}/${S.month} 月為止累積。<br>
-          🗑️ 若發現舊年份有異常資料，切到該年份 → 找到明細 → 點 <b>×</b> 逐筆刪除
-        </div>
+      // 只列出有資料的年份（如果沒有就加上今年）
+      const yearSet=new Set(allEntries.map(e=>e.year).filter(y=>y));
+      yearSet.add(yr());
+      yearSet.add(viewYear);
+      const years=[...yearSet].sort();
+      return`<div style="display:flex;gap:8px;justify-content:center;margin-bottom:16px;flex-wrap:wrap;">
+        ${years.map(y=>{
+          const isCur=y==viewYear;
+          return`<button onclick="S.ledgerViewYear=${y};render();" style="padding:8px 20px;background:${isCur?'var(--rose)':'#fff'};color:${isCur?'#fff':'var(--brown)'};border:2px solid ${isCur?'var(--rose)':'var(--bdr)'};border-radius:20px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:all 0.2s;">${y} 年</button>`;
+        }).join('')}
       </div>`;
     })()}
 
