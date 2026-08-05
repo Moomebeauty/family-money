@@ -9137,7 +9137,8 @@ function modal(){
 
   // 📌 標記固定支出已繳 modal
   if(m.t==='payFixed'){
-    const item=(S.data.fixedItems||[]).find(f=>f.id===m.editId);
+    const itemId=m.x||m.editId; // 相容兩種 key
+    const item=(S.data.fixedItems||[]).find(f=>f.id===itemId);
     if(!item){c=`<div class="mttl">錯誤</div><div>找不到項目</div><div class="mbtns"><button class="btn btn-p" onclick="closeMod()">關閉</button></div>`;}
     else{
       const banks=S.data.cardBanks||['中信','玉山','國泰','聯邦','富邦','台新','星展','其他'];
