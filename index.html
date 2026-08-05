@@ -488,6 +488,15 @@ function findMasterCat(id){
 function findMasterCatByName(name){
   return getMasterCats().find(c=>c.name===name);
 }
+// 🆕 取得指定主類別下的子分類清單
+function getSubCats(mainCatId){
+  const mc=findMasterCat(mainCatId);
+  return (mc&&mc.subs)||[];
+}
+// 🆕 依 subId 找子分類
+function findSubCat(mainCatId,subId){
+  return getSubCats(mainCatId).find(s=>s.id===subId);
+}
 // 取得類別顯示（優先 categoryId，fallback 到 category 字串）
 function getCatDisplay(item){
   const cats=getMasterCats();
@@ -514,19 +523,87 @@ function getLedgerCfg(ledgerId){
 // 固定支出預設
 // 🛡️ 保單分類配置（每類的欄位定義）
 // 🏷️ 統一主類別預設清單（12 個）— 用於支出/收入/帳本/年繳
+// 每個主類別可帶子分類 subs
 const DEF_MASTER_CATS=[
-  {id:'cat_food',       name:'飲食',     icon:'🍜'},
-  {id:'cat_transport',  name:'交通',     icon:'🚗'},
-  {id:'cat_mumi',       name:'沐蜜',     icon:'✨'},
-  {id:'cat_home',       name:'家電',     icon:'🏠'},
-  {id:'cat_edu',        name:'教育',     icon:'📚'},
-  {id:'cat_health',     name:'健康',     icon:'💊'},
-  {id:'cat_entertain',  name:'娛樂',     icon:'🎮'},
-  {id:'cat_utility',    name:'水電通訊', icon:'💡'},
-  {id:'cat_insurance',  name:'保險',     icon:'🛡️'},
-  {id:'cat_tax',        name:'稅金',     icon:'📋'},
-  {id:'cat_gift',       name:'節慶',     icon:'🎁'},
-  {id:'cat_other',      name:'其他',     icon:'📦'},
+  {id:'cat_food',name:'飲食',icon:'🍜',subs:[
+    {id:'sub_breakfast',name:'早餐'},
+    {id:'sub_lunch',name:'午餐'},
+    {id:'sub_dinner',name:'晚餐'},
+    {id:'sub_drink',name:'飲料'},
+    {id:'sub_dining',name:'外食聚餐'},
+    {id:'sub_grocery',name:'食材/日用'},
+  ]},
+  {id:'cat_transport',name:'交通',icon:'🚗',subs:[
+    {id:'sub_gas',name:'加油'},
+    {id:'sub_parking',name:'停車費'},
+    {id:'sub_moto_maintain',name:'機車保養'},
+    {id:'sub_car_maintain',name:'汽車保養'},
+    {id:'sub_ticket',name:'罰單'},
+    {id:'sub_transit',name:'大眾運輸'},
+    {id:'sub_toll',name:'公路養管費'},
+  ]},
+  {id:'cat_mumi',name:'沐蜜',icon:'✨',subs:[
+    {id:'sub_skincare',name:'保養品'},
+    {id:'sub_makeup',name:'化妝品'},
+    {id:'sub_tattoo_tool',name:'紋繡工具'},
+    {id:'sub_beauty_course',name:'美容課程'},
+  ]},
+  {id:'cat_home',name:'家電',icon:'🏠',subs:[
+    {id:'sub_appliance_repair',name:'家電修繕'},
+    {id:'sub_furniture',name:'傢俱'},
+    {id:'sub_daily_goods',name:'日常用品'},
+  ]},
+  {id:'cat_edu',name:'教育',icon:'📚',subs:[
+    {id:'sub_tuition',name:'學費'},
+    {id:'sub_cram',name:'補習'},
+    {id:'sub_course',name:'進修課程'},
+    {id:'sub_book',name:'書籍'},
+  ]},
+  {id:'cat_health',name:'健康',icon:'💊',subs:[
+    {id:'sub_medical',name:'醫療'},
+    {id:'sub_medicine',name:'藥品'},
+    {id:'sub_fitness',name:'保健'},
+  ]},
+  {id:'cat_entertain',name:'娛樂',icon:'🎮',subs:[
+    {id:'sub_netflix',name:'Netflix'},
+    {id:'sub_kkbox',name:'KKbox'},
+    {id:'sub_google',name:'Google'},
+    {id:'sub_movie',name:'電影'},
+    {id:'sub_flight',name:'機票'},
+    {id:'sub_travel',name:'旅遊'},
+    {id:'sub_game',name:'遊戲'},
+  ]},
+  {id:'cat_utility',name:'水電通訊',icon:'💡',subs:[
+    {id:'sub_elec',name:'電費'},
+    {id:'sub_water',name:'水費'},
+    {id:'sub_natgas',name:'天然氣'},
+    {id:'sub_wifi',name:'WIFI'},
+    {id:'sub_phone',name:'手機費'},
+    {id:'sub_app',name:'APP'},
+  ]},
+  {id:'cat_insurance',name:'保險',icon:'🛡️',subs:[
+    {id:'sub_car_ins',name:'汽車險'},
+    {id:'sub_moto_ins',name:'機車險'},
+    {id:'sub_life_ins',name:'壽險'},
+    {id:'sub_accident_ins',name:'意外險'},
+    {id:'sub_medical_ins',name:'醫療險'},
+    {id:'sub_fire_ins',name:'火險'},
+  ]},
+  {id:'cat_tax',name:'稅金',icon:'📋',subs:[
+    {id:'sub_house_tax',name:'房屋稅'},
+    {id:'sub_fuel_tax',name:'燃料稅'},
+    {id:'sub_union_fee',name:'工會費'},
+    {id:'sub_income_tax',name:'綜合所得稅'},
+  ]},
+  {id:'cat_gift',name:'節慶',icon:'🎁',subs:[
+    {id:'sub_red_pkg',name:'紅包'},
+    {id:'sub_birthday',name:'生日'},
+    {id:'sub_ny',name:'過年節慶'},
+    {id:'sub_gift',name:'禮物'},
+  ]},
+  {id:'cat_other',name:'其他',icon:'📦',subs:[
+    {id:'sub_misc',name:'雜項'},
+  ]},
 ];
 
 const INS_CATEGORIES={
@@ -1915,9 +1992,16 @@ function pgQuickExpense(){
       </div>
 
       <div style="margin-bottom:14px;">
-        <label style="display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">類別</label>
-        <select id="qe-cat" style="width:100%;padding:12px 16px;font-size:15px;border:2px solid var(--bdr);border-radius:12px;">
+        <label style="display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">🏷️ 主類別</label>
+        <select id="qe-cat" onchange="onMainCatChange(this.value,'qe-sub')" style="width:100%;padding:12px 16px;font-size:15px;border:2px solid var(--bdr);border-radius:12px;">
           ${getMasterCats().map(mc=>`<option value="${mc.id}">${mc.icon} ${mc.name}</option>`).join('')}
+        </select>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label style="display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">📌 子分類（細節）</label>
+        <select id="qe-sub" style="width:100%;padding:12px 16px;font-size:15px;border:2px solid var(--bdr);border-radius:12px;">
+          ${getSubCats(getMasterCats()[0].id).map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}
         </select>
       </div>
 
@@ -2334,21 +2418,32 @@ function pgExpDash(){
   const variableTotal=regularExps.filter(e=>e.source==='variable').reduce((s,e)=>s+e.amount,0);
   const ledgerTotal=ledgerExps.reduce((s,e)=>s+e.amount,0);
 
-  // ═══════════════ 依「細節類別」統計（跨所有來源） ═══════════════
-  // 優先用 categoryId（主類別 id），沒有就用原本 category 字串
-  const byCat={};
+  // ═══════════════ 依「細節類別」統計（主 + 子兩層） ═══════════════
+  // byMain: {mainCatKey: {total, subs: {subKey: amt}}}
+  const byMain={};
   const mcats=getMasterCats();
   allExps.forEach(e=>{
-    let key;
+    let mainKey,mainCat;
     if(e.categoryId){
-      const mc=mcats.find(x=>x.id===e.categoryId);
-      key=mc?`${mc.icon} ${mc.name}`:(e.category||'其他');
+      mainCat=mcats.find(x=>x.id===e.categoryId);
+      mainKey=mainCat?`${mainCat.icon} ${mainCat.name}`:(e.category||'其他');
     }else{
-      key=(e.category||'其他').trim()||'其他';
+      mainKey=(e.category||'其他').trim()||'其他';
     }
-    byCat[key]=(byCat[key]||0)+e.amount;
+    // 子分類
+    let subKey='';
+    if(e.subCategoryId&&mainCat){
+      const sc=(mainCat.subs||[]).find(s=>s.id===e.subCategoryId);
+      if(sc)subKey=sc.name;
+    }
+    if(!subKey&&e.subCategoryName)subKey=e.subCategoryName;
+    if(!subKey)subKey='(未指定)';
+
+    if(!byMain[mainKey])byMain[mainKey]={total:0,subs:{}};
+    byMain[mainKey].total+=e.amount;
+    byMain[mainKey].subs[subKey]=(byMain[mainKey].subs[subKey]||0)+e.amount;
   });
-  const catList=Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+  const catList=Object.entries(byMain).sort((a,b)=>b[1].total-a[1].total);
 
   // 明細排序（新→舊）
   const sortedExps=[...allExps].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
@@ -2443,17 +2538,35 @@ function pgExpDash(){
       </div>
     </div>
 
-    <!-- 📊 依「細節類別」統計 -->
+    <!-- 📊 依「細節類別」統計（主+子兩層，展開看子分類） -->
     ${catList.length>0?`<div style="background:#fff;border-radius:14px;padding:18px 20px;margin-bottom:20px;box-shadow:0 4px 16px rgba(194,116,122,0.08);">
-      <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--brown);margin-bottom:14px;">📊 依「細節類別」統計（${catList.length} 個）</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;">
-        ${catList.map(([cat,amt])=>{
-          const pct=total>0?Math.round(amt/total*100):0;
-          return`<div style="background:var(--bg2);border-radius:10px;padding:12px 14px;">
-            <div style="font-size:12.5px;color:var(--brown);font-weight:600;">${cat}</div>
-            <div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:var(--red);margin-top:4px;">$${fmt(amt)}</div>
-            <div class="tm" style="font-size:10.5px;margin-top:2px;">佔 ${pct}%</div>
-          </div>`;
+      <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--brown);margin-bottom:14px;">📊 依「細節類別」統計（${catList.length} 個主分類）</div>
+      <div style="display:grid;gap:10px;">
+        ${catList.map(([mainKey,d])=>{
+          const pct=total>0?Math.round(d.total/total*100):0;
+          const subEntries=Object.entries(d.subs).sort((a,b)=>b[1]-a[1]);
+          const hasMultiSub=subEntries.length>1||(subEntries.length===1&&subEntries[0][0]!=='(未指定)');
+          return`<details style="background:var(--bg2);border-radius:10px;padding:0;overflow:hidden;">
+            <summary style="cursor:pointer;padding:12px 14px;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:13.5px;color:var(--brown);font-weight:700;">${mainKey}</div>
+                <div class="tm" style="font-size:10.5px;margin-top:2px;">${hasMultiSub?`${subEntries.length} 個細節 · 點展開`:'佔 '+pct+'%'}</div>
+              </div>
+              <div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:var(--red);">$${fmt(d.total)}</div>
+            </summary>
+            ${hasMultiSub?`<div style="padding:0 14px 12px;border-top:1px dashed var(--bdr);">
+              ${subEntries.map(([subName,subAmt])=>{
+                const subPct=d.total>0?Math.round(subAmt/d.total*100):0;
+                return`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 6px;border-bottom:1px dashed var(--bdr);">
+                  <div style="font-size:12.5px;color:var(--brown);">📌 ${subName}</div>
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <div class="tm" style="font-size:10.5px;">${subPct}%</div>
+                    <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--roseDk);">$${fmt(subAmt)}</div>
+                  </div>
+                </div>`;
+              }).join('')}
+            </div>`:''}
+          </details>`;
         }).join('')}
       </div>
     </div>`:''}
@@ -9247,13 +9360,7 @@ function modal(){
       <div class="fgrp"><label>每月要存（自動算 = 年繳÷12）</label><input type="number" id="am-monthly" value="${preMonthly}" placeholder="0" class="amt-input" readonly style="background:var(--bg2);color:var(--rose);font-weight:700;"></div>
       <div class="fgrp"><label>類別</label>
         <select id="am-cat">
-          <option value="保險" ${preCat==='保險'?'selected':''}>🛡️ 保險</option>
-          <option value="稅金" ${preCat==='稅金'?'selected':''}>📋 稅金</option>
-          <option value="保養" ${preCat==='保養'?'selected':''}>🔧 保養/維修</option>
-          <option value="訂閱" ${preCat==='訂閱'?'selected':''}>📱 年費/訂閱</option>
-          <option value="教育" ${preCat==='教育'?'selected':''}>🎓 進修</option>
-          <option value="節慶" ${preCat==='節慶'?'selected':''}>🎂 節慶/紅包</option>
-          <option value="其他" ${preCat==='其他'?'selected':''}>📌 其他</option>
+          ${getMasterCats().map(mc=>`<option value="${mc.id}" ${mc.id===(editItem?.categoryId||preCat)?'selected':''}>${mc.icon} ${mc.name}</option>`).join('')}
         </select>
       </div>
       <div class="fgrp" style="grid-column:1/-1"><label>🔗 對應儲蓄帳本（到期前 1 個月會提醒）</label>
@@ -9393,26 +9500,25 @@ function modal(){
     }
   }
 
-  if(m.t==='addFixed'){c=`<div class="mttl">📌 新增固定支出</div>
+  if(m.t==='addFixed'){
+    // 支援編輯模式
+    const editItem=m.editId?(S.data.fixedItems||[]).find(f=>f.id===m.editId):null;
+    const isEdit=!!editItem;
+    const p=editItem||{};
+    c=`<div class="mttl">📌 ${isEdit?'編輯':'新增'}固定支出</div>
     <div class="fg fg2">
-      <div class="fgrp"><label>項目名稱</label><input type="text" id="m0" placeholder="如：房貸、車貸、保險、健身房" autofocus></div>
-      <div class="fgrp"><label>每月金額（元）</label><input type="number" id="m1" placeholder="0"></div>
+      <div class="fgrp"><label>項目名稱</label><input type="text" id="m0" value="${(p.name||'').replace(/"/g,'&quot;')}" placeholder="如：房貸、車貸、保險、健身房" autofocus></div>
+      <div class="fgrp"><label>每月金額（元）</label><input type="number" id="m1" value="${p.amount||''}" placeholder="0"></div>
       <div class="fgrp"><label>類別</label>
         <select id="m_cat">
-          <option value="房貸/房租">🏠 房貸/房租</option>
-          <option value="車貸">🚗 車貸</option>
-          <option value="保險">🛡️ 保險</option>
-          <option value="貸款">💳 貸款/分期</option>
-          <option value="訂閱">📱 訂閱服務</option>
-          <option value="通訊">📞 通訊費</option>
-          <option value="教育">🎓 教育/課程</option>
-          <option value="其他">📌 其他</option>
+          ${getMasterCats().map(mc=>`<option value="${mc.id}" ${mc.id===(p.categoryId||'')?'selected':''}>${mc.icon} ${mc.name}</option>`).join('')}
         </select>
       </div>
-      <div class="fgrp"><label>付款日（每月）</label><input type="number" id="m_day" placeholder="如：15" min="1" max="31"></div>
-      <div class="fgrp" style="grid-column:1/-1"><label>備註</label><input type="text" id="m2" placeholder="說明或備忘（選填）"></div>
+      <div class="fgrp"><label>付款日（每月）</label><input type="number" id="m_day" value="${p.payDay||''}" placeholder="如：15" min="1" max="31"></div>
+      <div class="fgrp" style="grid-column:1/-1"><label>備註</label><input type="text" id="m2" value="${(p.note||'').replace(/"/g,'&quot;')}" placeholder="說明或備忘（選填）"></div>
     </div>
-    <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="saveFixed()">✓ 確認</button></div>`;}
+    <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="saveFixed(${isEdit?`'${m.editId}'`:''})">✓ ${isEdit?'儲存':'新增'}</button></div>`;
+  }
 
   if(m.t==='editFixed'){const f=(S.data.fixedItems||[]).find(i=>i.id===m.x)||{};c=`<div class="mttl">✏️ 編輯固定支出：${f.name}</div>
     <div class="fg fg2">
@@ -9446,8 +9552,15 @@ function modal(){
     <div class="fg fg2">
       <div class="fgrp"><label>日期</label><input type="date" id="m0" value="${smartDateForMonth(S.month,S.ledgerViewYear||yr())}"></div>
       <div class="fgrp"><label>金額（填正數）</label><input type="number" id="m1" placeholder="0" class="amt-input" style="font-size:18px;font-weight:700;color:${preType==='deposit'?'var(--grn)':'var(--red)'};"></div>
-      <div class="fgrp" style="grid-column:1/-1"><label style="display:flex;justify-content:space-between;align-items:center;"><span>類別</span><button type="button" onclick="addNewLedgerCat('${l.id}')" style="background:var(--rose);color:#fff;border:none;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;">＋ 新增分類</button></label>
-        <select id="m2">${l.cats.map(cat=>`<option>${cat}</option>`).join('')}</select>
+      <div class="fgrp" style="grid-column:1/-1"><label>🏷️ 主類別</label>
+        <select id="m2" onchange="onMainCatChange(this.value,'m2-sub')">
+          ${getMasterCats().map(mc=>`<option value="${mc.id}">${mc.icon} ${mc.name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="fgrp" style="grid-column:1/-1"><label style="display:flex;justify-content:space-between;align-items:center;"><span>📌 子分類（細節）</span><button type="button" onclick="addNewSubCat()" style="background:var(--rose);color:#fff;border:none;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;">＋ 新增細節</button></label>
+        <select id="m2-sub">
+          ${getSubCats(getMasterCats()[0].id).map(s=>`<option value="${s.id}">${s.name}</option>`).join('')}
+        </select>
       </div>
       ${preType==='expense'?`<div class="fgrp" style="grid-column:1/-1"><label>🏺 這筆是繳年繳嗎？（選填）</label>
         <select id="m-amort" style="background:var(--purl);">
@@ -10526,6 +10639,37 @@ window.setLedgerViewYear=(y)=>{S.ledgerViewYear=parseInt(y);render();};
 // 📊 切換歷年比較的分類（inline onchange 用）
 window.setLedgerCompareCat=(c)=>{S.ledgerCompareCat=c;render();};
 
+// 🏷️ 主類別切換時，更新對應子分類下拉
+window.onMainCatChange=(mainCatId,subSelectId)=>{
+  const subSel=document.getElementById(subSelectId);
+  if(!subSel)return;
+  const subs=getSubCats(mainCatId);
+  subSel.innerHTML=subs.map(s=>`<option value="${s.id}">${s.name}</option>`).join('')||'<option value="">（無子分類，請先新增）</option>';
+};
+
+// 🏷️ 新增子分類（快速從支出/帳本 modal 內加）
+window.addNewSubCat=async()=>{
+  // 從當前開啟的主類別下拉抓 id
+  const mainSel=document.getElementById('m2')||document.getElementById('qe-cat')||document.getElementById('am-cat');
+  if(!mainSel){alert('請先開啟一個新增/編輯視窗');return;}
+  const mainId=mainSel.value;
+  const mc=findMasterCat(mainId);
+  if(!mc){alert('找不到主類別');return;}
+  const name=prompt(`為「${mc.icon} ${mc.name}」新增子分類：\n（例：電費、加油、保養品）`);
+  if(!name||!name.trim())return;
+  const trimmed=name.trim();
+  const cats=[...getMasterCats()];
+  const idx=cats.findIndex(c=>c.id===mainId);
+  if(idx<0)return;
+  const subs=cats[idx].subs||[];
+  if(subs.some(s=>s.name===trimmed)){alert('已有這個子分類');return;}
+  const newSub={id:'sub_'+Date.now()+'_'+Math.random().toString(36).slice(2,4),name:trimmed};
+  cats[idx]={...cats[idx],subs:[...subs,newSub]};
+  await saveMain({masterCategories:cats});
+  toast(`✅ 已新增「${trimmed}」`);
+  render();
+};
+
 // 🏷️ 主類別管理 CRUD
 window.addMasterCat=async()=>{
   const name=prompt('新類別名稱？（例：拜拜、寵物、孩子）');
@@ -10804,10 +10948,13 @@ window.quickSaveExpense=async()=>{
   const date=g('qe-date');
   const item=g('qe-item')||'';
   const amount=toN(g('qe-amt'));
-  const catId=g('qe-cat')||''; // 這裡拿到的是 cat_xxx id
-  // 從 id 反查名稱（相容舊 category 欄位）
+  const catId=g('qe-cat')||''; // 主類別 id
+  const subCatId=g('qe-sub')||''; // 🆕 子類別 id
+  // 從 id 反查名稱
   const mc=findMasterCat(catId);
   const catName=mc?mc.name:'其他';
+  const sc=findSubCat(catId,subCatId);
+  const subCatName=sc?sc.name:'';
   const paymentMethod=(document.querySelector('input[name="qe-pay-r"]:checked')||{}).value||'cash';
   const cardBank=paymentMethod==='credit'?(g('qe-card')||''):'';
   const frequency=(document.querySelector('input[name="qe-freq"]:checked')||{}).value||'once';
@@ -10846,7 +10993,7 @@ window.quickSaveExpense=async()=>{
     }
     // 一律記一筆支出
     await addSub('expenses',{
-      date,amount,item,category:cat,categoryId:catId||null,
+      date,amount,item,category:cat,categoryId:catId||null,subCategoryId:subCatId||null,subCategoryName:subCatName||'',
       paymentMethod,cardBank,frequency,
       payMethod:payTxt, // 相容舊欄位
       user:S.user||'',note:'',
@@ -10894,7 +11041,10 @@ window.updateAmortMonthly=()=>{
 window.saveAmort=async(editId)=>{
   const name=g('am-name')||'';
   const annualAmount=toN(g('am-annual'));
-  const category=g('am-cat')||'其他';
+  const catRaw=g('am-cat')||'';
+  const mcAm=findMasterCat(catRaw);
+  const category=mcAm?mcAm.name:(catRaw||'其他');
+  const categoryId=mcAm?mcAm.id:null;
   // 讀複選 checkbox
   const dueMonths=Array.from(document.querySelectorAll('input[name="am-dues"]:checked')).map(cb=>parseInt(cb.value)).sort((a,b)=>a-b);
   const linkedLedger=g('am-linked')||'';
@@ -10906,14 +11056,14 @@ window.saveAmort=async(editId)=>{
   if(editId){
     const idx=list.findIndex(a=>a.id===editId);
     if(idx>=0){
-      list[idx]={...list[idx],name,category,annualAmount,monthlyAmortize,dueMonths,dueMonth:dueMonths[0]||1,linkedLedger,note};
+      list[idx]={...list[idx],name,category,categoryId,annualAmount,monthlyAmortize,dueMonths,dueMonth:dueMonths[0]||1,linkedLedger,note};
       await saveMain({amortizedItems:list});
       toast(`✅ 已更新「${name}」`);
     }
   }else{
     const newItem={
       id:'am_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
-      name,category,annualAmount,monthlyAmortize,dueMonths,
+      name,category,categoryId,annualAmount,monthlyAmortize,dueMonths,
       dueMonth:dueMonths[0]||1, // 相容舊欄位
       linkedLedger,
       paidThisYear:0,paidDate:'',note
@@ -11294,12 +11444,29 @@ window.saveDebt=async()=>{
   const debts=[...(S.data.debts||[]),{id:uid(),name,type:g('m1'),remainingAmount:n('m2'),monthlyPayment:n('m3'),rate:n('m4'),note:g('m5')}];
   await saveMain({debts});toast('✅ 負債已新增');closeMod();
 };
-window.saveFixed=async()=>{
-  const name=g('m0'),amount=n('m1');if(!name||!amount){alert('請填名稱和金額');return;}
-  const category=g('m_cat')||'其他';
+window.saveFixed=async(editId)=>{
+  const name=g('m0'),amount=n('m1');
+  if(!name||!amount){alert('請填名稱和金額');return;}
+  const catRaw=g('m_cat')||'';
+  const mcF=findMasterCat(catRaw);
+  const category=mcF?mcF.name:(catRaw||'其他');
+  const categoryId=mcF?mcF.id:null;
   const payDay=n('m_day')||null;
-  const fixedItems=[...(S.data.fixedItems||[]),{id:uid(),name,amount,category,payDay,note:g('m2')}];
-  await saveMain({fixedItems});toast('✅ 固定支出已新增');closeMod();
+  const note=g('m2')||'';
+  const list=[...(S.data.fixedItems||[])];
+  if(editId){
+    const idx=list.findIndex(f=>f.id===editId);
+    if(idx>=0){
+      list[idx]={...list[idx],name,amount,category,categoryId,payDay,note};
+      await saveMain({fixedItems:list});
+      toast(`✅ 已更新「${name}」`);
+    }
+  }else{
+    list.push({id:uid(),name,amount,category,categoryId,payDay,note});
+    await saveMain({fixedItems:list});
+    toast('✅ 固定支出已新增');
+  }
+  closeMod();
 };
 window.updateFixed=async(id)=>{
   const fixedItems=(S.data.fixedItems||[]).map(f=>f.id===id?{...f,name:g('m0'),amount:n('m1'),note:g('m2')}:f);
@@ -11346,21 +11513,27 @@ window.saveLE=async()=>{
   if(!l){alert('找不到帳本，請先建立');return;}
   const cardBank=g('m_card')||'';
   const note=g('m4')||'';
-  const cat=g('m2')||(l.cats&&l.cats[0])||'其他';
-  const linkedAmortId=g('m-amort')||''; // 🏺 連動的年繳項目 ID
+  const catRaw=g('m2')||'';
+  const subCatRaw=g('m2-sub')||'';
+  const mcMain=findMasterCat(catRaw);
+  const cat=mcMain?mcMain.name:(catRaw||'其他');
+  const categoryId=mcMain?mcMain.id:null;
+  const sc=findSubCat(catRaw,subCatRaw);
+  const subCategoryId=sc?sc.id:null;
+  const subCategoryName=sc?sc.name:'';
+  const linkedAmortId=g('m-amort')||'';
   const user=g('m3')||S.user||'';
   const mo=d.getMonth()+1,yr2=d.getFullYear();
 
   setSyncing('syncing');
   try{
-    // 1. 寫入流水帳本身
     const linkId='lnk_'+Date.now();
     const ledgerEntry={
-      lid:l.id,date,amount,cat,user,
+      lid:l.id,date,amount,cat,categoryId,subCategoryId,subCategoryName,user,
       note:note+(cardBank?` 💳 ${cardBank}`:''),
       month:mo,year:yr2,
       linkedCardBank:cardBank||null,
-      linkedAmortId:linkedAmortId||null, // 連動的年繳項目
+      linkedAmortId:linkedAmortId||null,
       linkId:cardBank&&amount<0?linkId:null
     };
     await addSub('ledgerEntries',ledgerEntry);
