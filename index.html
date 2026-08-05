@@ -482,6 +482,63 @@ function getLedgerCfg(ledgerId){
   return cfg;
 }
 // 固定支出預設
+// 🛡️ 保單分類配置（每類的欄位定義）
+const INS_CATEGORIES={
+  medical:{ico:'🏥',lbl:'醫療險',fields:[
+    {k:'hospitalDaily',lbl:'🏥 住院日額（每天）',ph:'例：2000'},
+    {k:'surgeryMax',lbl:'🩺 手術理賠上限',ph:'例：50000'},
+    {k:'cancerOnce',lbl:'🎗️ 癌症一次金',ph:'例：1000000'},
+    {k:'majorIllness',lbl:'⚠️ 重大疾病保障',ph:'例：500000'},
+  ]},
+  car:{ico:'🚗',lbl:'汽車險',fields:[
+    {k:'3rdPersonInjury',lbl:'👤 第三人傷害（每人）',ph:'例：2000000'},
+    {k:'3rdPersonInjuryEvent',lbl:'👥 第三人傷害（每次事故）',ph:'例：4000000'},
+    {k:'3rdProperty',lbl:'💥 財損（每次事故）',ph:'例：500000'},
+    {k:'passenger',lbl:'👨‍👩‍👧 車上乘客保障',ph:'例：2000000'},
+  ]},
+  motor:{ico:'🏍️',lbl:'機車險',fields:[
+    {k:'3rdPersonInjury',lbl:'👤 第三人傷害（每人）',ph:'例：2000000'},
+    {k:'3rdProperty',lbl:'💥 財損（每次事故）',ph:'例：200000'},
+    {k:'driverInjury',lbl:'🩺 駕駛人傷害',ph:'例：500000'},
+  ]},
+  life:{ico:'💀',lbl:'壽險',fields:[
+    {k:'deathAmount',lbl:'💀 身故保額',ph:'例：3000000'},
+    {k:'disability',lbl:'♿ 完全失能保額',ph:'例：3000000'},
+    {k:'disabilityBenefit',lbl:'💊 失能生活費（每月）',ph:'例：30000'},
+  ]},
+  accident:{ico:'🛡️',lbl:'意外險',fields:[
+    {k:'accidentDeath',lbl:'💀 意外身故金',ph:'例：1000000'},
+    {k:'accidentInjury',lbl:'🚑 意外傷害醫療',ph:'例：100000'},
+    {k:'accidentHospital',lbl:'🏥 意外住院日額',ph:'例：2000'},
+    {k:'accidentDisable',lbl:'♿ 意外失能',ph:'例：500000'},
+  ]},
+  travel:{ico:'✈️',lbl:'旅平險',fields:[
+    {k:'travelDeath',lbl:'💀 意外身故',ph:'例：5000000'},
+    {k:'travelMedical',lbl:'🏥 海外醫療',ph:'例：500000'},
+    {k:'luggage',lbl:'🧳 行李遺失',ph:'例：30000'},
+    {k:'flightDelay',lbl:'✈️ 班機延誤',ph:'例：10000'},
+  ]},
+  fire:{ico:'🏠',lbl:'火險',fields:[
+    {k:'building',lbl:'🏠 房屋損失',ph:'例：5000000'},
+    {k:'earthquake',lbl:'🌏 地震險',ph:'例：1500000'},
+    {k:'furniture',lbl:'🛋️ 家財損失',ph:'例:500000'},
+    {k:'thirdParty',lbl:'👥 第三人責任',ph:'例：1000000'},
+  ]},
+  longterm:{ico:'👵',lbl:'長照險',fields:[
+    {k:'longCareMonthly',lbl:'💊 長照月給付',ph:'例：30000'},
+    {k:'longCareOnce',lbl:'💰 長照一次金',ph:'例：300000'},
+    {k:'longCareYears',lbl:'⏱️ 給付年限（年）',ph:'例：10'},
+  ]},
+  student:{ico:'🎒',lbl:'學平險',fields:[
+    {k:'accidentDeath',lbl:'💀 意外身故',ph:'例：1000000'},
+    {k:'accidentInjury',lbl:'🚑 意外醫療',ph:'例：30000'},
+    {k:'accidentHospital',lbl:'🏥 住院日額',ph:'例：1000'},
+  ]},
+  other:{ico:'📌',lbl:'其他',fields:[
+    {k:'amount',lbl:'💰 保額',ph:'例：500000'},
+  ]},
+};
+
 const DEF_FIXED=[
   {id:'f1',name:'房貸',amount:15606,note:'每月固定'},
   {id:'f2',name:'藏龍貸款',amount:10000,note:'每月固定'},
@@ -869,7 +926,7 @@ let S={
     // 💳 常用信用卡銀行清單（讓下拉快選）
     cardBanks:['中信','玉山','國泰','聯邦','富邦','台新','星展','其他'],
     // 🛡️ 家庭保險簿
-    insurancePolicies:[],  // [{id,member,company,name,policyNo,effectiveDate,expireDate,agent,agentPhone,photo,hospitalDaily,surgeryMax,deathAccident,carAccidentInjury,otherNotes,addedDate}]
+    insurancePolicies:[],  // [{id,member,category,company,name,policyNo,expireDate,agent,agentPhone,photo,fields:{},otherNotes,addedDate}]
     familyMembers:['又權','于蜜','楷宸'],  // 家庭成員清單
     importStaging:[]
   }
@@ -2375,16 +2432,21 @@ function pgInsurance(){
   const policies=S.data.insurancePolicies||[];
   const members=S.data.familyMembers||['又權','于蜜','楷宸'];
   const curMember=S.insMember||'全家';
+  const curCat=S.insCat||'全部';
 
-  // 過濾出當前顯示的保單
-  const shown=curMember==='全家'?policies:policies.filter(p=>p.member===curMember);
-  // 依成員分組（總覽用）
+  // 過濾
+  let shown=policies;
+  if(curMember!=='全家')shown=shown.filter(p=>p.member===curMember);
+  if(curCat!=='全部')shown=shown.filter(p=>p.category===curCat);
   const byMember={};
   members.forEach(m=>{byMember[m]=policies.filter(p=>p.member===m);});
+  const catCounts={};
+  Object.keys(INS_CATEGORIES).forEach(k=>{
+    catCounts[k]=policies.filter(p=>p.category===k).length;
+  });
 
   return`
   <div style="max-width:820px;margin:0 auto;">
-
     <!-- 標題 -->
     <div style="text-align:center;padding:20px 0 16px;">
       <div style="font-size:48px;">📋</div>
@@ -2393,19 +2455,25 @@ function pgInsurance(){
     </div>
 
     <!-- 家庭成員 tab -->
-    <div style="display:flex;gap:6px;justify-content:center;margin-bottom:16px;flex-wrap:wrap;">
+    <div style="display:flex;gap:6px;justify-content:center;margin-bottom:12px;flex-wrap:wrap;">
       <button onclick="setInsMember('全家')" style="padding:8px 18px;background:${curMember==='全家'?'var(--rose)':'#fff'};color:${curMember==='全家'?'#fff':'var(--brown)'};border:2px solid ${curMember==='全家'?'var(--rose)':'var(--bdr)'};border-radius:20px;font-size:14px;font-weight:700;cursor:pointer;">👨‍👩‍👧 全家（${policies.length}）</button>
       ${members.map(m=>`<button onclick="setInsMember('${m}')" style="padding:8px 18px;background:${curMember===m?'var(--rose)':'#fff'};color:${curMember===m?'#fff':'var(--brown)'};border:2px solid ${curMember===m?'var(--rose)':'var(--bdr)'};border-radius:20px;font-size:14px;font-weight:700;cursor:pointer;">${m}（${(byMember[m]||[]).length}）</button>`).join('')}
+    </div>
+
+    <!-- 分類 tab（第二層） -->
+    <div style="display:flex;gap:4px;justify-content:center;margin-bottom:16px;flex-wrap:wrap;overflow-x:auto;padding:0 4px;">
+      <button onclick="setInsCat('全部')" style="padding:6px 12px;background:${curCat==='全部'?'var(--gold)':'#fff'};color:${curCat==='全部'?'#fff':'var(--brown)'};border:1.5px solid ${curCat==='全部'?'var(--gold)':'var(--bdr)'};border-radius:12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">全部類型</button>
+      ${Object.entries(INS_CATEGORIES).map(([k,v])=>`<button onclick="setInsCat('${k}')" style="padding:6px 12px;background:${curCat===k?'var(--gold)':'#fff'};color:${curCat===k?'#fff':'var(--brown)'};border:1.5px solid ${curCat===k?'var(--gold)':'var(--bdr)'};border-radius:12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">${v.ico} ${v.lbl}（${catCounts[k]||0}）</button>`).join('')}
     </div>
 
     <!-- 情境查詢 -->
     <div style="background:linear-gradient(135deg,var(--goldL),#fff);border-radius:18px;padding:20px 22px;margin-bottom:16px;box-shadow:0 4px 16px rgba(196,164,107,0.15);border:2px solid var(--gold);">
       <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--goldDk);margin-bottom:12px;text-align:center;">🚨 快速查詢「發生什麼事，全家能賠多少？」</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;">
-        <button onclick="showInsScenario('hospitalDaily','🏥 住院一天')" style="padding:16px 8px;background:#fff;border:2px solid var(--red);color:var(--red);border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;">🏥 住院一天</button>
-        <button onclick="showInsScenario('surgeryMax','🩺 開刀手術')" style="padding:16px 8px;background:#fff;border:2px solid var(--pur);color:var(--pur);border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;">🩺 開刀手術</button>
-        <button onclick="showInsScenario('deathAccident','💀 意外身故')" style="padding:16px 8px;background:#fff;border:2px solid var(--brown);color:var(--brown);border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;">💀 意外身故</button>
-        <button onclick="showInsScenario('carAccidentInjury','🚗 車禍受傷')" style="padding:16px 8px;background:#fff;border:2px solid var(--blu);color:var(--blu);border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;">🚗 車禍受傷</button>
+        <button onclick="showInsScenario('hospital','🏥 住院一天')" style="padding:16px 8px;background:#fff;border:2px solid var(--red);color:var(--red);border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;">🏥 住院一天</button>
+        <button onclick="showInsScenario('surgery','🩺 開刀手術')" style="padding:16px 8px;background:#fff;border:2px solid var(--pur);color:var(--pur);border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;">🩺 開刀手術</button>
+        <button onclick="showInsScenario('death','💀 意外身故')" style="padding:16px 8px;background:#fff;border:2px solid var(--brown);color:var(--brown);border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;">💀 意外身故</button>
+        <button onclick="showInsScenario('car','🚗 車禍受傷')" style="padding:16px 8px;background:#fff;border:2px solid var(--blu);color:var(--blu);border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;">🚗 車禍受傷</button>
       </div>
     </div>
 
@@ -2417,33 +2485,32 @@ function pgInsurance(){
     <!-- 保單清單 -->
     ${shown.length===0?`<div style="background:#fff;border-radius:20px;padding:40px 24px;text-align:center;color:var(--mut);box-shadow:0 4px 16px rgba(194,116,122,0.10);">
       <div style="font-size:48px;">📋</div>
-      <div style="margin-top:8px;font-size:14px;">${curMember==='全家'?'還沒新增任何保單':`${curMember}還沒有保單`}</div>
+      <div style="margin-top:8px;font-size:14px;">還沒有符合條件的保單</div>
       <div class="tm" style="font-size:11.5px;margin-top:8px;line-height:1.8;">
-        📸 找出你的保單 → 點「＋新增保單」<br>
-        看保單「保障內容」那一頁 → 抄下重點<br>
-        以後理賠時就能一目了然
+        📸 找出保單 → 點「＋新增保單」<br>
+        選對保單類型 → 依照欄位填入數字<br>
+        理賠時就能一目了然
       </div>
     </div>`:`<div style="display:grid;grid-template-columns:1fr;gap:12px;">
       ${shown.map(p=>renderInsCard(p)).join('')}
     </div>`}
-
   </div>`;
 }
 
 // 保單卡片
 function renderInsCard(p){
-  const hospi=toN(p.hospitalDaily);
-  const surg=toN(p.surgeryMax);
-  const death=toN(p.deathAccident);
-  const car=toN(p.carAccidentInjury);
-  const hasCoverage=hospi>0||surg>0||death>0||car>0;
+  const cat=INS_CATEGORIES[p.category]||INS_CATEGORIES.other;
+  const fields=cat.fields;
+  const F=p.fields||{};
+  const validFields=fields.filter(f=>toN(F[f.k])>0);
   return`<div style="background:#fff;border-radius:16px;padding:18px 20px;box-shadow:0 4px 16px rgba(194,116,122,0.10);border-top:4px solid var(--rose);">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
       <div style="flex:1;min-width:180px;">
-        <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           <span style="background:var(--rose);color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:10px;">${p.member||'?'}</span>
-          <span style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:var(--brown);">${p.name||'未命名保單'}</span>
+          <span style="background:var(--bg2);color:var(--brown);font-size:12px;font-weight:700;padding:3px 10px;border-radius:10px;">${cat.ico} ${cat.lbl}</span>
         </div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:var(--brown);margin-top:6px;">${p.name||'未命名保單'}</div>
         <div class="tm" style="font-size:11.5px;margin-top:4px;line-height:1.6;">
           ${p.company?`🏢 ${p.company}　`:''}${p.policyNo?`· 保單號：${p.policyNo}　`:''}${p.expireDate?`· 到期：${p.expireDate}`:''}
         </div>
@@ -2455,28 +2522,16 @@ function renderInsCard(p){
     </div>
 
     ${p.photo?`<div style="text-align:center;margin-bottom:12px;">
-      <img src="${p.photo}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid var(--bdr);cursor:pointer;" onclick="showInsPhoto('${p.id}')" title="點看大圖">
+      <img src="${p.photo}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid var(--bdr);cursor:pointer;" onclick="window.open('${p.photo}','_blank')" title="點看大圖">
     </div>`:''}
 
-    ${hasCoverage?`<div style="background:var(--bg2);border-radius:12px;padding:14px;margin-bottom:10px;">
+    ${validFields.length>0?`<div style="background:var(--bg2);border-radius:12px;padding:14px;margin-bottom:10px;">
       <div style="font-size:12.5px;font-weight:700;color:var(--brown);margin-bottom:8px;">💰 保障重點</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;">
-        ${hospi>0?`<div style="padding:8px 10px;background:#fff;border-radius:8px;">
-          <div class="tm" style="font-size:10.5px;">🏥 住院日額</div>
-          <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--red);">$${fmt(hospi)}/天</div>
-        </div>`:''}
-        ${surg>0?`<div style="padding:8px 10px;background:#fff;border-radius:8px;">
-          <div class="tm" style="font-size:10.5px;">🩺 手術理賠</div>
-          <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--pur);">最高 $${fmt(surg)}</div>
-        </div>`:''}
-        ${death>0?`<div style="padding:8px 10px;background:#fff;border-radius:8px;">
-          <div class="tm" style="font-size:10.5px;">💀 意外身故</div>
-          <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--brown);">$${fmt(death)}</div>
-        </div>`:''}
-        ${car>0?`<div style="padding:8px 10px;background:#fff;border-radius:8px;">
-          <div class="tm" style="font-size:10.5px;">🚗 車禍受傷</div>
-          <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--blu);">$${fmt(car)}</div>
-        </div>`:''}
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;">
+        ${validFields.map(f=>`<div style="padding:8px 10px;background:#fff;border-radius:8px;">
+          <div class="tm" style="font-size:10.5px;">${f.lbl}</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--rose);">$${fmt(toN(F[f.k]))}</div>
+        </div>`).join('')}
       </div>
     </div>`:''}
 
@@ -8674,44 +8729,59 @@ function modal(){
     const isEdit=!!editItem;
     const members=S.data.familyMembers||['又權','于蜜','楷宸'];
     const p=editItem||{};
-    c=`<div class="mttl" style="max-height:70vh;overflow-y:auto;">📋 ${isEdit?'編輯':'新增'}保單</div>
+    const curCat=m.category||p.category||'medical'; // 當前選的分類
+    const catCfg=INS_CATEGORIES[curCat]||INS_CATEGORIES.other;
+    const F=p.fields||{};
+    c=`<div class="mttl">📋 ${isEdit?'編輯':'新增'}保單</div>
     <div style="max-height:calc(80vh - 100px);overflow-y:auto;padding-right:8px;">
-    <div style="background:var(--roseL);padding:10px 14px;border-radius:8px;font-size:12.5px;color:var(--roseDk);margin-bottom:14px;line-height:1.7;">
-      💡 <b>看保單「保障內容」那一頁</b>，找出以下數字填入即可。填不到的就留空。
-    </div>
-    <div class="fg fg2">
-      <div class="fgrp"><label>誰的保單</label>
-        <select id="ins-member">
-          ${members.map(m2=>`<option value="${m2}" ${p.member===m2?'selected':''}>${m2}</option>`).join('')}
-        </select>
+
+    <!-- 步驟 1：選保單類型 -->
+    <div style="background:var(--roseL);padding:12px 16px;border-radius:10px;margin-bottom:14px;">
+      <div style="font-size:13px;font-weight:700;color:var(--roseDk);margin-bottom:8px;">Step 1 · 先選保單類型（不同類型欄位不同）</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        ${Object.entries(INS_CATEGORIES).map(([k,v])=>`<button type="button" onclick="switchInsCategory('${k}')" style="padding:8px 12px;background:${curCat===k?'var(--rose)':'#fff'};color:${curCat===k?'#fff':'var(--brown)'};border:2px solid ${curCat===k?'var(--rose)':'var(--bdr)'};border-radius:10px;font-size:12.5px;font-weight:600;cursor:pointer;">${v.ico} ${v.lbl}</button>`).join('')}
       </div>
-      <div class="fgrp"><label>保險公司</label><input type="text" id="ins-company" value="${(p.company||'').replace(/"/g,'&quot;')}" placeholder="例：台灣人壽"></div>
-      <div class="fgrp" style="grid-column:1/-1"><label>保單名稱</label><input type="text" id="ins-name" value="${(p.name||'').replace(/"/g,'&quot;')}" placeholder="例：終身醫療險、意外險、旅平險"></div>
-      <div class="fgrp"><label>保單號碼</label><input type="text" id="ins-policyNo" value="${(p.policyNo||'').replace(/"/g,'&quot;')}" placeholder="選填"></div>
-      <div class="fgrp"><label>到期日</label><input type="text" id="ins-expireDate" value="${(p.expireDate||'').replace(/"/g,'&quot;')}" placeholder="例：2030-05-15"></div>
     </div>
 
-    <div style="margin-top:14px;padding:14px;background:var(--bg2);border-radius:12px;">
-      <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--brown);margin-bottom:10px;">💰 保障重點（填數字，看不到就空著）</div>
+    <!-- 步驟 2：基本資料 -->
+    <div style="margin-bottom:14px;padding:12px 14px;background:var(--bg2);border-radius:10px;">
+      <div style="font-size:13px;font-weight:700;color:var(--brown);margin-bottom:8px;">Step 2 · 基本資料</div>
       <div class="fg fg2">
-        <div class="fgrp"><label>🏥 住院日額（每天）</label><input type="number" id="ins-hospitalDaily" value="${p.hospitalDaily||''}" placeholder="例：2000" class="amt-input"></div>
-        <div class="fgrp"><label>🩺 手術理賠上限</label><input type="number" id="ins-surgeryMax" value="${p.surgeryMax||''}" placeholder="例：50000" class="amt-input"></div>
-        <div class="fgrp"><label>💀 意外身故金</label><input type="number" id="ins-deathAccident" value="${p.deathAccident||''}" placeholder="例：1000000" class="amt-input"></div>
-        <div class="fgrp"><label>🚗 車禍受傷保障</label><input type="number" id="ins-carAccidentInjury" value="${p.carAccidentInjury||''}" placeholder="例：200000" class="amt-input"></div>
+        <div class="fgrp"><label>誰的保單</label>
+          <select id="ins-member">
+            ${members.map(m2=>`<option value="${m2}" ${p.member===m2?'selected':''}>${m2}</option>`).join('')}
+          </select>
+        </div>
+        <div class="fgrp"><label>保險公司</label><input type="text" id="ins-company" value="${(p.company||'').replace(/"/g,'&quot;')}" placeholder="例：第一產物"></div>
+        <div class="fgrp" style="grid-column:1/-1"><label>保單名稱</label><input type="text" id="ins-name" value="${(p.name||'').replace(/"/g,'&quot;')}" placeholder="例：${catCfg.lbl}"></div>
+        <div class="fgrp"><label>保單號碼</label><input type="text" id="ins-policyNo" value="${(p.policyNo||'').replace(/"/g,'&quot;')}" placeholder="選填"></div>
+        <div class="fgrp"><label>到期日</label><input type="text" id="ins-expireDate" value="${(p.expireDate||'').replace(/"/g,'&quot;')}" placeholder="例：2030-05-15"></div>
       </div>
-      <div class="fgrp" style="margin-top:10px;"><label>📝 其他保障（自由文字）</label><textarea id="ins-otherNotes" rows="3" style="width:100%;padding:10px;border:1px solid var(--bdr);border-radius:8px;font-family:inherit;font-size:14px;resize:vertical;" placeholder="例：癌症一次金 $100 萬 · 洗腎每次 $10,000 · 燒燙傷特別給付">${p.otherNotes||''}</textarea></div>
     </div>
 
-    <div style="margin-top:14px;padding:14px;background:var(--bg2);border-radius:12px;">
-      <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--brown);margin-bottom:10px;">📞 業務員（選填，理賠時方便找人）</div>
+    <!-- 步驟 3：保障重點（依分類動態顯示） -->
+    <div style="margin-bottom:14px;padding:12px 14px;background:var(--bg2);border-radius:10px;">
+      <div style="font-size:13px;font-weight:700;color:var(--brown);margin-bottom:8px;">Step 3 · ${catCfg.ico} ${catCfg.lbl}保障重點</div>
+      <div style="font-size:11.5px;color:var(--mut);margin-bottom:10px;line-height:1.7;">💡 看保單「保障內容」那頁，找到就填、看不到就空著。單位：新台幣 $。</div>
       <div class="fg fg2">
-        <div class="fgrp"><label>業務員姓名</label><input type="text" id="ins-agent" value="${(p.agent||'').replace(/"/g,'&quot;')}" placeholder="例：王小明"></div>
+        ${catCfg.fields.map(f=>`<div class="fgrp"><label>${f.lbl}</label><input type="number" id="ins-f-${f.k}" value="${F[f.k]||''}" placeholder="${f.ph}" class="amt-input"></div>`).join('')}
+      </div>
+      <input type="hidden" id="ins-category" value="${curCat}">
+      <div class="fgrp" style="margin-top:10px;"><label>📝 其他保障（自由文字）</label><textarea id="ins-otherNotes" rows="3" style="width:100%;padding:10px;border:1px solid var(--bdr);border-radius:8px;font-family:inherit;font-size:14px;resize:vertical;" placeholder="例：慰問金 $5,000 · 訴訟費 $50,000 · 燒燙傷特別給付">${p.otherNotes||''}</textarea></div>
+    </div>
+
+    <!-- 步驟 4：業務員 -->
+    <div style="margin-bottom:14px;padding:12px 14px;background:var(--bg2);border-radius:10px;">
+      <div style="font-size:13px;font-weight:700;color:var(--brown);margin-bottom:8px;">Step 4 · 業務員（選填）</div>
+      <div class="fg fg2">
+        <div class="fgrp"><label>姓名</label><input type="text" id="ins-agent" value="${(p.agent||'').replace(/"/g,'&quot;')}" placeholder="例：王小明"></div>
         <div class="fgrp"><label>電話</label><input type="tel" id="ins-agentPhone" value="${(p.agentPhone||'').replace(/"/g,'&quot;')}" placeholder="例：0912-345-678"></div>
       </div>
     </div>
 
-    <div style="margin-top:14px;">
-      <label style="display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">📸 保單照片（選填，可拍照或上傳圖檔）</label>
+    <!-- 步驟 5：保單照片 -->
+    <div>
+      <label style="display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">Step 5 · 📸 保單照片（選填）</label>
       <input type="file" id="ins-photo-file" accept="image/*" onchange="handleInsPhoto(this)" style="width:100%;padding:8px;border:1px dashed var(--bdr);border-radius:8px;font-size:13px;">
       <div id="ins-photo-preview" style="margin-top:8px;">${p.photo?`<img src="${p.photo}" style="max-width:100%;max-height:120px;border-radius:8px;border:1px solid var(--bdr);">`:''}</div>
       <input type="hidden" id="ins-photo" value="${p.photo||''}">
@@ -8722,45 +8792,81 @@ function modal(){
 
   // 📋 情境查詢結果 modal
   if(m.t==='insScenario'){
-    const field=m.field;
+    const scenario=m.scenario;
     const title=m.title;
-    const policies=(S.data.insurancePolicies||[]).filter(p=>toN(p[field])>0);
+    // 情境 → 對應多個 (category, fieldKey) 的映射
+    const SCENARIO_MAP={
+      hospital:[
+        {cat:'medical',key:'hospitalDaily',isDaily:true},
+        {cat:'accident',key:'accidentHospital',isDaily:true},
+        {cat:'student',key:'accidentHospital',isDaily:true},
+      ],
+      surgery:[
+        {cat:'medical',key:'surgeryMax'},
+        {cat:'accident',key:'accidentInjury'},
+      ],
+      death:[
+        {cat:'life',key:'deathAmount'},
+        {cat:'accident',key:'accidentDeath'},
+        {cat:'travel',key:'travelDeath'},
+        {cat:'student',key:'accidentDeath'},
+      ],
+      car:[
+        {cat:'car',key:'3rdPersonInjury'},
+        {cat:'motor',key:'3rdPersonInjury'},
+        {cat:'accident',key:'accidentInjury'},
+      ],
+    };
+    const rules=SCENARIO_MAP[scenario]||[];
+    const isDaily=rules.some(r=>r.isDaily);
+    // 找出符合的保單
+    const policies=(S.data.insurancePolicies||[]);
+    const matched=[];
+    policies.forEach(p=>{
+      const F=p.fields||{};
+      rules.forEach(r=>{
+        if(p.category===r.cat&&toN(F[r.key])>0){
+          matched.push({p,amount:toN(F[r.key]),key:r.key});
+        }
+      });
+    });
     // 依成員分組
     const byMember={};
-    policies.forEach(p=>{
-      byMember[p.member]=byMember[p.member]||[];
-      byMember[p.member].push(p);
+    matched.forEach(x=>{
+      byMember[x.p.member]=byMember[x.p.member]||[];
+      byMember[x.p.member].push(x);
     });
-    // 每人合計
-    const total=policies.reduce((s,p)=>s+toN(p[field]),0);
-    const isHospital=field==='hospitalDaily';
+    const total=matched.reduce((s,x)=>s+x.amount,0);
     c=`<div class="mttl">${title}</div>
     <div style="max-height:calc(80vh - 100px);overflow-y:auto;padding-right:8px;">
-      ${policies.length===0?`<div style="text-align:center;padding:30px 20px;color:var(--mut);">
+      ${matched.length===0?`<div style="text-align:center;padding:30px 20px;color:var(--mut);">
         <div style="font-size:48px;">📋</div>
-        <div style="margin-top:8px;font-size:14px;">還沒有保單填了這個保障</div>
+        <div style="margin-top:8px;font-size:14px;">還沒有保單有這個保障</div>
         <div class="tm" style="font-size:11.5px;margin-top:6px;">先「＋新增保單」把數字填進去</div>
       </div>`:`
       <div style="background:linear-gradient(135deg,var(--goldL),#fff);padding:16px 20px;border-radius:14px;text-align:center;margin-bottom:14px;border:2px solid var(--gold);">
         <div class="tm" style="font-size:12px;color:var(--goldDk);font-weight:600;">全家合計可申請</div>
-        <div style="font-family:'Noto Serif TC',serif;font-size:32px;font-weight:900;color:var(--goldDk);margin-top:4px;">$${fmt(total)}${isHospital?' /天':''}</div>
-        <div class="tm" style="font-size:11px;margin-top:4px;">${policies.length} 張保單可申請理賠</div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:32px;font-weight:900;color:var(--goldDk);margin-top:4px;">$${fmt(total)}${isDaily?' /天':''}</div>
+        <div class="tm" style="font-size:11px;margin-top:4px;">${matched.length} 張保單可申請理賠</div>
       </div>
 
-      ${Object.entries(byMember).map(([mem,ps])=>{
-        const memTotal=ps.reduce((s,p)=>s+toN(p[field]),0);
+      ${Object.entries(byMember).map(([mem,xs])=>{
+        const memTotal=xs.reduce((s,x)=>s+x.amount,0);
         return`<div style="margin-bottom:12px;">
           <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;padding-bottom:6px;border-bottom:2px solid var(--rose);">
             <span style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--brown);">${mem}</span>
-            <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--rose);">$${fmt(memTotal)}${isHospital?' /天':''}</span>
+            <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--rose);">$${fmt(memTotal)}${isDaily?' /天':''}</span>
           </div>
-          ${ps.map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--bg2);border-radius:10px;margin-bottom:6px;">
-            <div>
-              <div style="font-size:13.5px;color:var(--brown);font-weight:600;">${p.name}</div>
-              <div class="tm" style="font-size:11px;">${p.company||''}${p.agent?` · 業務：${p.agent}`:''}</div>
-            </div>
-            <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--rose);">$${fmt(toN(p[field]))}${isHospital?'/天':''}</div>
-          </div>`).join('')}
+          ${xs.map(x=>{
+            const catCfg=INS_CATEGORIES[x.p.category]||INS_CATEGORIES.other;
+            return`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--bg2);border-radius:10px;margin-bottom:6px;">
+              <div>
+                <div style="font-size:13.5px;color:var(--brown);font-weight:600;">${catCfg.ico} ${x.p.name}</div>
+                <div class="tm" style="font-size:11px;">${x.p.company||''}${x.p.agent?` · 業務：${x.p.agent}`:''}</div>
+              </div>
+              <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--rose);">$${fmt(x.amount)}${isDaily?'/天':''}</div>
+            </div>`;
+          }).join('')}
         </div>`;
       }).join('')}
 
@@ -10014,8 +10120,19 @@ window.setLedgerCompareCat=(c)=>{S.ledgerCompareCat=c;render();};
 // 📋 家庭保險簿 - 6 個 actions
 window.setInsMember=(m)=>{S.insMember=m;render();};
 
-window.showInsScenario=(field,title)=>{
-  S.modal={t:'insScenario',field,title};
+window.setInsCat=(c)=>{S.insCat=c;render();};
+
+// 新增保單 modal 切換分類（保留已填的欄位）
+window.switchInsCategory=(cat)=>{
+  // 先讀取現有欄位（暫存到 modal state）
+  const cur=S.modal||{};
+  // 儲存目前輸入的 category
+  S.modal={...cur,category:cat,editId:cur.editId};
+  render();
+};
+
+window.showInsScenario=(scenario,title)=>{
+  S.modal={t:'insScenario',scenario,title};
   render();
 };
 
@@ -10033,33 +10150,36 @@ window.handleInsPhoto=(input)=>{
 
 window.saveIns=async(editId)=>{
   const member=g('ins-member')||'又權';
+  const category=g('ins-category')||'other';
   const company=g('ins-company')||'';
   const name=g('ins-name')||'';
   const policyNo=g('ins-policyNo')||'';
   const expireDate=g('ins-expireDate')||'';
-  const hospitalDaily=toN(g('ins-hospitalDaily'));
-  const surgeryMax=toN(g('ins-surgeryMax'));
-  const deathAccident=toN(g('ins-deathAccident'));
-  const carAccidentInjury=toN(g('ins-carAccidentInjury'));
   const otherNotes=g('ins-otherNotes')||'';
   const agent=g('ins-agent')||'';
   const agentPhone=g('ins-agentPhone')||'';
   const photo=g('ins-photo')||'';
   if(!name){alert('請填保單名稱');return;}
+  // 讀取動態欄位（依 category 定義）
+  const catCfg=INS_CATEGORIES[category]||INS_CATEGORIES.other;
+  const fields={};
+  catCfg.fields.forEach(f=>{
+    const v=toN(g('ins-f-'+f.k));
+    if(v>0)fields[f.k]=v;
+  });
   const list=[...(S.data.insurancePolicies||[])];
   if(editId){
     const idx=list.findIndex(p=>p.id===editId);
     if(idx>=0){
-      list[idx]={...list[idx],member,company,name,policyNo,expireDate,hospitalDaily,surgeryMax,deathAccident,carAccidentInjury,otherNotes,agent,agentPhone,photo};
+      list[idx]={...list[idx],member,category,company,name,policyNo,expireDate,fields,otherNotes,agent,agentPhone,photo};
       await saveMain({insurancePolicies:list});
       toast(`✅ 已更新「${name}」`);
     }
   }else{
     const newItem={
       id:'ins_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
-      member,company,name,policyNo,expireDate,
-      hospitalDaily,surgeryMax,deathAccident,carAccidentInjury,otherNotes,
-      agent,agentPhone,photo,
+      member,category,company,name,policyNo,expireDate,
+      fields,otherNotes,agent,agentPhone,photo,
       addedDate:today()
     };
     list.push(newItem);
