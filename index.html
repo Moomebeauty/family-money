@@ -474,6 +474,30 @@ function getAllLedgers(){
   });
   return [...merged,...((S.data&&S.data.customLedgers)||[])];
 }
+// 🏷️ 取得主類別清單（有存到 S.data 就用，沒有就用預設）
+function getMasterCats(){
+  const cats=S.data&&S.data.masterCategories;
+  if(cats&&Array.isArray(cats)&&cats.length>0)return cats;
+  return DEF_MASTER_CATS;
+}
+// 依 id 找主類別
+function findMasterCat(id){
+  return getMasterCats().find(c=>c.id===id);
+}
+// 依名稱找主類別（fallback 用）
+function findMasterCatByName(name){
+  return getMasterCats().find(c=>c.name===name);
+}
+// 取得類別顯示（優先 categoryId，fallback 到 category 字串）
+function getCatDisplay(item){
+  const cats=getMasterCats();
+  if(item.categoryId){
+    const c=cats.find(x=>x.id===item.categoryId);
+    if(c)return`${c.icon} ${c.name}`;
+  }
+  return item.category||item.cat||'其他';
+}
+
 // 取得帳本類型
 function getLedgerType(ledgerId){
   const all=getAllLedgers();
@@ -489,6 +513,22 @@ function getLedgerCfg(ledgerId){
 }
 // 固定支出預設
 // 🛡️ 保單分類配置（每類的欄位定義）
+// 🏷️ 統一主類別預設清單（12 個）— 用於支出/收入/帳本/年繳
+const DEF_MASTER_CATS=[
+  {id:'cat_food',       name:'飲食',     icon:'🍜'},
+  {id:'cat_transport',  name:'交通',     icon:'🚗'},
+  {id:'cat_mumi',       name:'沐蜜',     icon:'✨'},
+  {id:'cat_home',       name:'家電',     icon:'🏠'},
+  {id:'cat_edu',        name:'教育',     icon:'📚'},
+  {id:'cat_health',     name:'健康',     icon:'💊'},
+  {id:'cat_entertain',  name:'娛樂',     icon:'🎮'},
+  {id:'cat_utility',    name:'水電通訊', icon:'💡'},
+  {id:'cat_insurance',  name:'保險',     icon:'🛡️'},
+  {id:'cat_tax',        name:'稅金',     icon:'📋'},
+  {id:'cat_gift',       name:'節慶',     icon:'🎁'},
+  {id:'cat_other',      name:'其他',     icon:'📦'},
+];
+
 const INS_CATEGORIES={
   medical:{ico:'🏥',lbl:'醫療險',fields:[
     {k:'hospitalDaily',lbl:'🏥 住院日額（每天）',ph:'例：2000'},
@@ -853,6 +893,8 @@ const PAGES=[
   {id:'guardian', ico:'🛡️',lbl:'守財工具箱',group:'main'},
   {id:'insurance',ico:'📋',lbl:'家庭保險簿',group:'main'},
   {id:'settings', ico:'⚙️',lbl:'進階功能',group:'main'},
+  {id:'catManage', ico:'🏷️',lbl:'類別管理',group:'hidden'},
+  {id:'catMigrate',ico:'🔄',lbl:'舊分類遷移',group:'hidden'},
   // 舊「固定支出」跟「年繳攤提」改為隱藏（保留路由與資料）
   {id:'fixedNew', ico:'📌',lbl:'固定支出',group:'hidden'},
   {id:'amortNew', ico:'🏺',lbl:'年繳攤提',group:'hidden'},
@@ -937,6 +979,8 @@ let S={
     familyMembers:['又權','于蜜','楷宸'],  // 家庭成員清單
     // 📒 預備金帳本自訂分類（by ledger id）
     customLedgerCats:{},  // {ledger_id: ['分類A','分類B',...]}
+    // 🏷️ 主類別詞庫（連動所有支出/年繳/帳本）
+    masterCategories:null,  // 首次載入時填入 DEF_MASTER_CATS
     importStaging:[]
   }
 };
@@ -1004,6 +1048,7 @@ function startSync(){
       S.data.insurancePolicies=d.insurancePolicies||[];
       S.data.familyMembers=d.familyMembers||['又權','于蜜','楷宸'];
       S.data.customLedgerCats=d.customLedgerCats||{};
+      S.data.masterCategories=d.masterCategories||DEF_MASTER_CATS.slice();
       S.data.investNotes=d.investNotes||{};
     }
     setSyncing('synced');
@@ -1215,6 +1260,8 @@ function page(){
     case'family':   return pgFamily();
     case'goals':    return pgGoals();
     case'insurance':return pgInsurance();
+    case'catManage':return pgCatManage();
+    case'catMigrate':return pgCatMigrate();
     case'networth': return pgNetworth();
     case'cashflow': return pgCashflow();
     case'expenses': return pgExpenses();
@@ -1870,7 +1917,7 @@ function pgQuickExpense(){
       <div style="margin-bottom:14px;">
         <label style="display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">類別</label>
         <select id="qe-cat" style="width:100%;padding:12px 16px;font-size:15px;border:2px solid var(--bdr);border-radius:12px;">
-          ${cats.map(c=>`<option>${c}</option>`).join('')}
+          ${getMasterCats().map(mc=>`<option value="${mc.id}">${mc.icon} ${mc.name}</option>`).join('')}
         </select>
       </div>
 
@@ -1950,7 +1997,7 @@ function pgQuickExpense(){
               const payTxt=e.paymentMethod==='cash'?'💵 現金':e.paymentMethod==='transfer'?'🏦 轉帳':e.paymentMethod==='credit'?`💳 ${e.cardBank||'信用卡'}`:(e.payMethod||'');
               return`<tr style="border-bottom:1px dashed var(--bdr);">
                 <td style="padding:12px 8px;color:var(--brown);white-space:nowrap;">${e.date||''}</td>
-                <td style="padding:12px 8px;"><span style="background:var(--bg2);color:var(--brown);padding:3px 10px;border-radius:8px;font-size:12px;font-weight:600;">${e.category||'其他'}</span></td>
+                <td style="padding:12px 8px;"><span style="background:var(--bg2);color:var(--brown);padding:3px 10px;border-radius:8px;font-size:12px;font-weight:600;">${getCatDisplay(e)}</span></td>
                 <td style="padding:12px 8px;text-align:right;font-family:'Noto Serif TC',serif;font-weight:700;color:var(--red);">$${fmt(toN(e.amount))}</td>
                 <td style="padding:12px 8px;color:var(--brown);white-space:nowrap;"><span style="background:var(--bg2);padding:2px 8px;border-radius:6px;font-size:11.5px;">${payTxt}</span></td>
                 <td style="padding:12px 8px;color:var(--mut);font-size:12.5px;">${e.item||''}</td>
@@ -2197,6 +2244,7 @@ function pgExpDash(){
       source:isFixed?'fixed':(isAmort?'amort_exp':'variable'),
       date:e.date,
       category:e.category||'其他',
+      categoryId:e.categoryId||null,
       item:e.item||'',
       amount:toN(e.amount),
       paymentMethod:e.paymentMethod||'',
@@ -2226,6 +2274,7 @@ function pgExpDash(){
       source:'amort',
       date:`${currentYear}-${String(S.month).padStart(2,'0')}-01`,
       category:a.category||'年繳',
+      categoryId:a.categoryId||null,
       item:a.name+' · 本月攤提',
       amount:monthly,
       paymentMethod:'',cardBank:'',payMethod:'',
@@ -2254,6 +2303,7 @@ function pgExpDash(){
       source:'ledger',
       date:e.date,
       category:categoryLabel,
+      categoryId:e.categoryId||null,
       item:itemLabel,
       amount:Math.abs(toN(e.amount)),
       paymentMethod:'',cardBank:'',payMethod:'',
@@ -2285,10 +2335,18 @@ function pgExpDash(){
   const ledgerTotal=ledgerExps.reduce((s,e)=>s+e.amount,0);
 
   // ═══════════════ 依「細節類別」統計（跨所有來源） ═══════════════
+  // 優先用 categoryId（主類別 id），沒有就用原本 category 字串
   const byCat={};
+  const mcats=getMasterCats();
   allExps.forEach(e=>{
-    const c=(e.category||'其他').trim()||'其他';
-    byCat[c]=(byCat[c]||0)+e.amount;
+    let key;
+    if(e.categoryId){
+      const mc=mcats.find(x=>x.id===e.categoryId);
+      key=mc?`${mc.icon} ${mc.name}`:(e.category||'其他');
+    }else{
+      key=(e.category||'其他').trim()||'其他';
+    }
+    byCat[key]=(byCat[key]||0)+e.amount;
   });
   const catList=Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
 
@@ -2442,7 +2500,7 @@ function pgExpDash(){
               return`<tr style="border-bottom:1px dashed var(--bdr);">
                 <td style="padding:12px 8px;color:var(--brown);white-space:nowrap;">${e.date||''}</td>
                 <td style="padding:12px 8px;white-space:nowrap;">${srcBadge(e)}</td>
-                <td style="padding:12px 8px;"><span style="background:var(--bg2);color:var(--brown);padding:3px 10px;border-radius:8px;font-size:12px;font-weight:600;">${e.category||'其他'}</span></td>
+                <td style="padding:12px 8px;"><span style="background:var(--bg2);color:var(--brown);padding:3px 10px;border-radius:8px;font-size:12px;font-weight:600;">${getCatDisplay(e)}</span></td>
                 <td style="padding:12px 8px;text-align:right;font-family:'Noto Serif TC',serif;font-weight:700;color:var(--red);">$${fmt(e.amount)}</td>
                 <td style="padding:12px 8px;color:var(--brown);white-space:nowrap;font-size:12px;">${payTxt}</td>
                 <td style="padding:12px 8px;color:var(--mut);font-size:12.5px;">${e.item||''}</td>
@@ -2545,6 +2603,129 @@ function pgAmortNew(){
 }
 
 // 📋 家庭保險簿
+// 🏷️ 類別管理頁
+function pgCatManage(){
+  const cats=getMasterCats();
+  return`
+  <div style="max-width:720px;margin:0 auto;">
+
+    <!-- 標題 -->
+    <div style="text-align:center;padding:20px 0 16px;">
+      <div style="font-size:48px;">🏷️</div>
+      <div style="font-family:'Noto Serif TC',serif;font-size:24px;font-weight:700;color:var(--brown);letter-spacing:0.2em;margin-top:4px;">類別管理</div>
+      <div class="tm" style="font-size:12.5px;margin-top:4px;">所有支出/年繳/帳本統一使用的類別詞庫</div>
+    </div>
+
+    <!-- 說明 -->
+    <div style="background:var(--bluL);border-radius:12px;padding:14px 18px;margin-bottom:16px;line-height:1.8;font-size:13px;color:var(--blu);">
+      💡 <b>怎麼運作：</b><br>
+      1. 這裡管理所有主類別（例如：🍜飲食、🚗交通、✨沐蜜）<br>
+      2. 記支出/年繳/帳本時 → 從這個清單選類別<br>
+      3. 支出總覽自動把「同一類別」的支出合計 → 一目了然
+    </div>
+
+    <!-- 舊資料遷移入口 -->
+    <button onclick="setP('catMigrate')" style="width:100%;padding:14px;background:linear-gradient(135deg,#fff,var(--yel));color:var(--goldDk);border:2px solid var(--gold);border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:16px;">
+      🔄 舊分類遷移工具 →
+    </button>
+
+    <!-- 新增按鈕 -->
+    <button onclick="addMasterCat()" style="width:100%;padding:14px;background:linear-gradient(135deg,var(--rose),var(--roseDk));color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:16px;">
+      ＋ 新增類別
+    </button>
+
+    <!-- 類別清單 -->
+    <div style="background:#fff;border-radius:14px;padding:18px 20px;box-shadow:0 4px 16px rgba(194,116,122,0.08);">
+      <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--brown);margin-bottom:14px;">📋 全部類別（${cats.length}）</div>
+      ${cats.map(c=>`<div style="padding:14px 4px;border-bottom:1px dashed var(--bdr);display:flex;justify-content:space-between;align-items:center;gap:12px;">
+        <div style="flex:1;display:flex;align-items:center;gap:12px;">
+          <span style="font-size:26px;">${c.icon}</span>
+          <div>
+            <div style="font-size:16px;color:var(--brown);font-weight:700;">${c.name}</div>
+            <div class="tm" style="font-size:10.5px;">${c.id}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button onclick="editMasterCat('${c.id}')" style="background:none;border:1px solid var(--bdr);color:var(--mut);padding:6px 10px;border-radius:8px;font-size:13px;cursor:pointer;">✏️</button>
+          <button onclick="delMasterCat('${c.id}')" style="background:none;border:1px solid var(--bdr);color:var(--red);padding:6px 10px;border-radius:8px;font-size:14px;cursor:pointer;">×</button>
+        </div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+// 🔄 舊分類遷移頁
+function pgCatMigrate(){
+  const cats=getMasterCats();
+  // 收集所有現有舊分類（去重）
+  const oldCats=new Set();
+  (S.data.expenses||[]).forEach(e=>{if(e.category&&!e.categoryId)oldCats.add(e.category);});
+  (S.data.ledgerEntries||[]).forEach(e=>{if(e.cat&&!e.categoryId)oldCats.add(e.cat);});
+  (S.data.amortizedItems||[]).forEach(a=>{if(a.category&&!a.categoryId)oldCats.add(a.category);});
+  (S.data.fixedItems||[]).forEach(f=>{if(f.category&&!f.categoryId)oldCats.add(f.category);});
+  const oldList=[...oldCats].sort();
+
+  return`
+  <div style="max-width:720px;margin:0 auto;">
+    <!-- 標題 -->
+    <div style="text-align:center;padding:20px 0 16px;">
+      <div style="font-size:48px;">🔄</div>
+      <div style="font-family:'Noto Serif TC',serif;font-size:24px;font-weight:700;color:var(--brown);letter-spacing:0.2em;margin-top:4px;">舊分類遷移</div>
+      <div class="tm" style="font-size:12.5px;margin-top:4px;">把系統裡雜亂的舊分類，統一歸類到主類別</div>
+    </div>
+
+    <button onclick="setP('catManage')" style="margin-bottom:16px;background:none;border:none;color:var(--mut);font-size:13px;cursor:pointer;">← 回類別管理</button>
+
+    ${oldList.length===0?`<div style="background:#fff;border-radius:14px;padding:40px 20px;text-align:center;color:var(--mut);">
+      <div style="font-size:48px;">✅</div>
+      <div style="margin-top:8px;font-size:14px;">沒有需要遷移的舊分類</div>
+      <div class="tm" style="font-size:11.5px;margin-top:6px;">所有資料都已使用主類別系統</div>
+    </div>`:`
+    <div style="background:var(--yel);border-radius:12px;padding:14px 18px;margin-bottom:16px;line-height:1.8;font-size:13px;color:var(--goldDk);">
+      💡 <b>怎麼用：</b>下方是系統裡目前的舊分類（${oldList.length} 個）。<br>
+      為每個舊分類選一個主類別 → 點「✓ 套用遷移」→ 所有支出/帳本/年繳的分類都會統一。<br>
+      ⚠️ 沒選的分類會維持原狀。
+    </div>
+
+    <div style="background:#fff;border-radius:14px;padding:18px 20px;box-shadow:0 4px 16px rgba(194,116,122,0.08);margin-bottom:16px;">
+      <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--brown);margin-bottom:14px;">📋 舊分類 → 主類別（${oldList.length}）</div>
+      ${oldList.map((old,i)=>{
+        // 智能建議：名稱相似度
+        let suggest='';
+        const oldLower=old.toLowerCase();
+        if(/飲食|食|吃|早餐|午餐|晚餐|餐廳|外食/.test(old))suggest='cat_food';
+        else if(/交通|加油|停車|機車|汽車|車票|運|保養/.test(old))suggest='cat_transport';
+        else if(/沐蜜|美容|紋繡|保養品|美妝|化妝/.test(old))suggest='cat_mumi';
+        else if(/家電|家居|傢俱|修繕|日常用品/.test(old))suggest='cat_home';
+        else if(/教育|學費|補習|課程|進修/.test(old))suggest='cat_edu';
+        else if(/健康|醫療|藥/.test(old))suggest='cat_health';
+        else if(/娛樂|遊|電影|Netflix|機票|旅行|旅遊/.test(old))suggest='cat_entertain';
+        else if(/水電|水費|電費|天然氣|瓦斯|手機|網路|通訊/.test(old))suggest='cat_utility';
+        else if(/保險|人壽|強制|三商|台灣人壽/.test(old))suggest='cat_insurance';
+        else if(/稅|工會|房屋稅/.test(old))suggest='cat_tax';
+        else if(/節慶|紅包|過年|禮物|生日/.test(old))suggest='cat_gift';
+        else suggest='cat_other';
+        return`<div style="padding:12px 4px;border-bottom:1px dashed var(--bdr);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:120px;">
+            <div style="font-size:14.5px;color:var(--brown);font-weight:600;">${old}</div>
+            <div class="tm" style="font-size:10.5px;">舊分類名</div>
+          </div>
+          <div style="color:var(--mut);font-size:20px;">→</div>
+          <select id="mig-${i}" data-old="${old.replace(/"/g,'&quot;')}" style="flex:1;min-width:140px;padding:8px 12px;border:2px solid var(--bdr);border-radius:8px;font-size:13.5px;font-weight:600;color:var(--brown);">
+            <option value="">— 不遷移 —</option>
+            ${cats.map(c=>`<option value="${c.id}" ${c.id===suggest?'selected':''}>${c.icon} ${c.name}</option>`).join('')}
+          </select>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <button onclick="applyCatMigration()" style="width:100%;padding:16px;background:linear-gradient(135deg,var(--grn),#5B9E7A);color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:700;letter-spacing:0.1em;cursor:pointer;box-shadow:0 4px 12px rgba(125,184,154,0.3);">
+      ✓ 套用遷移
+    </button>
+    `}
+  </div>`;
+}
+
 function pgInsurance(){
   const policies=S.data.insurancePolicies||[];
   const members=S.data.familyMembers||['又權','于蜜','楷宸'];
@@ -5340,11 +5521,20 @@ function pgHealth(){
 function pgSettings(){
   const members=S.data.members||[];
   const insurances=S.data.insurances||[];
+  const catCount=getMasterCats().length;
   return`
   <div class="pg-ttl">⚙️ 設定</div>
   <div class="pg-sub">家庭資料、保單、固定支出、信用卡、預備金帳本等進階設定</div>
 
   <div class="sg sg2">
+    <button onclick="setP('catManage')" style="padding:24px;border:2px solid var(--rose);border-radius:var(--r-sm);background:linear-gradient(135deg,#fff,var(--roseL));cursor:pointer;text-align:left;transition:all .25s;display:flex;gap:18px;align-items:center;">
+      <div style="font-size:42px;flex-shrink:0;">🏷️</div>
+      <div style="flex:1;">
+        <div style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:var(--roseDk);letter-spacing:0.08em;">類別管理 <span style="background:var(--rose);color:#fff;font-size:10px;padding:2px 8px;border-radius:6px;margin-left:6px;">NEW</span></div>
+        <div class="tm" style="margin-top:4px;">${catCount} 個主類別　／　統一支出/年繳/帳本分類</div>
+      </div>
+      <div style="font-size:24px;color:var(--rose);">→</div>
+    </button>
     <button onclick="setP('family')" style="padding:24px;border:1.5px solid var(--bdr);border-radius:var(--r-sm);background:var(--card);cursor:pointer;text-align:left;transition:all .25s;display:flex;gap:18px;align-items:center;">
       <div style="font-size:42px;flex-shrink:0;">👨‍👩‍👧</div>
       <div style="flex:1;">
@@ -10336,6 +10526,95 @@ window.setLedgerViewYear=(y)=>{S.ledgerViewYear=parseInt(y);render();};
 // 📊 切換歷年比較的分類（inline onchange 用）
 window.setLedgerCompareCat=(c)=>{S.ledgerCompareCat=c;render();};
 
+// 🏷️ 主類別管理 CRUD
+window.addMasterCat=async()=>{
+  const name=prompt('新類別名稱？（例：拜拜、寵物、孩子）');
+  if(!name||!name.trim())return;
+  const icon=prompt('選一個 emoji（例：🙏 🐈 👶）','📌')||'📌';
+  const cats=[...getMasterCats()];
+  const id='cat_'+Date.now();
+  cats.push({id,name:name.trim(),icon:icon.trim()});
+  await saveMain({masterCategories:cats});
+  toast(`✅ 已新增「${icon} ${name}」`);
+  render();
+};
+
+window.editMasterCat=async(id)=>{
+  const cats=[...getMasterCats()];
+  const idx=cats.findIndex(c=>c.id===id);
+  if(idx<0)return;
+  const cur=cats[idx];
+  const newName=prompt('修改類別名稱：',cur.name);
+  if(newName===null)return;
+  const newIcon=prompt('修改 emoji：',cur.icon);
+  if(newIcon===null)return;
+  cats[idx]={...cur,name:newName.trim()||cur.name,icon:newIcon.trim()||cur.icon};
+  await saveMain({masterCategories:cats});
+  toast(`✅ 已更新`);
+  render();
+};
+
+window.delMasterCat=async(id)=>{
+  const cats=getMasterCats();
+  const cur=cats.find(c=>c.id===id);
+  if(!cur)return;
+  if(!confirm(`確定刪除「${cur.icon} ${cur.name}」？\n\n⚠️ 已使用這個類別的支出/年繳會失去分類（顯示「其他」）`))return;
+  const list=cats.filter(c=>c.id!==id);
+  await saveMain({masterCategories:list});
+  toast('已刪除');
+  render();
+};
+
+// 🔄 套用類別遷移
+window.applyCatMigration=async()=>{
+  // 收集 mapping: {舊名: 新id}
+  const mapping={};
+  document.querySelectorAll('[id^="mig-"]').forEach(sel=>{
+    const oldName=sel.getAttribute('data-old');
+    const newId=sel.value;
+    if(oldName&&newId)mapping[oldName]=newId;
+  });
+  const migCount=Object.keys(mapping).length;
+  if(migCount===0){alert('沒有選擇任何遷移，請先為舊分類指定新的主類別');return;}
+  if(!confirm(`確定套用遷移？\n\n將把 ${migCount} 個舊分類歸類到主類別\n\n此動作可以透過再次遷移調整，不會刪除資料。`))return;
+
+  // 1. 遷移 expenses
+  const exps=(S.data.expenses||[]).map(e=>{
+    if(e.categoryId)return e; // 已有 id 就跳過
+    const newId=mapping[e.category];
+    if(newId)return{...e,categoryId:newId};
+    return e;
+  });
+
+  // 2. 遷移 ledgerEntries（用 cat 欄位）
+  const les=(S.data.ledgerEntries||[]).map(e=>{
+    if(e.categoryId)return e;
+    const newId=mapping[e.cat];
+    if(newId)return{...e,categoryId:newId};
+    return e;
+  });
+
+  // 3. 遷移 amortizedItems
+  const amorts=(S.data.amortizedItems||[]).map(a=>{
+    if(a.categoryId)return a;
+    const newId=mapping[a.category];
+    if(newId)return{...a,categoryId:newId};
+    return a;
+  });
+
+  // 4. 遷移 fixedItems
+  const fixed=(S.data.fixedItems||[]).map(f=>{
+    if(f.categoryId)return f;
+    const newId=mapping[f.category];
+    if(newId)return{...f,categoryId:newId};
+    return f;
+  });
+
+  await saveMain({expenses:exps,ledgerEntries:les,amortizedItems:amorts,fixedItems:fixed});
+  toast(`✅ 已遷移 ${migCount} 個舊分類！`);
+  render();
+};
+
 // 📒 addLE modal：切換「存入/支出」模式
 window.setLEType=(type)=>{
   S.leTypeMode=type;
@@ -10525,14 +10804,17 @@ window.quickSaveExpense=async()=>{
   const date=g('qe-date');
   const item=g('qe-item')||'';
   const amount=toN(g('qe-amt'));
-  const cat=g('qe-cat')||'其他';
+  const catId=g('qe-cat')||''; // 這裡拿到的是 cat_xxx id
+  // 從 id 反查名稱（相容舊 category 欄位）
+  const mc=findMasterCat(catId);
+  const catName=mc?mc.name:'其他';
   const paymentMethod=(document.querySelector('input[name="qe-pay-r"]:checked')||{}).value||'cash';
   const cardBank=paymentMethod==='credit'?(g('qe-card')||''):'';
   const frequency=(document.querySelector('input[name="qe-freq"]:checked')||{}).value||'once';
   if(!date||!amount){alert('請填日期和金額');return;}
   const d=new Date(date);
-  // payMethod 中文顯示（相容舊）
   const payTxt={cash:'現金',transfer:'轉帳',credit:'信用卡'}[paymentMethod]||'現金';
+  const cat=catName; // 相容舊變數名
   try{
     // 如果選了「每月固定」→ 自動加進固定支出
     if(frequency==='monthly'&&item){
@@ -10564,7 +10846,7 @@ window.quickSaveExpense=async()=>{
     }
     // 一律記一筆支出
     await addSub('expenses',{
-      date,amount,item,category:cat,
+      date,amount,item,category:cat,categoryId:catId||null,
       paymentMethod,cardBank,frequency,
       payMethod:payTxt, // 相容舊欄位
       user:S.user||'',note:'',
