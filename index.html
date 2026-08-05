@@ -2538,30 +2538,38 @@ function pgExpDash(){
       </div>
     </div>
 
-    <!-- 📊 依「細節類別」統計（主+子兩層，展開看子分類） -->
+    <!-- 📊 依「細節類別」統計（塊狀網格 + 顏色警示） -->
     ${catList.length>0?`<div style="background:#fff;border-radius:14px;padding:18px 20px;margin-bottom:20px;box-shadow:0 4px 16px rgba(194,116,122,0.08);">
-      <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--brown);margin-bottom:14px;">📊 依「細節類別」統計（${catList.length} 個主分類）</div>
-      <div style="display:grid;gap:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+        <span style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--brown);">📊 依「細節類別」統計（${catList.length} 個主分類）</span>
+        <span class="tm" style="font-size:11px;">🔴 佔比 &gt;30% 　🟡 15-30% 　⚪ 正常</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;">
         ${catList.map(([mainKey,d])=>{
           const pct=total>0?Math.round(d.total/total*100):0;
+          // 顏色警示
+          let borderCol='var(--bdr)',bgCol='var(--bg2)',amtCol='var(--brown)',pctCol='var(--mut)';
+          if(pct>=30){
+            borderCol='var(--red)';bgCol='var(--redL)';amtCol='var(--red)';pctCol='var(--red)';
+          }else if(pct>=15){
+            borderCol='var(--yelb)';bgCol='var(--yel)';amtCol='var(--goldDk)';pctCol='var(--yelb)';
+          }
           const subEntries=Object.entries(d.subs).sort((a,b)=>b[1]-a[1]);
           const hasMultiSub=subEntries.length>1||(subEntries.length===1&&subEntries[0][0]!=='(未指定)');
-          return`<details style="background:var(--bg2);border-radius:10px;padding:0;overflow:hidden;">
-            <summary style="cursor:pointer;padding:12px 14px;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:10px;">
-              <div style="flex:1;min-width:0;">
-                <div style="font-size:13.5px;color:var(--brown);font-weight:700;">${mainKey}</div>
-                <div class="tm" style="font-size:10.5px;margin-top:2px;">${hasMultiSub?`${subEntries.length} 個細節 · 點展開`:'佔 '+pct+'%'}</div>
-              </div>
-              <div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:var(--red);">$${fmt(d.total)}</div>
+          return`<details style="background:${bgCol};border:2px solid ${borderCol};border-radius:12px;overflow:hidden;">
+            <summary style="cursor:pointer;padding:14px 16px;list-style:none;">
+              <div style="font-size:12.5px;color:var(--brown);font-weight:700;line-height:1.4;">${mainKey}${pct>=30?' 🔴':pct>=15?' 🟡':''}</div>
+              <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:${amtCol};margin-top:6px;">$${fmt(d.total)}</div>
+              <div style="font-size:11px;color:${pctCol};margin-top:2px;font-weight:600;">佔 ${pct}%${hasMultiSub?` · ${subEntries.length} 個細節`:''}</div>
             </summary>
-            ${hasMultiSub?`<div style="padding:0 14px 12px;border-top:1px dashed var(--bdr);">
+            ${hasMultiSub?`<div style="padding:0 14px 12px;background:#fff;border-top:1px dashed var(--bdr);">
               ${subEntries.map(([subName,subAmt])=>{
                 const subPct=d.total>0?Math.round(subAmt/d.total*100):0;
-                return`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 6px;border-bottom:1px dashed var(--bdr);">
-                  <div style="font-size:12.5px;color:var(--brown);">📌 ${subName}</div>
-                  <div style="display:flex;align-items:center;gap:8px;">
-                    <div class="tm" style="font-size:10.5px;">${subPct}%</div>
-                    <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--roseDk);">$${fmt(subAmt)}</div>
+                return`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px dashed var(--bdr);">
+                  <div style="font-size:12px;color:var(--brown);">📌 ${subName}</div>
+                  <div style="display:flex;align-items:center;gap:6px;">
+                    <div class="tm" style="font-size:10px;">${subPct}%</div>
+                    <div style="font-family:'Noto Serif TC',serif;font-size:13px;font-weight:700;color:var(--roseDk);">$${fmt(subAmt)}</div>
                   </div>
                 </div>`;
               }).join('')}
