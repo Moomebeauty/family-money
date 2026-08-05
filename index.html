@@ -2207,15 +2207,24 @@ function pgExpDash(){
   });
 
   // 2️⃣ 年繳攤提月存（模擬支出，不寫入 expenses）
-  // 只在有設定的月份顯示（若 dueMonths 為空或包含本月）
+  // 🔗 新規則：如果該年繳項目「當年任何一個月」已被實繳過 → 該年全年不顯示攤提
   const amortItems=S.data.amortizedItems||[];
+  const currentYear=yr();
+  // 找出本年度已被實繳的年繳 ID 清單
+  const paidAmortIdsThisYear=new Set(
+    (S.data.ledgerEntries||[])
+      .filter(e=>e.year===currentYear&&toN(e.amount)<0&&e.linkedAmortId)
+      .map(e=>e.linkedAmortId)
+  );
   const amortMonthly=amortItems.map(a=>{
+    // 本年度已實繳的年繳 → 全年不顯示攤提（避免重複）
+    if(paidAmortIdsThisYear.has(a.id))return null;
     const monthly=toN(a.monthlyAmortize)||Math.ceil(toN(a.annualAmount)/12);
     if(monthly<=0)return null;
     return{
       id:'am_'+a.id,
       source:'amort',
-      date:`${yr()}-${String(S.month).padStart(2,'0')}-01`,
+      date:`${currentYear}-${String(S.month).padStart(2,'0')}-01`,
       category:a.category||'年繳',
       item:a.name+' · 本月攤提',
       amount:monthly,
@@ -2230,17 +2239,28 @@ function pgExpDash(){
     return e.month===S.month&&e.year===yr()&&toN(e.amount)<0;
   }).map(e=>{
     const led=getAllLedgers().find(x=>x.id===e.lid);
+    // 如果有連動年繳，備註顯示年繳項目名稱
+    let itemLabel=(led?led.name:'')+(e.note?' · '+e.note:'');
+    let categoryLabel=e.cat||'其他';
+    if(e.linkedAmortId){
+      const amort=amortItems.find(a=>a.id===e.linkedAmortId);
+      if(amort){
+        itemLabel=`🏺 ${amort.name} · ${led?led.name:''}（實繳）`;
+        categoryLabel=amort.category||categoryLabel;
+      }
+    }
     return{
       id:'le_'+e.id,
       source:'ledger',
       date:e.date,
-      category:e.cat||'其他',
-      item:(led?led.name:'')+(e.note?' · '+e.note:''),
+      category:categoryLabel,
+      item:itemLabel,
       amount:Math.abs(toN(e.amount)),
       paymentMethod:'',cardBank:'',payMethod:'',
       _origin:'ledger',
       _refId:e.id,
-      _ledgerName:led?led.name:''
+      _ledgerName:led?led.name:'',
+      _isAmortPayment:!!e.linkedAmortId // 標記這是年繳實繳
     };
   });
 
@@ -2276,10 +2296,14 @@ function pgExpDash(){
   const sortedExps=[...allExps].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
 
   // 來源 badge
-  const srcBadge=(s)=>{
+  const srcBadge=(e)=>{
+    const s=e.source;
     if(s==='fixed')return`<span style="background:var(--goldL);color:var(--goldDk);padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:600;">固定</span>`;
     if(s==='amort'||s==='amort_exp')return`<span style="background:var(--purl);color:var(--pur);padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:600;">年繳</span>`;
-    if(s==='ledger')return`<span style="background:var(--roseL);color:var(--roseDk);padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:600;">基金</span>`;
+    if(s==='ledger'){
+      if(e._isAmortPayment)return`<span style="background:var(--pur);color:#fff;padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:700;">🏺 年繳實繳</span>`;
+      return`<span style="background:var(--roseL);color:var(--roseDk);padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:600;">基金</span>`;
+    }
     return`<span style="background:var(--bg2);color:var(--mut);padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:600;">變動</span>`;
   };
 
@@ -2417,7 +2441,7 @@ function pgExpDash(){
               const canEdit=e._origin==='expense';
               return`<tr style="border-bottom:1px dashed var(--bdr);">
                 <td style="padding:12px 8px;color:var(--brown);white-space:nowrap;">${e.date||''}</td>
-                <td style="padding:12px 8px;white-space:nowrap;">${srcBadge(e.source)}</td>
+                <td style="padding:12px 8px;white-space:nowrap;">${srcBadge(e)}</td>
                 <td style="padding:12px 8px;"><span style="background:var(--bg2);color:var(--brown);padding:3px 10px;border-radius:8px;font-size:12px;font-weight:600;">${e.category||'其他'}</span></td>
                 <td style="padding:12px 8px;text-align:right;font-family:'Noto Serif TC',serif;font-weight:700;color:var(--red);">$${fmt(e.amount)}</td>
                 <td style="padding:12px 8px;color:var(--brown);white-space:nowrap;font-size:12px;">${payTxt}</td>
@@ -9235,6 +9259,17 @@ function modal(){
       <div class="fgrp" style="grid-column:1/-1"><label style="display:flex;justify-content:space-between;align-items:center;"><span>類別</span><button type="button" onclick="addNewLedgerCat('${l.id}')" style="background:var(--rose);color:#fff;border:none;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;">＋ 新增分類</button></label>
         <select id="m2">${l.cats.map(cat=>`<option>${cat}</option>`).join('')}</select>
       </div>
+      ${preType==='expense'?`<div class="fgrp" style="grid-column:1/-1"><label>🏺 這筆是繳年繳嗎？（選填）</label>
+        <select id="m-amort" style="background:var(--purl);">
+          <option value="">— 不是年繳，這是一般支出 —</option>
+          ${(S.data.amortizedItems||[]).map(a=>{
+            const annual=toN(a.annualAmount);
+            const monthly=toN(a.monthlyAmortize)||Math.ceil(annual/12);
+            return`<option value="${a.id}">🏺 ${a.name}（年繳 $${fmt(annual)} / 每月 $${fmt(monthly)}）</option>`;
+          }).join('')}
+        </select>
+        <div class="tm" style="font-size:11px;margin-top:4px;line-height:1.6;">💡 選了就不會重複算：實繳這個月不會再顯示攤提</div>
+      </div>`:''}
       <div class="fgrp" style="grid-column:1/-1"><label>說明備註（選填）</label><input type="text" id="m4" placeholder="例：加油、保養、保險費"></div>
     </div>
     <div class="mbtns" style="display:flex;gap:8px;">
@@ -11030,6 +11065,7 @@ window.saveLE=async()=>{
   const cardBank=g('m_card')||'';
   const note=g('m4')||'';
   const cat=g('m2')||(l.cats&&l.cats[0])||'其他';
+  const linkedAmortId=g('m-amort')||''; // 🏺 連動的年繳項目 ID
   const user=g('m3')||S.user||'';
   const mo=d.getMonth()+1,yr2=d.getFullYear();
 
@@ -11042,6 +11078,7 @@ window.saveLE=async()=>{
       note:note+(cardBank?` 💳 ${cardBank}`:''),
       month:mo,year:yr2,
       linkedCardBank:cardBank||null,
+      linkedAmortId:linkedAmortId||null, // 連動的年繳項目
       linkId:cardBank&&amount<0?linkId:null
     };
     await addSub('ledgerEntries',ledgerEntry);
