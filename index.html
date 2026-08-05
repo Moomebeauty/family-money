@@ -500,9 +500,14 @@ function findSubCat(mainCatId,subId){
 // 取得類別顯示（優先 categoryId，fallback 到 category 字串）
 function getCatDisplay(item){
   const cats=getMasterCats();
+  // 優先看 categoryId
   if(item.categoryId){
     const c=cats.find(x=>x.id===item.categoryId);
-    if(c)return`${c.icon} ${c.name}`;
+    if(c){
+      // 有子分類顯示「主 · 子」
+      if(item.subCategoryName)return`${c.icon} ${c.name} · ${item.subCategoryName}`;
+      return`${c.icon} ${c.name}`;
+    }
   }
   return item.category||item.cat||'其他';
 }
@@ -2329,6 +2334,8 @@ function pgExpDash(){
       date:e.date,
       category:e.category||'其他',
       categoryId:e.categoryId||null,
+      subCategoryId:e.subCategoryId||null,
+      subCategoryName:e.subCategoryName||'',
       item:e.item||'',
       amount:toN(e.amount),
       paymentMethod:e.paymentMethod||'',
@@ -2359,6 +2366,8 @@ function pgExpDash(){
       date:`${currentYear}-${String(S.month).padStart(2,'0')}-01`,
       category:a.category||'年繳',
       categoryId:a.categoryId||null,
+      subCategoryId:null,
+      subCategoryName:'',
       item:a.name+' · 本月攤提',
       amount:monthly,
       paymentMethod:'',cardBank:'',payMethod:'',
@@ -2374,12 +2383,24 @@ function pgExpDash(){
     const led=getAllLedgers().find(x=>x.id===e.lid);
     // 如果有連動年繳，備註顯示年繳項目名稱
     let itemLabel=(led?led.name:'')+(e.note?' · '+e.note:'');
-    let categoryLabel=e.cat||'其他';
+    // 優先用主類別（categoryId → 主類別名），fallback 到 e.cat
+    let categoryLabel;
+    if(e.categoryId){
+      const mc=findMasterCat(e.categoryId);
+      categoryLabel=mc?mc.name:(e.cat||'其他');
+    }else{
+      categoryLabel=e.cat||'其他';
+    }
     if(e.linkedAmortId){
       const amort=amortItems.find(a=>a.id===e.linkedAmortId);
       if(amort){
         itemLabel=`🏺 ${amort.name} · ${led?led.name:''}（實繳）`;
-        categoryLabel=amort.category||categoryLabel;
+        if(amort.categoryId){
+          const mc=findMasterCat(amort.categoryId);
+          categoryLabel=mc?mc.name:categoryLabel;
+        }else{
+          categoryLabel=amort.category||categoryLabel;
+        }
       }
     }
     return{
@@ -2388,6 +2409,8 @@ function pgExpDash(){
       date:e.date,
       category:categoryLabel,
       categoryId:e.categoryId||null,
+      subCategoryId:e.subCategoryId||null,
+      subCategoryName:e.subCategoryName||'',
       item:itemLabel,
       amount:Math.abs(toN(e.amount)),
       paymentMethod:'',cardBank:'',payMethod:'',
@@ -2430,13 +2453,12 @@ function pgExpDash(){
     }else{
       mainKey=(e.category||'其他').trim()||'其他';
     }
-    // 子分類
-    let subKey='';
-    if(e.subCategoryId&&mainCat){
+    // 子分類 — 優先讀 subCategoryName（新資料）
+    let subKey=(e.subCategoryName||'').trim();
+    if(!subKey&&e.subCategoryId&&mainCat){
       const sc=(mainCat.subs||[]).find(s=>s.id===e.subCategoryId);
       if(sc)subKey=sc.name;
     }
-    if(!subKey&&e.subCategoryName)subKey=e.subCategoryName;
     if(!subKey)subKey='(未指定)';
 
     if(!byMain[mainKey])byMain[mainKey]={total:0,subs:{}};
@@ -9838,12 +9860,41 @@ function modal(){
     const l=ALL.find(x=>x.id===le.lid)||ALL[S.ledgerIdx]||ALL[0];
     const banks=getBanks();
     const curBank=le.linkedCardBank||'';
-    c=`<div class="mttl">✏️ 編輯流水帳：${l.name}</div>
+    const curCatId=le.categoryId||(findMasterCatByName(le.cat)||{}).id||getMasterCats()[0].id;
+    const curSubId=le.subCategoryId||'';
+    const isDeposit=toN(le.amount)>0;
+    S.leTypeMode=isDeposit?'deposit':'expense';
+    c=`<div class="mttl">✏️ 編輯：${l.name}</div>
     ${le.linkId?`<div class="notice info" style="font-size:13px;margin-bottom:14px;">🔗 此筆已連動到信用卡 <b>${curBank}</b> 明細，修改後信用卡那邊也會自動更新。</div>`:''}
+
+    <!-- 存入/支出 radio -->
+    <div style="margin-bottom:14px;">
+      <label style="display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">這筆是什麼？</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <label style="cursor:pointer;padding:12px 8px;background:${isDeposit?'var(--grn)':'#fff'};color:${isDeposit?'#fff':'var(--brown)'};border:2px solid ${isDeposit?'var(--grn)':'var(--bdr)'};border-radius:12px;text-align:center;font-size:14px;font-weight:700;">
+          <input type="radio" name="le-type-edit" value="deposit" ${isDeposit?'checked':''} style="display:none;" onchange="setLEType('deposit')">
+          💰 存入
+        </label>
+        <label style="cursor:pointer;padding:12px 8px;background:${!isDeposit?'var(--red)':'#fff'};color:${!isDeposit?'#fff':'var(--brown)'};border:2px solid ${!isDeposit?'var(--red)':'var(--bdr)'};border-radius:12px;text-align:center;font-size:14px;font-weight:700;">
+          <input type="radio" name="le-type-edit" value="expense" ${!isDeposit?'checked':''} style="display:none;" onchange="setLEType('expense')">
+          💸 支出
+        </label>
+      </div>
+    </div>
+
     <div class="fg fg2">
       <div class="fgrp"><label>日期</label><input type="date" id="m0" value="${le.date||today()}"></div>
-      <div class="fgrp"><label>金額（正=存入 / 負=支出）</label><input type="number" id="m1" value="${le.amount||0}"></div>
-      <div class="fgrp"><label>類別</label><select id="m2">${l.cats.map(c=>`<option${c===(le.cat||'')?' selected':''}>${c}</option>`).join('')}</select></div>
+      <div class="fgrp"><label>金額（填正數）</label><input type="number" id="m1" value="${Math.abs(toN(le.amount))||0}"></div>
+      <div class="fgrp" style="grid-column:1/-1"><label>🏷️ 主類別</label>
+        <select id="m2" onchange="onMainCatChange(this.value,'m2-sub')">
+          ${getMasterCats().map(mc=>`<option value="${mc.id}" ${mc.id===curCatId?'selected':''}>${mc.icon} ${mc.name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="fgrp" style="grid-column:1/-1"><label style="display:flex;justify-content:space-between;align-items:center;"><span>📌 子分類（細節）</span><button type="button" onclick="addNewSubCat()" style="background:var(--rose);color:#fff;border:none;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;">＋ 新增細節</button></label>
+        <select id="m2-sub">
+          ${getSubCats(curCatId).map(s=>`<option value="${s.id}" ${s.id===curSubId?'selected':''}>${s.name}</option>`).join('')}
+        </select>
+      </div>
       <div class="fgrp" style="grid-column:1/-1"><label>說明備註</label><input type="text" id="m4" value="${(le.note||'').replace(/"/g,'&quot;')}"></div>
       <div class="fgrp" style="grid-column:1/-1;background:linear-gradient(135deg,var(--purl),var(--card));padding:14px 16px;border-radius:10px;border:1.5px solid var(--pur);">
         <label style="color:var(--pur);font-weight:700;">💳 用信用卡刷的嗎？</label>
@@ -9851,7 +9902,6 @@ function modal(){
           <option value="">不是，純現金/銀行扣款</option>
           ${banks.map(b=>`<option value="${b}"${b===curBank?' selected':''}>是，刷 ${b} 卡</option>`).join('')}
         </select>
-        <div class="tm" style="margin-top:6px;font-size:12px;">⚠️ 修改信用卡會：① 若原本有同步 → 同步信用卡明細；② 若原本無同步但你選了 → 新建立信用卡明細</div>
       </div>
     </div>
     <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="updLE('${le.id}')">✓ 更新</button></div>`;
@@ -11655,15 +11705,29 @@ window.updExp=async(id)=>{
   closeMod();
 };
 window.updLE=async(id)=>{
-  const date=g('m0'),amount=n('m1');
-  if(!date||amount===0){alert('請填日期和金額');return;}
+  const date=g('m0');
+  const rawAmount=n('m1');
+  const absAmt=Math.abs(rawAmount);
+  if(!date||absAmt===0){alert('請填日期和金額');return;}
+  // 用「存入 / 支出」radio 決定正負
+  const leType=S.leTypeMode||'expense';
+  const amount=leType==='deposit'?absAmt:-absAmt;
   const d=new Date(date);
   const oldLE=(S.data.ledgerEntries||[]).find(e=>e.id===id);
   if(!oldLE){alert('找不到原始記錄');return;}
   const ALL=getAllLedgers();
   const l=ALL.find(x=>x.id===oldLE.lid)||ALL[S.ledgerIdx]||ALL[0];
 
-  const cat=g('m2');
+  // 讀主+子類別
+  const catRaw=g('m2')||'';
+  const subCatRaw=g('m2-sub')||'';
+  const mcMain=findMasterCat(catRaw);
+  const cat=mcMain?mcMain.name:(catRaw||'其他');
+  const categoryId=mcMain?mcMain.id:null;
+  const sc=findSubCat(catRaw,subCatRaw);
+  const subCategoryId=sc?sc.id:null;
+  const subCategoryName=sc?sc.name:'';
+
   const note=g('m4')||'';
   const user=g('m3')||S.user;
   const newBank=g('m_card')||'';
@@ -11680,7 +11744,7 @@ window.updLE=async(id)=>{
     // 更新流水帳本身（用 setDoc 但要保留所有原欄位）
     const newLE={
       ...oldLE,
-      lid:l.id,date,amount,cat,user,
+      lid:l.id,date,amount,cat,categoryId,subCategoryId,subCategoryName,user,
       note:note,
       month:mo,year:yr2,
       linkedCardBank:newBank||null,
