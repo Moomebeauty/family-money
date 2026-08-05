@@ -7823,17 +7823,22 @@ function pgLedger(){
   const ldTargets=S.data.ledgerTargets||{};
   const target=toN(ldTargets[l.id])||0;
 
-  // 智能攤提建議：算過去 3 個月平均支出
+  // 💡 智能攤提建議：過去 12 個月自動適應
+  // - 有 12 個月資料 → 用 12 個月平均
+  // - 資料少於 12 月 → 用「有資料的月份」平均（不含 $0 的月，避免稀釋）
   const now=new Date();
-  const past3=[];
-  for(let i=1;i<=3;i++){
+  const past12=[];
+  for(let i=1;i<=12;i++){
     const m=new Date(now.getFullYear(),now.getMonth()-i,1);
     const y=m.getFullYear();
     const mo=m.getMonth()+1;
     const outT=allEntries.filter(e=>e.year===y&&e.month===mo&&toN(e.amount)<0).reduce((s,e)=>s+Math.abs(toN(e.amount)),0);
-    past3.push(outT);
+    past12.push({y,mo,total:outT});
   }
-  const avgOut=past3.length>0?Math.round(past3.reduce((s,v)=>s+v,0)/past3.length):0;
+  // 只取有花費的月份平均（避免新帳本被 $0 稀釋）
+  const activeMonths=past12.filter(x=>x.total>0);
+  const avgOut=activeMonths.length>0?Math.round(activeMonths.reduce((s,x)=>s+x.total,0)/activeMonths.length):0;
+  const avgMonthsCount=activeMonths.length;
 
   // 季度排名（by category）
   const curQ=Math.ceil(S.month/3);
@@ -7859,6 +7864,20 @@ function pgLedger(){
       <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--brown);letter-spacing:0.15em;">${l.name}</div>
       <div class="tm" style="font-size:12px;margin-top:2px;">${yr()} 年 ${S.month} 月</div>
     </div>
+
+    <!-- 📅 年份切換（在月份上方，順序：先選年 → 再選月） -->
+    ${(()=>{
+      const yearSet=new Set(allEntries.map(e=>e.year).filter(y=>y));
+      yearSet.add(yr());
+      yearSet.add(viewYear);
+      const years=[...yearSet].sort();
+      return`<div style="display:flex;gap:8px;justify-content:center;margin-bottom:12px;flex-wrap:wrap;">
+        ${years.map(y=>{
+          const isCur=y==viewYear;
+          return`<button onclick="setLedgerViewYear(${y})" style="padding:8px 20px;background:${isCur?'var(--rose)':'#fff'};color:${isCur?'#fff':'var(--brown)'};border:2px solid ${isCur?'var(--rose)':'var(--bdr)'};border-radius:20px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:all 0.2s;">${y} 年</button>`;
+        }).join('')}
+      </div>`;
+    })()}
 
     <!-- 月份切換 -->
     <div style="text-align:center;padding:0 0 16px;">
@@ -7925,7 +7944,7 @@ function pgLedger(){
       <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--blu);margin-bottom:8px;">💡 智能攤提建議</div>
       <div style="font-size:13px;color:var(--brown);line-height:1.9;">
         <div>· 本月存入：<b style="color:var(--grn);">$${fmt(mIn)}</b></div>
-        <div>· 過去 3 個月平均花：<b style="color:var(--red);">$${fmt(avgOut)}</b></div>
+        <div>· 過去 ${avgMonthsCount>=12?'12':avgMonthsCount} 個月平均花：<b style="color:var(--red);">$${fmt(avgOut)}</b> ${avgMonthsCount<3?`<span class="tm" style="font-size:11px;">（資料少，僅供參考）</span>`:''}</div>
         <div style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--bdr);">
           ${mIn>=avgOut?'✅ <b style="color:var(--grn);">存款符合支出，很好！</b>':mIn>0?`⚠️ <b style="color:var(--yelb);">存款不夠，建議每月多存 $${fmt(avgOut-mIn)}</b>`:'⛔ <b style="color:var(--red);">本月還沒存入，記得撥錢！</b>'}
         </div>
@@ -7936,21 +7955,6 @@ function pgLedger(){
     <div style="margin-bottom:16px;">
       <button onclick="openM('addLE')" style="width:100%;padding:16px;background:linear-gradient(135deg,var(--rose),var(--roseDk));color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:700;letter-spacing:0.1em;cursor:pointer;box-shadow:0 4px 12px rgba(194,116,122,0.3);">＋ 新增一筆</button>
     </div>
-
-    <!-- 📅 年份切換 -->
-    ${(()=>{
-      // 只列出有資料的年份（如果沒有就加上今年）
-      const yearSet=new Set(allEntries.map(e=>e.year).filter(y=>y));
-      yearSet.add(yr());
-      yearSet.add(viewYear);
-      const years=[...yearSet].sort();
-      return`<div style="display:flex;gap:8px;justify-content:center;margin-bottom:16px;flex-wrap:wrap;">
-        ${years.map(y=>{
-          const isCur=y==viewYear;
-          return`<button onclick="setLedgerViewYear(${y})" style="padding:8px 20px;background:${isCur?'var(--rose)':'#fff'};color:${isCur?'#fff':'var(--brown)'};border:2px solid ${isCur?'var(--rose)':'var(--bdr)'};border-radius:20px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:all 0.2s;">${y} 年</button>`;
-        }).join('')}
-      </div>`;
-    })()}
 
     <!-- 本月明細 -->
     <div style="background:#fff;border-radius:18px;padding:20px 22px;box-shadow:0 4px 16px rgba(194,116,122,0.10);margin-bottom:16px;border-top:4px solid var(--rose);">
