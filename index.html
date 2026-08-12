@@ -1893,72 +1893,132 @@ function pgSimple(){
 
 // 💵 記一筆收入（超簡單介面）
 function pgQuickIncome(){
-  const incs=(S.data.incomes||[]).filter(i=>i.month===S.month&&i.year===yr()).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  const total=incs.reduce((s,i)=>s+toN(i.amount),0);
+  const allIncs=(S.data.incomes||[]);
+  const members=S.data.familyMembers||['又權','于蜜','楷宸'];
+  const curIncMember=S.incMember||members[0];
+
+  // 近 12 個月的紀錄
+  const now=new Date();
+  const curYear=now.getFullYear();
+  const curMonth=now.getMonth()+1;
+  const monthKeys=[];
+  for(let i=0;i<12;i++){
+    const d=new Date(curYear,curMonth-1-i,1);
+    monthKeys.push({year:d.getFullYear(),month:d.getMonth()+1});
+  }
+  const in12=allIncs.filter(i=>{
+    return monthKeys.some(k=>k.year===i.year&&k.month===i.month);
+  });
+  const byMonth={};
+  monthKeys.forEach(k=>{
+    const key=`${k.year}-${String(k.month).padStart(2,'0')}`;
+    byMonth[key]={year:k.year,month:k.month,items:[],total:0};
+  });
+  in12.forEach(i=>{
+    const key=`${i.year}-${String(i.month).padStart(2,'0')}`;
+    if(byMonth[key]){
+      byMonth[key].items.push(i);
+      byMonth[key].total+=toN(i.amount);
+    }
+  });
+  const thisMonthKey=`${curYear}-${String(curMonth).padStart(2,'0')}`;
+  const thisMonthTotal=(byMonth[thisMonthKey]||{}).total||0;
+  const total12=in12.reduce((s,i)=>s+toN(i.amount),0);
+  const avgMonth=Math.round(total12/12);
+  const sourceSet=new Set(allIncs.map(i=>i.item).filter(x=>x));
+  const sources=[...sourceSet];
 
   return`
-  <div style="max-width:720px;margin:0 auto;">
-
+  <div style="max-width:820px;margin:0 auto;">
     <!-- 大標題 -->
     <div style="text-align:center;padding:20px 0 16px;">
       <div style="font-size:48px;">💵</div>
       <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--grn);letter-spacing:0.15em;margin-top:4px;">記一筆收入</div>
+      <div class="tm" style="font-size:12.5px;margin-top:4px;">記錄家庭每一筆進帳</div>
     </div>
 
-    <!-- 快速輸入卡 -->
-    <div style="background:#fff;border-radius:20px;padding:24px 26px;box-shadow:0 8px 24px rgba(125,184,154,0.15);margin-bottom:16px;border-top:4px solid var(--grn);">
+    <!-- 統計卡 -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px;">
+      <div style="background:#fff;border-radius:14px;padding:18px 20px;border:2px solid var(--grn);">
+        <div class="tm" style="font-size:12px;color:var(--brown);font-weight:600;">${curMonth} 月收入</div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:26px;font-weight:700;color:var(--grn);margin-top:4px;">$${fmt(thisMonthTotal)}</div>
+      </div>
+      <div style="background:#fff;border-radius:14px;padding:18px 20px;border:1px solid var(--bdr);">
+        <div class="tm" style="font-size:12px;color:var(--brown);font-weight:600;">近 12 個月合計</div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--brown);margin-top:4px;">$${fmt(total12)}</div>
+      </div>
+      <div style="background:#fff;border-radius:14px;padding:18px 20px;border:1px solid var(--bdr);">
+        <div class="tm" style="font-size:12px;color:var(--brown);font-weight:600;">月平均收入</div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--goldDk);margin-top:4px;">$${fmt(avgMonth)}</div>
+      </div>
+    </div>
+
+    <!-- 新增卡 -->
+    <div style="background:#fff;border-radius:14px;padding:20px 22px;box-shadow:0 4px 16px rgba(125,184,154,0.10);margin-bottom:16px;border-top:4px solid var(--grn);">
+      <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--grn);margin-bottom:12px;">＋ 新增一筆收入</div>
 
       <div style="margin-bottom:14px;">
-        <label style="display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">日期</label>
-        <input type="date" id="qi-date" value="${smartDateForMonth(S.month,yr())}" style="width:100%;padding:12px 16px;font-size:15px;border:2px solid var(--bdr);border-radius:12px;background:var(--bg2);">
+        <label style="display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">🧑‍🤝‍🧑 誰的收入？</label>
+        <div style="display:grid;grid-template-columns:repeat(${members.length},1fr);gap:8px;">
+          ${members.map(m=>`<label style="cursor:pointer;padding:12px 8px;background:${curIncMember===m?'var(--grn)':'#fff'};color:${curIncMember===m?'#fff':'var(--brown)'};border:2px solid ${curIncMember===m?'var(--grn)':'var(--bdr)'};border-radius:12px;text-align:center;font-size:14px;font-weight:700;" onclick="selIncMember('${m}')">
+            <input type="radio" name="qi-member" value="${m}" ${curIncMember===m?'checked':''} style="display:none;">${m}
+          </label>`).join('')}
+        </div>
       </div>
 
-      <div style="margin-bottom:14px;">
-        <label style="display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">來源（哪裡來的）</label>
-        <input type="text" id="qi-item" placeholder="如：薪水、兼職、獎金" style="width:100%;padding:12px 16px;font-size:15px;border:2px solid var(--bdr);border-radius:12px;">
+      <div class="fg fg2">
+        <div class="fgrp"><label>📅 日期</label><input type="date" id="qi-date" value="${smartDateForMonth(S.month,yr())}"></div>
+        <div class="fgrp"><label>💰 金額</label><input type="number" id="qi-amt" placeholder="0" class="amt-input" style="font-size:18px;font-weight:700;color:var(--grn);"></div>
+        <div class="fgrp" style="grid-column:1/-1"><label>來源（哪裡來的）</label>
+          <input type="text" id="qi-item" placeholder="如：學校薪資、獎金、兼職" list="qi-source-list">
+          <datalist id="qi-source-list">
+            ${sources.map(s=>`<option value="${s}">`).join('')}
+          </datalist>
+        </div>
+        <div class="fgrp" style="grid-column:1/-1"><label>📝 備註（選填）</label><input type="text" id="qi-note" placeholder="說明或備忘"></div>
       </div>
 
-      <div style="margin-bottom:14px;">
-        <label style="display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">金額</label>
-        <input type="number" inputmode="decimal" id="qi-amt" placeholder="0" class="amt-input" style="width:100%;padding:14px 18px;font-size:24px;font-weight:700;text-align:right;border:2px solid var(--grn);border-radius:12px;color:var(--grn);background:var(--grnl);">
-      </div>
-
-      <div style="margin-bottom:20px;">
-        <label style="display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">類別</label>
-        <select id="qi-cat" style="width:100%;padding:12px 16px;font-size:15px;border:2px solid var(--bdr);border-radius:12px;">
-          <option>薪水</option>
-          <option>兼職</option>
-          <option>獎金</option>
-          <option>投資收益</option>
-          <option>被動收入</option>
-          <option>禮金</option>
-          <option>其他</option>
-        </select>
-      </div>
-
-      <button onclick="quickSaveIncome()" style="width:100%;padding:16px;background:linear-gradient(135deg,var(--grn),#5B9E7A);color:#fff;border:none;border-radius:14px;font-size:17px;font-weight:700;letter-spacing:0.1em;cursor:pointer;box-shadow:0 4px 12px rgba(125,184,154,0.3);">
-        ✓ 存入收入
+      <button onclick="quickSaveIncome()" style="width:100%;margin-top:14px;padding:14px;background:linear-gradient(135deg,var(--grn),#5B9E7A);color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;letter-spacing:0.1em;cursor:pointer;box-shadow:0 4px 12px rgba(125,184,154,0.3);">
+        ＋ 記錄收入
       </button>
     </div>
 
-    <!-- 本月已記錄 -->
-    <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(194,116,122,0.10);">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px;">
-        <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);">本月已記錄</span>
-        <span style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--grn);">$${fmt(total)}</span>
-      </div>
-      ${incs.length===0?'<div style="text-align:center;padding:20px;color:var(--mut);font-size:13px;">還沒記錄任何收入</div>':`
-        <div style="max-height:400px;overflow-y:auto;">
-        ${incs.map(i=>`<div style="padding:10px 4px;border-bottom:1px dashed var(--bdr);display:flex;justify-content:space-between;align-items:center;gap:10px;">
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:13.5px;color:var(--brown);font-weight:600;">${i.item||'-'}　<span style="font-size:11px;color:var(--mut);font-weight:400;">${i.category||''}</span></div>
-            <div class="tm" style="font-size:11px;">${i.date||''}</div>
+    <!-- 近 12 個月明細 -->
+    <div style="background:#fff;border-radius:14px;padding:20px 22px;box-shadow:0 4px 16px rgba(194,116,122,0.10);">
+      <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--brown);margin-bottom:14px;">📋 近 12 個月收入紀錄</div>
+      ${monthKeys.map(k=>{
+        const key=`${k.year}-${String(k.month).padStart(2,'0')}`;
+        const grp=byMonth[key];
+        if(!grp||grp.items.length===0)return`<div style="padding:10px 6px;border-bottom:1px dashed var(--bdr);display:flex;justify-content:space-between;align-items:center;color:var(--mut);">
+          <span style="font-size:13px;">${k.year} 年 ${k.month} 月</span>
+          <span style="font-size:12px;">— 沒紀錄</span>
+        </div>`;
+        return`<details ${key===thisMonthKey?'open':''} style="border-bottom:1px solid var(--bdr);">
+          <summary style="cursor:pointer;padding:12px 6px;list-style:none;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <span style="font-size:14px;color:var(--brown);font-weight:700;">${k.year} 年 ${k.month} 月</span>
+              <span class="tm" style="font-size:11px;margin-left:6px;">${grp.items.length} 筆</span>
+            </div>
+            <span style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--grn);">$${fmt(grp.total)}</span>
+          </summary>
+          <div style="padding:0 6px 10px;">
+            ${grp.items.sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(i=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 8px;background:var(--bg2);border-radius:8px;margin-bottom:6px;">
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:13px;color:var(--brown);font-weight:600;">
+                  ${i.member?`<span style="background:var(--grn);color:#fff;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:6px;margin-right:6px;">${i.member}</span>`:''}
+                  ${i.item||i.category||'-'}
+                </div>
+                <div class="tm" style="font-size:10.5px;margin-top:2px;">${i.date||''}${i.note?` · ${i.note}`:''}</div>
+              </div>
+              <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--grn);white-space:nowrap;">+$${fmt(toN(i.amount))}</div>
+              <div style="display:flex;gap:4px;">
+                <button onclick="editIncome('${i.id}')" style="background:none;border:none;color:var(--mut);font-size:14px;cursor:pointer;padding:2px 4px;" title="編輯">✏️</button>
+                <button onclick="delIncome('${i.id}')" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;padding:2px 4px;">×</button>
+              </div>
+            </div>`).join('')}
           </div>
-          <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--grn);white-space:nowrap;">+$${fmt(toN(i.amount))}</div>
-          <button onclick="delInc('${i.id}')" style="background:none;border:none;color:var(--red);font-size:18px;cursor:pointer;padding:4px 8px;">×</button>
-        </div>`).join('')}
-        </div>
-      `}
+        </details>`;
+      }).join('')}
     </div>
   </div>`;
 }
@@ -9853,6 +9913,35 @@ function modal(){
     </div>
     <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="saveCustomLedger()">✓ 新增</button></div>`;}
 
+  // 💵 編輯收入 modal
+  if(m.t==='editIncome'){
+    const inc=(S.data.incomes||[]).find(i=>i.id===m.x)||{};
+    const members=S.data.familyMembers||['又權','于蜜','楷宸'];
+    const curMem=inc.member||members[0];
+    const sources=[...new Set((S.data.incomes||[]).map(i=>i.item).filter(x=>x))];
+    c=`<div class="mttl">✏️ 編輯收入</div>
+    <div style="margin-bottom:14px;">
+      <label style="display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">🧑‍🤝‍🧑 誰的收入？</label>
+      <div style="display:grid;grid-template-columns:repeat(${members.length},1fr);gap:8px;">
+        ${members.map(mm=>`<label style="cursor:pointer;padding:12px 8px;background:${curMem===mm?'var(--grn)':'#fff'};color:${curMem===mm?'#fff':'var(--brown)'};border:2px solid ${curMem===mm?'var(--grn)':'var(--bdr)'};border-radius:12px;text-align:center;font-size:14px;font-weight:700;">
+          <input type="radio" name="ei-member" value="${mm}" ${curMem===mm?'checked':''} style="display:none;" onchange="selEditIncMember('${mm}')">${mm}
+        </label>`).join('')}
+      </div>
+    </div>
+    <div class="fg fg2">
+      <div class="fgrp"><label>📅 日期</label><input type="date" id="ei-date" value="${inc.date||today()}"></div>
+      <div class="fgrp"><label>💰 金額</label><input type="number" id="ei-amt" value="${inc.amount||0}" class="amt-input" style="font-size:18px;font-weight:700;color:var(--grn);"></div>
+      <div class="fgrp" style="grid-column:1/-1"><label>來源</label>
+        <input type="text" id="ei-item" value="${(inc.item||'').replace(/"/g,'&quot;')}" list="ei-source-list">
+        <datalist id="ei-source-list">
+          ${sources.map(s=>`<option value="${s}">`).join('')}
+        </datalist>
+      </div>
+      <div class="fgrp" style="grid-column:1/-1"><label>📝 備註</label><input type="text" id="ei-note" value="${(inc.note||'').replace(/"/g,'&quot;')}"></div>
+    </div>
+    <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="updIncome('${inc.id}')" style="background:var(--grn);">✓ 儲存變更</button></div>`;
+  }
+
   if(m.t==='editLE'){
     const ALL=getAllLedgers();
     const le=(S.data.ledgerEntries||[]).find(e=>e.id===m.x)||{};
@@ -10987,18 +11076,87 @@ window.quickSaveIncome=async()=>{
   const date=g('qi-date');
   const item=g('qi-item')||'';
   const amount=toN(g('qi-amt'));
-  const cat=g('qi-cat')||'其他';
+  const note=g('qi-note')||'';
+  const member=(document.querySelector('input[name="qi-member"]:checked')||{}).value||(S.data.familyMembers||['又權'])[0];
   if(!date||!amount){alert('請填日期和金額');return;}
+  if(!item){alert('請填收入來源');return;}
   const d=new Date(date);
   try{
-    await addSub('incomes',{date,amount,item,category:cat,user:S.user||'',note:'',month:d.getMonth()+1,year:d.getFullYear()});
-    toast(`✅ 已記錄 +$${fmt(amount)}`);
-    // 清空表單
+    await addSub('incomes',{
+      date,amount,item,category:item, // category 存來源（相容舊）
+      member, // 🆕 家人
+      note,   // 🆕 備註
+      user:S.user||'',
+      month:d.getMonth()+1,year:d.getFullYear()
+    });
+    toast(`✅ 已記錄 ${member} +$${fmt(amount)}`);
     document.getElementById('qi-item').value='';
     document.getElementById('qi-amt').value='';
-    // 停留在這頁繼續記
+    document.getElementById('qi-note').value='';
     setTimeout(()=>render(),300);
   }catch(err){alert('儲存失敗：'+err.message);}
+};
+
+// 🧑‍🤝‍🧑 選擇收入的家人（inline onclick 用）
+window.selIncMember=(m)=>{
+  S.incMember=m;
+  render();
+};
+
+// ✏️ 編輯收入
+window.editIncome=(id)=>{
+  const inc=(S.data.incomes||[]).find(i=>i.id===id);
+  if(!inc)return;
+  S.modal={t:'editIncome',x:id};
+  render();
+};
+
+// 🗑️ 刪除收入
+window.delIncome=async(id)=>{
+  if(!confirm('確定刪除這筆收入紀錄？'))return;
+  try{
+    await deleteDoc(doc(db,'families',FID,'incomes',id));
+    toast('已刪除');
+    render();
+  }catch(err){alert('刪除失敗：'+err.message);}
+};
+
+// ✏️ 更新收入
+window.updIncome=async(id)=>{
+  const date=g('ei-date');
+  const amount=toN(g('ei-amt'));
+  const item=g('ei-item')||'';
+  const note=g('ei-note')||'';
+  const member=(document.querySelector('input[name="ei-member"]:checked')||{}).value||'又權';
+  if(!date||!amount){alert('請填日期和金額');return;}
+  if(!item){alert('請填收入來源');return;}
+  const d=new Date(date);
+  const old=(S.data.incomes||[]).find(i=>i.id===id)||{};
+  const newInc={...old,date,amount,item,category:item,member,note,month:d.getMonth()+1,year:d.getFullYear()};
+  delete newInc.id;
+  Object.keys(newInc).forEach(k=>{if(newInc[k]===undefined)newInc[k]=null;});
+  try{
+    await setDoc(doc(db,'families',FID,'incomes',id),newInc);
+    toast('✅ 已更新');
+    closeMod();
+  }catch(err){alert('更新失敗：'+err.message);}
+};
+
+// 編輯收入時切換家人
+window.selEditIncMember=(m)=>{
+  document.querySelectorAll('input[name="ei-member"]').forEach(r=>{r.checked=(r.value===m);});
+  document.querySelectorAll('input[name="ei-member"]').forEach(r=>{
+    const lbl=r.parentElement;
+    if(r.checked){
+      lbl.style.background='var(--grn)';
+      lbl.style.color='#fff';
+      lbl.style.borderColor='var(--grn)';
+    }else{
+      lbl.style.background='#fff';
+      lbl.style.color='var(--brown)';
+      lbl.style.borderColor='var(--bdr)';
+    }
+  });
 };
 
 // 🍑 極簡版：快速記錄支出（加強版：付款方式 + 信用卡銀行 + 頻率）
