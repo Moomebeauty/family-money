@@ -2715,7 +2715,7 @@ function pgExpDash(){
   };
 
   return`
-  <div style="max-width:1100px;margin:0 auto;padding:0 4px;">
+  <div style="max-width:1400px;margin:0 auto;padding:0 4px;">
 
     <!-- 標題 -->
     <div style="padding:16px 4px 20px;">
@@ -2827,6 +2827,266 @@ function pgExpDash(){
         }).join('')}
       </div>
     </div>`:''}
+
+    <!-- 📊 12 個月支出趨勢表（可切換視角） -->
+    ${(()=>{
+      const viewMode=S.expView||'byCat'; // byCat | byNature | byPay
+      const nowD=new Date();
+      const cYear=nowD.getFullYear(),cMonth=nowD.getMonth()+1;
+      const mKeys=[];
+      for(let i=0;i<12;i++){
+        const d=new Date(cYear,cMonth-1-i,1);
+        mKeys.push({year:d.getFullYear(),month:d.getMonth()+1});
+      }
+      const thisMK=`${cYear}-${String(cMonth).padStart(2,'0')}`;
+      const mcatsE=getMasterCats();
+
+      // 收集 12 個月的所有支出（一般 + 年繳攤提 + 帳本負數）
+      const collect12=()=>{
+        const list=[];
+        // regularExps 12 月
+        (S.data.expenses||[]).forEach(e=>{
+          if(e.fromLedger||e.excludeFromBudget)return;
+          const inRange=mKeys.some(k=>k.year===e.year&&k.month===e.month);
+          if(!inRange)return;
+          const isFixed=e.frequency==='monthly';
+          list.push({
+            year:e.year,month:e.month,
+            amount:toN(e.amount),
+            category:e.category||'其他',categoryId:e.categoryId||null,
+            nature:isFixed?'固定':'變動',
+            paymentMethod:e.paymentMethod||(e.payMethod==='現金'?'cash':e.payMethod==='轉帳'?'transfer':e.payMethod==='信用卡'?'credit':'')
+          });
+        });
+        // 年繳攤提（每月 × 12）：排除本年已被實繳的
+        const paidAmortByYear={};
+        (S.data.ledgerEntries||[]).forEach(e=>{
+          if(toN(e.amount)<0&&e.linkedAmortId){
+            paidAmortByYear[e.year]=paidAmortByYear[e.year]||new Set();
+            paidAmortByYear[e.year].add(e.linkedAmortId);
+          }
+        });
+        (S.data.amortizedItems||[]).forEach(a=>{
+          const monthly=toN(a.monthlyAmortize)||Math.ceil(toN(a.annualAmount)/12);
+          if(monthly<=0)return;
+          mKeys.forEach(k=>{
+            if((paidAmortByYear[k.year]||new Set()).has(a.id))return;
+            list.push({
+              year:k.year,month:k.month,
+              amount:monthly,
+              category:a.category||'年繳',categoryId:a.categoryId||null,
+              nature:'年繳',
+              paymentMethod:''
+            });
+          });
+        });
+        // ledgerEntries 12 月（負數）
+        (S.data.ledgerEntries||[]).forEach(e=>{
+          if(toN(e.amount)>=0)return;
+          const inRange=mKeys.some(k=>k.year===e.year&&k.month===e.month);
+          if(!inRange)return;
+          let catName=e.cat||'其他';
+          if(e.categoryId){
+            const mc=findMasterCat(e.categoryId);
+            if(mc)catName=mc.name;
+          }
+          list.push({
+            year:e.year,month:e.month,
+            amount:Math.abs(toN(e.amount)),
+            category:catName,categoryId:e.categoryId||null,
+            nature:'基金',
+            paymentMethod:''
+          });
+        });
+        return list;
+      };
+      const all12=collect12();
+
+      // 按主類別 pivot
+      const usedMainKeys=new Set();
+      all12.forEach(e=>{
+        let mk;
+        if(e.categoryId){
+          const mc=mcatsE.find(x=>x.id===e.categoryId);
+          mk=mc?`${mc.icon} ${mc.name}`:(e.category||'其他');
+        }else{mk=e.category||'其他';}
+        usedMainKeys.add(mk);
+      });
+      const mainKeyList=[...usedMainKeys];
+
+      const tblCat={},tblNat={},tblPay={};
+      mKeys.forEach(k=>{
+        const key=`${k.year}-${String(k.month).padStart(2,'0')}`;
+        tblCat[key]={_total:0};mainKeyList.forEach(mk=>{tblCat[key][mk]=0;});
+        tblNat[key]={固定:0,年繳:0,變動:0,基金:0,_total:0};
+        tblPay[key]={cash:0,transfer:0,credit:0,none:0,_total:0};
+      });
+      all12.forEach(e=>{
+        const key=`${e.year}-${String(e.month).padStart(2,'0')}`;
+        if(!tblCat[key])return;
+        // 主類別 key
+        let mk;
+        if(e.categoryId){
+          const mc=mcatsE.find(x=>x.id===e.categoryId);
+          mk=mc?`${mc.icon} ${mc.name}`:(e.category||'其他');
+        }else{mk=e.category||'其他';}
+        tblCat[key][mk]+=e.amount;tblCat[key]._total+=e.amount;
+        // 性質
+        tblNat[key][e.nature]+=e.amount;tblNat[key]._total+=e.amount;
+        // 付款方式
+        const p=e.paymentMethod||'none';
+        if(tblPay[key][p]!==undefined)tblPay[key][p]+=e.amount;
+        else tblPay[key].none+=e.amount;
+        tblPay[key]._total+=e.amount;
+      });
+
+      // 各欄合計
+      const catTotals={};mainKeyList.forEach(mk=>{catTotals[mk]=0;});
+      const natTotals={固定:0,年繳:0,變動:0,基金:0};
+      const payTotals={cash:0,transfer:0,credit:0,none:0};
+      let grand12=0;
+      all12.forEach(e=>{
+        let mk;
+        if(e.categoryId){
+          const mc=mcatsE.find(x=>x.id===e.categoryId);
+          mk=mc?`${mc.icon} ${mc.name}`:(e.category||'其他');
+        }else{mk=e.category||'其他';}
+        catTotals[mk]=(catTotals[mk]||0)+e.amount;
+        natTotals[e.nature]+=e.amount;
+        const p=e.paymentMethod||'none';
+        if(payTotals[p]!==undefined)payTotals[p]+=e.amount;
+        else payTotals.none+=e.amount;
+        grand12+=e.amount;
+      });
+
+      const payLbl={cash:'💵 現金',transfer:'🏦 轉帳',credit:'💳 信用卡',none:'其他/未指定'};
+      const natLbl={固定:'📌 固定',年繳:'🏺 年繳攤提',變動:'🎲 變動',基金:'📒 基金'};
+
+      return`<div style="background:#fff;border-radius:14px;padding:18px 20px;margin-bottom:20px;box-shadow:0 4px 16px rgba(194,116,122,0.08);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+          <span style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--brown);">📊 近 12 個月支出趨勢</span>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button onclick="setExpView('byCat')" style="padding:6px 12px;background:${viewMode==='byCat'?'var(--rose)':'#fff'};color:${viewMode==='byCat'?'#fff':'var(--brown)'};border:1.5px solid ${viewMode==='byCat'?'var(--rose)':'var(--bdr)'};border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">🏷️ 按主類別</button>
+            <button onclick="setExpView('byNature')" style="padding:6px 12px;background:${viewMode==='byNature'?'var(--gold)':'#fff'};color:${viewMode==='byNature'?'#fff':'var(--brown)'};border:1.5px solid ${viewMode==='byNature'?'var(--gold)':'var(--bdr)'};border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">📌 按性質</button>
+            <button onclick="setExpView('byPay')" style="padding:6px 12px;background:${viewMode==='byPay'?'var(--pur)':'#fff'};color:${viewMode==='byPay'?'#fff':'var(--brown)'};border:1.5px solid ${viewMode==='byPay'?'var(--pur)':'var(--bdr)'};border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">💳 按付款方式</button>
+          </div>
+        </div>
+
+        <div style="overflow-x:auto;">
+          ${viewMode==='byCat'?`<table style="width:100%;border-collapse:collapse;font-size:13px;min-width:${Math.max(600,mainKeyList.length*100+150)}px;">
+            <thead>
+              <tr style="background:var(--bg2);">
+                <th style="padding:10px 12px;text-align:left;color:var(--brown);font-weight:700;font-size:12px;border-bottom:2px solid var(--bdr);position:sticky;left:0;background:var(--bg2);">月份</th>
+                ${mainKeyList.map(mk=>`<th style="padding:8px 10px;text-align:right;color:var(--brown);font-weight:700;font-size:11px;border-bottom:2px solid var(--bdr);white-space:nowrap;">${mk}</th>`).join('')}
+                <th style="padding:10px 12px;text-align:right;color:var(--red);font-weight:700;font-size:12px;border-bottom:2px solid var(--bdr);">合計</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${mKeys.map(k=>{
+                const key=`${k.year}-${String(k.month).padStart(2,'0')}`;
+                const row=tblCat[key];const isCur=key===thisMK;
+                return`<tr style="border-bottom:1px dashed var(--bdr);${isCur?'background:var(--goldL);':''}">
+                  <td style="padding:8px 12px;color:var(--brown);font-weight:${isCur?'700':'500'};white-space:nowrap;position:sticky;left:0;background:${isCur?'var(--goldL)':'#fff'};">${k.year}-${String(k.month).padStart(2,'0')}${isCur?' ●':''}</td>
+                  ${mainKeyList.map(mk=>{
+                    const v=row[mk]||0;
+                    return`<td style="padding:8px 10px;text-align:right;font-family:'Noto Serif TC',serif;font-weight:${isCur?'700':'500'};color:${v>0?'var(--brown)':'var(--mut)'};font-size:12px;">${v>0?'$'+fmt(v):'—'}</td>`;
+                  }).join('')}
+                  <td style="padding:8px 12px;text-align:right;font-family:'Noto Serif TC',serif;font-weight:700;color:${row._total>0?'var(--red)':'var(--mut)'};">${row._total>0?'$'+fmt(row._total):'—'}</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+            <tfoot>
+              <tr style="background:var(--bg2);border-top:2px solid var(--bdr);">
+                <td style="padding:10px 12px;color:var(--brown);font-weight:700;position:sticky;left:0;background:var(--bg2);">12 月合計</td>
+                ${mainKeyList.map(mk=>`<td style="padding:10px;text-align:right;font-family:'Noto Serif TC',serif;font-weight:700;color:var(--brown);font-size:12px;">$${fmt(catTotals[mk]||0)}</td>`).join('')}
+                <td style="padding:10px 12px;text-align:right;font-family:'Noto Serif TC',serif;font-weight:700;color:var(--red);">$${fmt(grand12)}</td>
+              </tr>
+              <tr style="background:var(--bg2);">
+                <td style="padding:8px 12px;color:var(--brown);font-weight:600;font-size:11.5px;position:sticky;left:0;background:var(--bg2);">月平均</td>
+                ${mainKeyList.map(mk=>`<td style="padding:8px 10px;text-align:right;font-family:'Noto Serif TC',serif;font-weight:600;color:var(--brown);font-size:11.5px;">$${fmt(Math.round((catTotals[mk]||0)/12))}</td>`).join('')}
+                <td style="padding:8px 12px;text-align:right;font-family:'Noto Serif TC',serif;font-weight:700;color:var(--goldDk);font-size:12.5px;">$${fmt(Math.round(grand12/12))}</td>
+              </tr>
+            </tfoot>
+          </table>`:''}
+
+          ${viewMode==='byNature'?`<table style="width:100%;border-collapse:collapse;font-size:13px;min-width:600px;">
+            <thead>
+              <tr style="background:var(--bg2);">
+                <th style="padding:10px 12px;text-align:left;color:var(--brown);font-weight:700;font-size:12px;border-bottom:2px solid var(--bdr);">月份</th>
+                ${['固定','年繳','變動','基金'].map(n=>`<th style="padding:10px 12px;text-align:right;color:var(--brown);font-weight:700;font-size:12px;border-bottom:2px solid var(--bdr);">${natLbl[n]}</th>`).join('')}
+                <th style="padding:10px 12px;text-align:right;color:var(--red);font-weight:700;font-size:12px;border-bottom:2px solid var(--bdr);">合計</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${mKeys.map(k=>{
+                const key=`${k.year}-${String(k.month).padStart(2,'0')}`;
+                const row=tblNat[key];const isCur=key===thisMK;
+                return`<tr style="border-bottom:1px dashed var(--bdr);${isCur?'background:var(--goldL);':''}">
+                  <td style="padding:10px 12px;color:var(--brown);font-weight:${isCur?'700':'500'};white-space:nowrap;">${k.year}-${String(k.month).padStart(2,'0')}${isCur?' ●':''}</td>
+                  ${['固定','年繳','變動','基金'].map(n=>{
+                    const v=row[n]||0;
+                    return`<td style="padding:10px 12px;text-align:right;font-family:'Noto Serif TC',serif;font-weight:${isCur?'700':'500'};color:${v>0?'var(--brown)':'var(--mut)'};">${v>0?'$'+fmt(v):'—'}</td>`;
+                  }).join('')}
+                  <td style="padding:10px 12px;text-align:right;font-family:'Noto Serif TC',serif;font-weight:700;color:${row._total>0?'var(--red)':'var(--mut)'};">${row._total>0?'$'+fmt(row._total):'—'}</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+            <tfoot>
+              <tr style="background:var(--bg2);border-top:2px solid var(--bdr);">
+                <td style="padding:12px;color:var(--brown);font-weight:700;">12 月合計</td>
+                ${['固定','年繳','變動','基金'].map(n=>`<td style="padding:12px;text-align:right;font-family:'Noto Serif TC',serif;font-weight:700;color:var(--brown);">$${fmt(natTotals[n])}</td>`).join('')}
+                <td style="padding:12px;text-align:right;font-family:'Noto Serif TC',serif;font-weight:700;color:var(--red);">$${fmt(grand12)}</td>
+              </tr>
+              <tr style="background:var(--bg2);">
+                <td style="padding:8px 12px;color:var(--brown);font-weight:600;font-size:11.5px;">月平均</td>
+                ${['固定','年繳','變動','基金'].map(n=>`<td style="padding:8px 12px;text-align:right;font-family:'Noto Serif TC',serif;font-weight:600;color:var(--brown);font-size:12.5px;">$${fmt(Math.round(natTotals[n]/12))}</td>`).join('')}
+                <td style="padding:8px 12px;text-align:right;font-family:'Noto Serif TC',serif;font-weight:700;color:var(--goldDk);font-size:12.5px;">$${fmt(Math.round(grand12/12))}</td>
+              </tr>
+            </tfoot>
+          </table>`:''}
+
+          ${viewMode==='byPay'?`<table style="width:100%;border-collapse:collapse;font-size:13px;min-width:600px;">
+            <thead>
+              <tr style="background:var(--bg2);">
+                <th style="padding:10px 12px;text-align:left;color:var(--brown);font-weight:700;font-size:12px;border-bottom:2px solid var(--bdr);">月份</th>
+                ${['cash','transfer','credit','none'].map(p=>`<th style="padding:10px 12px;text-align:right;color:var(--brown);font-weight:700;font-size:12px;border-bottom:2px solid var(--bdr);">${payLbl[p]}</th>`).join('')}
+                <th style="padding:10px 12px;text-align:right;color:var(--red);font-weight:700;font-size:12px;border-bottom:2px solid var(--bdr);">合計</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${mKeys.map(k=>{
+                const key=`${k.year}-${String(k.month).padStart(2,'0')}`;
+                const row=tblPay[key];const isCur=key===thisMK;
+                return`<tr style="border-bottom:1px dashed var(--bdr);${isCur?'background:var(--goldL);':''}">
+                  <td style="padding:10px 12px;color:var(--brown);font-weight:${isCur?'700':'500'};white-space:nowrap;">${k.year}-${String(k.month).padStart(2,'0')}${isCur?' ●':''}</td>
+                  ${['cash','transfer','credit','none'].map(p=>{
+                    const v=row[p]||0;
+                    return`<td style="padding:10px 12px;text-align:right;font-family:'Noto Serif TC',serif;font-weight:${isCur?'700':'500'};color:${v>0?'var(--brown)':'var(--mut)'};">${v>0?'$'+fmt(v):'—'}</td>`;
+                  }).join('')}
+                  <td style="padding:10px 12px;text-align:right;font-family:'Noto Serif TC',serif;font-weight:700;color:${row._total>0?'var(--red)':'var(--mut)'};">${row._total>0?'$'+fmt(row._total):'—'}</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+            <tfoot>
+              <tr style="background:var(--bg2);border-top:2px solid var(--bdr);">
+                <td style="padding:12px;color:var(--brown);font-weight:700;">12 月合計</td>
+                ${['cash','transfer','credit','none'].map(p=>`<td style="padding:12px;text-align:right;font-family:'Noto Serif TC',serif;font-weight:700;color:var(--brown);">$${fmt(payTotals[p])}</td>`).join('')}
+                <td style="padding:12px;text-align:right;font-family:'Noto Serif TC',serif;font-weight:700;color:var(--red);">$${fmt(grand12)}</td>
+              </tr>
+              <tr style="background:var(--bg2);">
+                <td style="padding:8px 12px;color:var(--brown);font-weight:600;font-size:11.5px;">月平均</td>
+                ${['cash','transfer','credit','none'].map(p=>`<td style="padding:8px 12px;text-align:right;font-family:'Noto Serif TC',serif;font-weight:600;color:var(--brown);font-size:12.5px;">$${fmt(Math.round(payTotals[p]/12))}</td>`).join('')}
+                <td style="padding:8px 12px;text-align:right;font-family:'Noto Serif TC',serif;font-weight:700;color:var(--goldDk);font-size:12.5px;">$${fmt(Math.round(grand12/12))}</td>
+              </tr>
+            </tfoot>
+          </table>`:''}
+        </div>
+
+        <div class="tm" style="font-size:11px;margin-top:10px;padding:8px 12px;background:var(--bg2);border-radius:8px;line-height:1.6;">
+          💡 <b>金色高亮</b> = 當前月　·　點頂部 tab 切換 <b>主類別 / 性質 / 付款方式</b>
+        </div>
+      </div>`;
+    })()}
 
     <!-- 💳 信用卡分行統計 -->
     ${Object.keys(byCard).length>0?`<div style="background:var(--purl);border-radius:14px;padding:18px 20px;margin-bottom:20px;">
@@ -10788,17 +11048,15 @@ function modal(){
           </tr>
         </thead>
         <tbody id="batch-body">${staged.map((s,i)=>{
-          // 根據 ledgerId 決定該行類別下拉內容
-          let rowCats=cats;
-          if(s.ledgerId){
-            const led=ALL_LED.find(l=>l.id===s.ledgerId);
-            if(led)rowCats=led.cats.filter(c=>c!=='存入');
-          }
+          // 🏷️ 類別下拉統一用主類別（12 個），跟其他頁面完全連動
           const isLinked=!!s.ledgerId;
+          const mcats=getMasterCats();
+          // 相容舊資料：如果 s.categoryId 沒設但 s.category 有名字，反查
+          const curCatId=s.categoryId||(findMasterCatByName(s.category)||{}).id||mcats[0].id;
           return`<tr id="batch-row-${i}">
           <td><input type="date" value="${s.date}" onchange="updateStage(${i},'date',this.value)" style="font-size:12.5px;padding:6px;width:100%;border:1px solid var(--bdr);border-radius:6px;"></td>
           <td><input type="text" value="${(s.merchant||'').replace(/"/g,'&quot;')}" placeholder="如：全家便利商店" onblur="batchAutoCat(${i},this.value)" oninput="updateStage(${i},'merchant',this.value)" style="font-size:13px;padding:6px;width:100%;border:1px solid var(--bdr);border-radius:6px;"></td>
-          <td><select id="batch-cat-${i}" onchange="updateStage(${i},'category',this.value)" style="font-size:12.5px;padding:6px;width:100%;border:1.5px solid ${isLinked?'var(--pur)':'var(--bdr)'};border-radius:6px;background:${isLinked?'var(--purl)':'#fff'};" title="${isLinked?'預備金細項類別':'通用類別'}">${rowCats.map(c2=>`<option value="${c2}" ${c2===s.category?'selected':''}>${c2}</option>`).join('')}</select></td>
+          <td><select id="batch-cat-${i}" onchange="updateStageCat(${i},this.value)" style="font-size:12.5px;padding:6px;width:100%;border:1.5px solid ${isLinked?'var(--pur)':'var(--bdr)'};border-radius:6px;background:${isLinked?'var(--purl)':'#fff'};" title="主類別（連動支出總覽、儲蓄帳本）">${mcats.map(mc=>`<option value="${mc.id}" ${mc.id===curCatId?'selected':''}>${mc.icon} ${mc.name}</option>`).join('')}</select></td>
           <td><div style="display:flex;gap:4px;align-items:center;">
             <button onclick="toggleRefund(${i})" title="切換退款" style="padding:5px 7px;font-size:11px;border:1.5px solid ${toN(s.amount)<0?'var(--grn)':'var(--bdr)'};background:${toN(s.amount)<0?'var(--grnl)':'#fff'};color:${toN(s.amount)<0?'var(--grn)':'var(--mut)'};border-radius:6px;cursor:pointer;font-weight:700;flex-shrink:0;">${toN(s.amount)<0?'↻ 退':'+/−'}</button>
             <input type="number" inputmode="decimal" value="${s.amount||''}" placeholder="0" oninput="updateStage(${i},'amount',this.value)" class="amt-input" style="font-size:14px;padding:6px 8px;width:100%;min-width:0;text-align:right;border:1px solid var(--bdr);border-radius:6px;color:${toN(s.amount)<0?'var(--grn)':'var(--brown)'};font-weight:${toN(s.amount)<0?'700':'500'};">
@@ -11408,6 +11666,12 @@ window.addNewIncomeSource=async()=>{
 // 📊 切換收入表格視角
 window.setIncView=(v)=>{
   S.incView=v;
+  render();
+};
+
+// 📊 切換支出總覽 12 個月表格視角
+window.setExpView=(v)=>{
+  S.expView=v;
   render();
 };
 
@@ -12761,14 +13025,34 @@ window.addBatchRows=(n)=>{
 window.batchAutoCat=(i,merchant)=>{
   if(!S.importStaging[i])return;
   S.importStaging[i].merchant=merchant;
-  // 智能猜類別（只有當還是預設「其他」時才覆寫，避免覆蓋使用者手動選擇）
-  if(merchant&&(S.importStaging[i].category==='其他'||!S.importStaging[i].category)){
-    const guessed=guessCategory(merchant);
-    if(guessed&&guessed!=='其他'){
-      S.importStaging[i].category=guessed;
-      // 只更新該行的類別下拉選單，避免整頁 re-render 影響使用者輸入體驗
+  // 智能猜主類別（用商家名 keyword 判斷）
+  if(merchant&&(!S.importStaging[i].categoryId||S.importStaging[i].category==='其他')){
+    const m=merchant;
+    let guessId='cat_other';
+    if(/全家|7-11|711|萊爾富|OK|超商|便利|全聯|美廉社|好市多|Costco|大潤發|家樂福|全聯|超市/i.test(m))guessId='cat_food';
+    else if(/麥當勞|肯德基|摩斯|漢堡|Subway|拉麵|餃|飯|麵|燒烤|烤肉|火鍋|海底撈|王品|瓦城|鼎泰豐|星巴克|Starbucks|路易莎|85度C|coco|清心|茶湯會|coffee|café|cafe|咖啡/i.test(m))guessId='cat_food';
+    else if(/加油|中油|台塑|Shell|油站/i.test(m))guessId='cat_transport';
+    else if(/停車|嘟嘟房|智慧停車/i.test(m))guessId='cat_transport';
+    else if(/計程車|Uber|捷運|台鐵|高鐵|客運/i.test(m))guessId='cat_transport';
+    else if(/保養|維修|修車|機車行/i.test(m))guessId='cat_transport';
+    else if(/藥局|藥房|診所|醫院|中醫|牙|眼科/i.test(m))guessId='cat_health';
+    else if(/Netflix|Spotify|KKbox|Disney|Apple|Google|訂閱/i.test(m))guessId='cat_entertain';
+    else if(/電影|威秀|影城|電影院/i.test(m))guessId='cat_entertain';
+    else if(/機票|航空|旅行社|飯店|酒店|民宿|訂房|Booking|Agoda|Airbnb/i.test(m))guessId='cat_entertain';
+    else if(/水費|電費|中華電信|台灣大|遠傳|亞太|天然氣|瓦斯/i.test(m))guessId='cat_utility';
+    else if(/保養品|化妝品|SKII|Sisley|SHISEIDO|美容|紋繡|蘭|雅詩蘭黛|MAC/i.test(m))guessId='cat_mumi';
+    else if(/家電|3C|燦坤|家樂福|全國電子|Best|IKEA|傢俱|寢具/i.test(m))guessId='cat_home';
+    else if(/書店|誠品|博客來|課程|補習|學費/i.test(m))guessId='cat_edu';
+    else if(/保險|人壽|產險/i.test(m))guessId='cat_insurance';
+    else if(/紅包|禮物|節慶/i.test(m))guessId='cat_gift';
+
+    if(guessId!=='cat_other'){
+      const mc=findMasterCat(guessId);
+      S.importStaging[i].categoryId=guessId;
+      S.importStaging[i].category=mc?mc.name:'其他';
+      // 更新下拉視覺
       const catSelect=document.getElementById(`batch-cat-${i}`);
-      if(catSelect)catSelect.value=guessed;
+      if(catSelect)catSelect.value=guessId;
     }
   }
 };
@@ -12849,36 +13133,25 @@ window.updateStage=(i,field,val)=>{
   S.importStaging[i][field]=val;
   // 不要 render 因為會打斷 input 焦點
 };
-// 📒 批次輸入：選了預備金帳本後 → 動態切換類別下拉為該帳本的細項類別
+
+// 🏷️ 批次輸入：類別下拉改成主類別 → 存 categoryId + 反查 category 名
+window.updateStageCat=(i,catId)=>{
+  if(!S.importStaging[i])return;
+  const mc=findMasterCat(catId);
+  S.importStaging[i].categoryId=catId;
+  S.importStaging[i].category=mc?mc.name:'其他';
+};
+// 📒 批次輸入：選了預備金帳本後 → 只切換視覺（類別已統一用主類別，不變動）
 window.updateLedgerAndCats=(i,lid)=>{
   if(!S.importStaging[i])return;
   S.importStaging[i].ledgerId=lid;
-  // 切換類別下拉的選項
+  // 類別下拉的視覺（紫色 = 有同步預備金）
   const catSel=document.getElementById(`batch-cat-${i}`);
   if(catSel){
-    const oldCat=S.importStaging[i].category||'';
-    let newCats=[];
-    if(lid){
-      // 選了預備金 → 用該帳本的細項類別
-      const led=getAllLedgers().find(l=>l.id===lid);
-      if(led)newCats=led.cats.filter(c=>c!=='存入'); // 排除「存入」（消費場景不需要）
-    }else{
-      // 沒選 → 用通用類別
-      newCats=S.data.cats||DEF_CATS;
-    }
-    // 重新渲染選項
-    catSel.innerHTML=newCats.map(c=>`<option value="${c}" ${c===oldCat?'selected':''}>${c}</option>`).join('');
-    // 如果原本的類別不在新清單裡，預設選第一個
-    if(!newCats.includes(oldCat)){
-      const newDefault=newCats[0]||'其他';
-      catSel.value=newDefault;
-      S.importStaging[i].category=newDefault;
-    }
-    // 視覺上變紫色（提示這是預備金帳本的細項類別）
     catSel.style.borderColor=lid?'var(--pur)':'var(--bdr)';
     catSel.style.background=lid?'var(--purl)':'#fff';
   }
-  // 視覺切換：預備金下拉本身
+  // 預備金下拉本身的視覺
   const led=document.querySelector(`#batch-row-${i} td:nth-child(6) select`);
   if(led){
     led.style.borderColor=lid?'var(--pur)':'var(--bdr)';
@@ -13628,6 +13901,7 @@ window.confirmImport=async()=>{
         date:it.date||today(),
         amount,
         category:it.category||'其他',
+        categoryId:it.categoryId||null,  // 🏷️ 存主類別 id（連動用）
         item:it.merchant,
         note:itLedger?`⛓️ 來自預備金 - ${itLedger.name}`:'',
         payMethod:'信用卡',
@@ -13649,8 +13923,8 @@ window.confirmImport=async()=>{
           lid:itLedger.id,
           date:it.date||today(),
           amount:-amount,
-          // 退款（amount<0）→ 用「存入」（如果該帳本有的話）；否則用同一個類別
-          cat:amount<0?(itLedger.cats.includes('存入')?'存入':(it.category||'其他')):(it.category||'其他'),
+          cat:it.category||'其他',
+          categoryId:it.categoryId||null,  // 🏷️ 存主類別 id
           user:S.user||'',
           note:`${it.merchant} 💳 ${it.cardBank||''}${amount<0?' 退款':''}`,
           month:mo,year:y,
