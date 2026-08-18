@@ -2598,8 +2598,8 @@ function pgExpDash(){
       date:`${currentYear}-${String(S.month).padStart(2,'0')}-01`,
       category:a.category||'年繳',
       categoryId:a.categoryId||null,
-      subCategoryId:null,
-      subCategoryName:'',
+      subCategoryId:a.subCategoryId||null,
+      subCategoryName:a.subCategoryName||'',
       item:a.name+' · 本月攤提',
       amount:monthly,
       paymentMethod:'',cardBank:'',payMethod:'',
@@ -8709,7 +8709,7 @@ function pgCC(){
               <td><span class="bdg">${e.category||'—'}</span></td>
               <td class="an" style="font-weight:700;color:${toN(e.amount)<0?'var(--grn)':'var(--red)'};">${toN(e.amount)<0?`+$${fmt(Math.abs(e.amount))}`:`-$${fmt(e.amount)}`}${toN(e.amount)<0?'<br><span class="tm" style="font-size:11px;color:var(--grn);">退款</span>':''}</td>
               <td><span class="bdg" style="background:var(--accL);color:var(--brown);">${e.cardBank||'其他'}</span></td>
-              <td style="white-space:nowrap;">${e.fromLedger?`<button class="bdel" onclick="delExp('${e.id}')" title="刪除（連帶刪除預備金記錄）">×</button>`:`<button class="bdel" style="color:#aaa;font-size:14px;" onclick="openM('editExp','${e.id}')">✏️</button><button class="bdel" onclick="delExp('${e.id}')">×</button>`}</td>
+              <td style="white-space:nowrap;">${e.fromLedger?`<button class="bdel" style="color:#aaa;font-size:14px;" onclick="editCCFromLedger('${e.linkId||''}','${e.id}')" title="編輯（同步預備金）">✏️</button><button class="bdel" onclick="delExp('${e.id}')" title="刪除（連帶刪除預備金記錄）">×</button>`:`<button class="bdel" style="color:#aaa;font-size:14px;" onclick="openM('editExp','${e.id}')">✏️</button><button class="bdel" onclick="delExp('${e.id}')">×</button>`}</td>
             </tr>`;}).join('')}
           </tbody>
         </table></div>`;
@@ -9980,9 +9980,14 @@ function modal(){
       <div class="fgrp" style="grid-column:1/-1"><label>項目名稱</label><input type="text" id="am-name" value="${(preName||'').replace(/"/g,'&quot;')}" placeholder="例：汽車強制險、房屋稅、工會費"></div>
       <div class="fgrp"><label>年繳總額（一整年合計）</label><input type="number" inputmode="decimal" id="am-annual" value="${preAnnual}" placeholder="0" class="amt-input" style="font-size:18px;font-weight:700;color:var(--pur);" oninput="updateAmortMonthly()"></div>
       <div class="fgrp"><label>每月要存（自動算 = 年繳÷12）</label><input type="number" id="am-monthly" value="${preMonthly}" placeholder="0" class="amt-input" readonly style="background:var(--bg2);color:var(--rose);font-weight:700;"></div>
-      <div class="fgrp"><label>類別</label>
-        <select id="am-cat">
-          ${getMasterCats().map(mc=>`<option value="${mc.id}" ${mc.id===(editItem?.categoryId||preCat)?'selected':''}>${mc.icon} ${mc.name}</option>`).join('')}
+      <div class="fgrp"><label>🏷️ 主類別</label>
+        <select id="am-cat" onchange="onMainCatChange(this.value,'am-sub')">
+          ${getMasterCats().map(mc=>`<option value="${mc.id}" ${mc.id===(editItem?.categoryId||getMasterCats()[0].id)?'selected':''}>${mc.icon} ${mc.name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="fgrp"><label style="display:flex;justify-content:space-between;align-items:center;"><span>📌 子分類</span><button type="button" onclick="addNewSubCat()" style="background:var(--rose);color:#fff;border:none;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;">＋ 新增細節</button></label>
+        <select id="am-sub">
+          ${getSubCats(editItem?.categoryId||getMasterCats()[0].id).map(s=>`<option value="${s.id}" ${s.id===(editItem?.subCategoryId||'')?'selected':''}>${s.name}</option>`).join('')}
         </select>
       </div>
       <div class="fgrp" style="grid-column:1/-1"><label>🔗 對應儲蓄帳本（到期前 1 個月會提醒）</label>
@@ -10131,9 +10136,14 @@ function modal(){
     <div class="fg fg2">
       <div class="fgrp"><label>項目名稱</label><input type="text" id="m0" value="${(p.name||'').replace(/"/g,'&quot;')}" placeholder="如：房貸、車貸、保險、健身房" autofocus></div>
       <div class="fgrp"><label>每月金額（元）</label><input type="number" id="m1" value="${p.amount||''}" placeholder="0"></div>
-      <div class="fgrp"><label>類別</label>
-        <select id="m_cat">
-          ${getMasterCats().map(mc=>`<option value="${mc.id}" ${mc.id===(p.categoryId||'')?'selected':''}>${mc.icon} ${mc.name}</option>`).join('')}
+      <div class="fgrp" style="grid-column:1/-1"><label>🏷️ 主類別</label>
+        <select id="m_cat" onchange="onMainCatChange(this.value,'m_sub')">
+          ${getMasterCats().map(mc=>`<option value="${mc.id}" ${mc.id===(p.categoryId||getMasterCats()[0].id)?'selected':''}>${mc.icon} ${mc.name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="fgrp" style="grid-column:1/-1"><label style="display:flex;justify-content:space-between;align-items:center;"><span>📌 子分類（細節）</span><button type="button" onclick="addNewSubCat()" style="background:var(--rose);color:#fff;border:none;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;">＋ 新增細節</button></label>
+        <select id="m_sub">
+          ${getSubCats(p.categoryId||getMasterCats()[0].id).map(s=>`<option value="${s.id}" ${s.id===(p.subCategoryId||'')?'selected':''}>${s.name}</option>`).join('')}
         </select>
       </div>
       <div class="fgrp"><label>付款日（每月）</label><input type="number" id="m_day" value="${p.payDay||''}" placeholder="如：15" min="1" max="31"></div>
@@ -10316,16 +10326,28 @@ function modal(){
     </div>
     <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="updInc('${inc.id}')">✓ 更新</button></div>`;}
 
-  if(m.t==='editExp'){const banks=getBanks();const exp=(S.data.expenses||[]).find(e=>e.id===m.x)||{};const defM=exp.payMethod||'現金';c=`<div class="mttl">✏️ 編輯支出</div>
+  if(m.t==='editExp'){const banks=getBanks();const exp=(S.data.expenses||[]).find(e=>e.id===m.x)||{};const defM=exp.payMethod||'現金';
+    const curCatId=exp.categoryId||(findMasterCatByName(exp.category)||{}).id||getMasterCats()[0].id;
+    const curSubId=exp.subCategoryId||'';
+    c=`<div class="mttl">✏️ 編輯支出</div>
     <div class="fg fg2">
       <div class="fgrp"><label>日期</label><input type="date" id="m0" value="${exp.date||today()}"></div>
       <div class="fgrp"><label>金額（元）</label><input type="number" id="m1" value="${exp.amount||0}"></div>
-      <div class="fgrp"><label>消費類別</label><select id="m2">${cats.map(c=>`<option${c===(exp.category||'')?' selected':''}>${c}</option>`).join('')}</select></div>
+      <div class="fgrp" style="grid-column:1/-1"><label>🏷️ 主類別</label>
+        <select id="m2" onchange="onMainCatChange(this.value,'m2-sub')">
+          ${getMasterCats().map(mc=>`<option value="${mc.id}" ${mc.id===curCatId?'selected':''}>${mc.icon} ${mc.name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="fgrp" style="grid-column:1/-1"><label style="display:flex;justify-content:space-between;align-items:center;"><span>📌 子分類</span><button type="button" onclick="addNewSubCat()" style="background:var(--rose);color:#fff;border:none;padding:3px 10px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;">＋ 新增細節</button></label>
+        <select id="m2-sub">
+          ${getSubCats(curCatId).map(s=>`<option value="${s.id}" ${s.id===curSubId?'selected':''}>${s.name}</option>`).join('')}
+        </select>
+      </div>
       <div class="fgrp"><label>付款方式</label><select id="m3" onchange="tglCard()">${PAY.map(p=>`<option${p===defM?' selected':''}>${p}</option>`).join('')}</select></div>
       <div class="fgrp" id="cBG" style="${defM==='信用卡'?'':'display:none'}"><label>信用卡銀行</label>
         <select id="m_cb">${banks.map(b=>`<option${b===(exp.cardBank||'')?' selected':''}>${b}</option>`).join('')}</select>
       </div>
-      <div class="fgrp"><label>備註</label><input type="text" id="m5" value="${exp.note||''}"></div>
+      <div class="fgrp" style="grid-column:1/-1"><label>備註</label><input type="text" id="m5" value="${exp.note||''}"></div>
     </div>
     <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="updExp('${exp.id}')">✓ 更新</button></div>`;}
 
@@ -11038,12 +11060,13 @@ function modal(){
       <table style="width:100%;font-size:13px;">
         <thead style="position:sticky;top:0;z-index:5;background:var(--bg2);">
           <tr>
-            <th style="width:110px;">日期</th>
+            <th style="width:100px;">日期</th>
             <th>商家／品項</th>
-            <th style="width:115px;">類別</th>
-            <th style="width:150px;text-align:right;">金額</th>
-            <th style="width:105px;">信用卡</th>
-            <th style="width:130px;">📒 預備金</th>
+            <th style="width:100px;">🏷️ 主類別</th>
+            <th style="width:100px;">📌 子分類</th>
+            <th style="width:140px;text-align:right;">金額</th>
+            <th style="width:95px;">信用卡</th>
+            <th style="width:120px;">📒 預備金</th>
             <th style="width:40px;"></th>
           </tr>
         </thead>
@@ -11053,10 +11076,12 @@ function modal(){
           const mcats=getMasterCats();
           // 相容舊資料：如果 s.categoryId 沒設但 s.category 有名字，反查
           const curCatId=s.categoryId||(findMasterCatByName(s.category)||{}).id||mcats[0].id;
+          const curSubId=s.subCategoryId||'';
           return`<tr id="batch-row-${i}">
           <td><input type="date" value="${s.date}" onchange="updateStage(${i},'date',this.value)" style="font-size:12.5px;padding:6px;width:100%;border:1px solid var(--bdr);border-radius:6px;"></td>
           <td><input type="text" value="${(s.merchant||'').replace(/"/g,'&quot;')}" placeholder="如：全家便利商店" onblur="batchAutoCat(${i},this.value)" oninput="updateStage(${i},'merchant',this.value)" style="font-size:13px;padding:6px;width:100%;border:1px solid var(--bdr);border-radius:6px;"></td>
-          <td><select id="batch-cat-${i}" onchange="updateStageCat(${i},this.value)" style="font-size:12.5px;padding:6px;width:100%;border:1.5px solid ${isLinked?'var(--pur)':'var(--bdr)'};border-radius:6px;background:${isLinked?'var(--purl)':'#fff'};" title="主類別（連動支出總覽、儲蓄帳本）">${mcats.map(mc=>`<option value="${mc.id}" ${mc.id===curCatId?'selected':''}>${mc.icon} ${mc.name}</option>`).join('')}</select></td>
+          <td><select id="batch-cat-${i}" onchange="updateStageCat(${i},this.value)" style="font-size:12.5px;padding:6px;width:100%;border:1.5px solid ${isLinked?'var(--pur)':'var(--bdr)'};border-radius:6px;background:${isLinked?'var(--purl)':'#fff'};">${mcats.map(mc=>`<option value="${mc.id}" ${mc.id===curCatId?'selected':''}>${mc.icon} ${mc.name}</option>`).join('')}</select></td>
+          <td><select id="batch-sub-${i}" onchange="updateStageSubCat(${i},this.value)" style="font-size:12.5px;padding:6px;width:100%;border:1px solid var(--bdr);border-radius:6px;">${getSubCats(curCatId).map(sc=>`<option value="${sc.id}" ${sc.id===curSubId?'selected':''}>${sc.name}</option>`).join('')}</select></td>
           <td><div style="display:flex;gap:4px;align-items:center;">
             <button onclick="toggleRefund(${i})" title="切換退款" style="padding:5px 7px;font-size:11px;border:1.5px solid ${toN(s.amount)<0?'var(--grn)':'var(--bdr)'};background:${toN(s.amount)<0?'var(--grnl)':'#fff'};color:${toN(s.amount)<0?'var(--grn)':'var(--mut)'};border-radius:6px;cursor:pointer;font-weight:700;flex-shrink:0;">${toN(s.amount)<0?'↻ 退':'+/−'}</button>
             <input type="number" inputmode="decimal" value="${s.amount||''}" placeholder="0" oninput="updateStage(${i},'amount',this.value)" class="amt-input" style="font-size:14px;padding:6px 8px;width:100%;min-width:0;text-align:right;border:1px solid var(--bdr);border-radius:6px;color:${toN(s.amount)<0?'var(--grn)':'var(--brown)'};font-weight:${toN(s.amount)<0?'700':'500'};">
@@ -11675,6 +11700,27 @@ window.setExpView=(v)=>{
   render();
 };
 
+// 💳 編輯信用卡明細（從預備金來的）→ 開對應 ledgerEntry
+window.editCCFromLedger=(linkId,expId)=>{
+  if(!linkId){
+    // 沒 linkId，只能編輯 expense
+    S.modal={t:'editExp',x:expId};
+    render();
+    return;
+  }
+  // 用 linkId 找對應的 ledgerEntry
+  const le=(S.data.ledgerEntries||[]).find(e=>e.linkId===linkId);
+  if(le){
+    S.modal={t:'editLE',x:le.id};
+    render();
+  }else{
+    // fallback：找不到就開 expense 編輯
+    toast('⚠️ 找不到連動的預備金記錄，改為編輯信用卡端');
+    S.modal={t:'editExp',x:expId};
+    render();
+  }
+};
+
 // ✏️ 編輯收入
 window.editIncome=(id)=>{
   const inc=(S.data.incomes||[]).find(i=>i.id===id);
@@ -11845,9 +11891,13 @@ window.saveAmort=async(editId)=>{
   const name=g('am-name')||'';
   const annualAmount=toN(g('am-annual'));
   const catRaw=g('am-cat')||'';
+  const subCatRaw=g('am-sub')||'';
   const mcAm=findMasterCat(catRaw);
   const category=mcAm?mcAm.name:(catRaw||'其他');
   const categoryId=mcAm?mcAm.id:null;
+  const sc=findSubCat(catRaw,subCatRaw);
+  const subCategoryId=sc?sc.id:null;
+  const subCategoryName=sc?sc.name:'';
   // 讀複選 checkbox
   const dueMonths=Array.from(document.querySelectorAll('input[name="am-dues"]:checked')).map(cb=>parseInt(cb.value)).sort((a,b)=>a-b);
   const linkedLedger=g('am-linked')||'';
@@ -11859,14 +11909,14 @@ window.saveAmort=async(editId)=>{
   if(editId){
     const idx=list.findIndex(a=>a.id===editId);
     if(idx>=0){
-      list[idx]={...list[idx],name,category,categoryId,annualAmount,monthlyAmortize,dueMonths,dueMonth:dueMonths[0]||1,linkedLedger,note};
+      list[idx]={...list[idx],name,category,categoryId,subCategoryId,subCategoryName,annualAmount,monthlyAmortize,dueMonths,dueMonth:dueMonths[0]||1,linkedLedger,note};
       await saveMain({amortizedItems:list});
       toast(`✅ 已更新「${name}」`);
     }
   }else{
     const newItem={
       id:'am_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
-      name,category,categoryId,annualAmount,monthlyAmortize,dueMonths,
+      name,category,categoryId,subCategoryId,subCategoryName,annualAmount,monthlyAmortize,dueMonths,
       dueMonth:dueMonths[0]||1, // 相容舊欄位
       linkedLedger,
       paidThisYear:0,paidDate:'',note
@@ -11943,6 +11993,9 @@ window.savePayFixed=async(itemId)=>{
   const newExp={
     date:paidDate,amount:toN(item.amount),item:item.name,
     category:item.category||'固定',
+    categoryId:item.categoryId||null,
+    subCategoryId:item.subCategoryId||null,
+    subCategoryName:item.subCategoryName||'',
     frequency:'monthly',
     paymentMethod,cardBank,
     payMethod:payTxt,
@@ -12251,21 +12304,25 @@ window.saveFixed=async(editId)=>{
   const name=g('m0'),amount=n('m1');
   if(!name||!amount){alert('請填名稱和金額');return;}
   const catRaw=g('m_cat')||'';
+  const subCatRaw=g('m_sub')||'';
   const mcF=findMasterCat(catRaw);
   const category=mcF?mcF.name:(catRaw||'其他');
   const categoryId=mcF?mcF.id:null;
+  const sc=findSubCat(catRaw,subCatRaw);
+  const subCategoryId=sc?sc.id:null;
+  const subCategoryName=sc?sc.name:'';
   const payDay=n('m_day')||null;
   const note=g('m2')||'';
   const list=[...(S.data.fixedItems||[])];
   if(editId){
     const idx=list.findIndex(f=>f.id===editId);
     if(idx>=0){
-      list[idx]={...list[idx],name,amount,category,categoryId,payDay,note};
+      list[idx]={...list[idx],name,amount,category,categoryId,subCategoryId,subCategoryName,payDay,note};
       await saveMain({fixedItems:list});
       toast(`✅ 已更新「${name}」`);
     }
   }else{
-    list.push({id:uid(),name,amount,category,categoryId,payDay,note});
+    list.push({id:uid(),name,amount,category,categoryId,subCategoryId,subCategoryName,payDay,note});
     await saveMain({fixedItems:list});
     toast('✅ 固定支出已新增');
   }
@@ -12409,12 +12466,21 @@ window.updExp=async(id)=>{
   const date=g('m0'),amount=n('m1');if(!date||!amount){alert('請填日期和金額');return;}
   const d=new Date(date),method=g('m3'),cardBank=method==='信用卡'?g('m_cb'):'';
   const oldExp=(S.data.expenses||[]).find(e=>e.id===id)||{};
-  const newCat=g('m2'),newNote=g('m5')||'';
+  const catRaw=g('m2')||'';
+  const subCatRaw=g('m2-sub')||'';
+  const mcMain=findMasterCat(catRaw);
+  const newCat=mcMain?mcMain.name:(catRaw||'其他');
+  const newCatId=mcMain?mcMain.id:null;
+  const sc=findSubCat(catRaw,subCatRaw);
+  const newSubCatId=sc?sc.id:null;
+  const newSubCatName=sc?sc.name:'';
+  const newNote=g('m5')||'';
   const newMonth=d.getMonth()+1,newYear=d.getFullYear();
   setSyncing('syncing');
   try{
-    const newData={...oldExp,date,amount,category:newCat,payMethod:method,cardBank,note:newNote,month:newMonth,year:newYear};
+    const newData={...oldExp,date,amount,category:newCat,categoryId:newCatId,subCategoryId:newSubCatId,subCategoryName:newSubCatName,payMethod:method,cardBank,note:newNote,month:newMonth,year:newYear};
     delete newData.id;
+    Object.keys(newData).forEach(k=>{if(newData[k]===undefined)newData[k]=null;});
     await setDoc(doc(db,'families',FID,'expenses',id),newData);
 
     // ⛓️ 雙向同步：如果這筆有 linkId（連動到預備金），同步更新對應的 ledgerEntries
@@ -12428,6 +12494,9 @@ window.updExp=async(id)=>{
           date,
           amount:-Math.abs(amount),  // 預備金為負
           cat:newCat,
+          categoryId:newCatId,
+          subCategoryId:newSubCatId,
+          subCategoryName:newSubCatName,
           note:(oldExp.item||'')+(newNote?' '+newNote:''),
           month:newMonth,
           year:newYear,
@@ -13134,12 +13203,36 @@ window.updateStage=(i,field,val)=>{
   // 不要 render 因為會打斷 input 焦點
 };
 
-// 🏷️ 批次輸入：類別下拉改成主類別 → 存 categoryId + 反查 category 名
+// 🏷️ 批次輸入：類別下拉改成主類別 → 存 categoryId + 反查 category 名 + 更新子分類下拉
 window.updateStageCat=(i,catId)=>{
   if(!S.importStaging[i])return;
   const mc=findMasterCat(catId);
   S.importStaging[i].categoryId=catId;
   S.importStaging[i].category=mc?mc.name:'其他';
+  // 更新子分類下拉
+  const subs=getSubCats(catId);
+  const subSel=document.getElementById(`batch-sub-${i}`);
+  if(subSel){
+    subSel.innerHTML=subs.map(sc=>`<option value="${sc.id}">${sc.name}</option>`).join('');
+    // 預設選第一個
+    const firstSub=subs[0];
+    if(firstSub){
+      S.importStaging[i].subCategoryId=firstSub.id;
+      S.importStaging[i].subCategoryName=firstSub.name;
+    }else{
+      S.importStaging[i].subCategoryId=null;
+      S.importStaging[i].subCategoryName='';
+    }
+  }
+};
+
+// 🏷️ 批次輸入：子分類更新
+window.updateStageSubCat=(i,subId)=>{
+  if(!S.importStaging[i])return;
+  const catId=S.importStaging[i].categoryId;
+  const sc=findSubCat(catId,subId);
+  S.importStaging[i].subCategoryId=subId;
+  S.importStaging[i].subCategoryName=sc?sc.name:'';
 };
 // 📒 批次輸入：選了預備金帳本後 → 只切換視覺（類別已統一用主類別，不變動）
 window.updateLedgerAndCats=(i,lid)=>{
@@ -13901,7 +13994,9 @@ window.confirmImport=async()=>{
         date:it.date||today(),
         amount,
         category:it.category||'其他',
-        categoryId:it.categoryId||null,  // 🏷️ 存主類別 id（連動用）
+        categoryId:it.categoryId||null,
+        subCategoryId:it.subCategoryId||null,
+        subCategoryName:it.subCategoryName||'',
         item:it.merchant,
         note:itLedger?`⛓️ 來自預備金 - ${itLedger.name}`:'',
         payMethod:'信用卡',
@@ -13924,7 +14019,9 @@ window.confirmImport=async()=>{
           date:it.date||today(),
           amount:-amount,
           cat:it.category||'其他',
-          categoryId:it.categoryId||null,  // 🏷️ 存主類別 id
+          categoryId:it.categoryId||null,
+          subCategoryId:it.subCategoryId||null,
+          subCategoryName:it.subCategoryName||'',
           user:S.user||'',
           note:`${it.merchant} 💳 ${it.cardBank||''}${amount<0?' 退款':''}`,
           month:mo,year:y,
