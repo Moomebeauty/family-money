@@ -2809,26 +2809,21 @@ function pgExpDash(){
             borderCol='var(--yelb)';bgCol='var(--yel)';amtCol='var(--goldDk)';pctCol='var(--yelb)';
           }
           const subEntries=Object.entries(d.subs).sort((a,b)=>b[1]-a[1]);
-          const hasMultiSub=subEntries.length>1||(subEntries.length===1&&subEntries[0][0]!=='(未指定)');
-          return`<details style="background:${bgCol};border:2px solid ${borderCol};border-radius:12px;overflow:hidden;">
-            <summary style="cursor:pointer;padding:14px 16px;list-style:none;">
-              <div style="font-size:12.5px;color:var(--brown);font-weight:700;line-height:1.4;">${mainKey}${pct>=30?' 🔴':pct>=15?' 🟡':''}</div>
-              <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:${amtCol};margin-top:6px;">$${fmt(d.total)}</div>
-              <div style="font-size:11px;color:${pctCol};margin-top:2px;font-weight:600;">佔 ${pct}%${hasMultiSub?` · ${subEntries.length} 個細節`:''}</div>
-            </summary>
-            ${hasMultiSub?`<div style="padding:0 14px 12px;background:#fff;border-top:1px dashed var(--bdr);">
-              ${subEntries.map(([subName,subAmt])=>{
-                const subPct=d.total>0?Math.round(subAmt/d.total*100):0;
-                return`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px dashed var(--bdr);">
-                  <div style="font-size:12px;color:var(--brown);">📌 ${subName}</div>
-                  <div style="display:flex;align-items:center;gap:6px;">
-                    <div class="tm" style="font-size:10px;">${subPct}%</div>
-                    <div style="font-family:'Noto Serif TC',serif;font-size:13px;font-weight:700;color:var(--roseDk);">$${fmt(subAmt)}</div>
-                  </div>
-                </div>`;
-              }).join('')}
-            </div>`:''}
-          </details>`;
+          const count=allExps.filter(e=>{
+            let mk;
+            if(e.categoryId){
+              const mc=mcats.find(x=>x.id===e.categoryId);
+              mk=mc?`${mc.icon} ${mc.name}`:(e.category||'其他');
+            }else{
+              mk=(e.category||'其他').trim()||'其他';
+            }
+            return mk===mainKey;
+          }).length;
+          return`<div onclick="showCatDetail('${mainKey.replace(/'/g,"\\\\'")}')" style="background:${bgCol};border:2px solid ${borderCol};border-radius:12px;padding:14px 16px;cursor:pointer;transition:transform 0.15s;" onmouseover="this.style.transform='translateY(-2px)';" onmouseout="this.style.transform='translateY(0)';">
+            <div style="font-size:12.5px;color:var(--brown);font-weight:700;line-height:1.4;">${mainKey}${pct>=30?' 🔴':pct>=15?' 🟡':''}</div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:${amtCol};margin-top:6px;">$${fmt(d.total)}</div>
+            <div style="font-size:11px;color:${pctCol};margin-top:2px;font-weight:600;">佔 ${pct}% · ${count} 筆 · 點看細節 →</div>
+          </div>`;
         }).join('')}
       </div>
     </div>`:''}
@@ -9418,6 +9413,111 @@ function modal(){
   // 🔍 全域搜尋 modal
   // 🏺 新增/編輯年繳攤提項目 modal
   // 📋 新增/編輯保單 modal
+  // 📊 類別筆數詳細 modal（點類別方塊跳出）
+  if(m.t==='catDetail'){
+    const targetMainKey=m.mainKey||'';
+    const mcats=getMasterCats();
+
+    // 重新收集本月所有支出（跟 pgExpDash 邏輯一致）
+    const regularExps=(S.data.expenses||[]).filter(e=>e.month===S.month&&e.year===yr()&&!e.fromLedger&&!e.excludeFromBudget).map(e=>{
+      const isFixed=e.frequency==='monthly';
+      return{...e,_origin:'expense',_source:isFixed?'固定':'變動',_id:e.id};
+    });
+    const amortItems=S.data.amortizedItems||[];
+    const curYear=yr();
+    const paidAmortIds=new Set((S.data.ledgerEntries||[]).filter(e=>e.year===curYear&&toN(e.amount)<0&&e.linkedAmortId).map(e=>e.linkedAmortId));
+    const amortMonthly=amortItems.filter(a=>!paidAmortIds.has(a.id)).map(a=>{
+      const monthly=toN(a.monthlyAmortize)||Math.ceil(toN(a.annualAmount)/12);
+      if(monthly<=0)return null;
+      return{
+        _origin:'amort',_source:'年繳攤提',_id:a.id,
+        date:`${curYear}-${String(S.month).padStart(2,'0')}-01`,
+        category:a.category||'年繳',categoryId:a.categoryId||null,
+        item:a.name+' · 本月攤提',amount:monthly
+      };
+    }).filter(x=>x);
+    const ledgerExps=(S.data.ledgerEntries||[]).filter(e=>e.month===S.month&&e.year===yr()&&toN(e.amount)<0).map(e=>{
+      const led=getAllLedgers().find(x=>x.id===e.lid);
+      let categoryLabel;
+      if(e.categoryId){
+        const mc=findMasterCat(e.categoryId);
+        categoryLabel=mc?mc.name:(e.cat||'其他');
+      }else{categoryLabel=e.cat||'其他';}
+      return{
+        _origin:'ledger',_source:'基金 '+(led?led.name:''),_id:e.id,
+        date:e.date,category:categoryLabel,categoryId:e.categoryId||null,
+        subCategoryName:e.subCategoryName||'',
+        item:e.note||(led?led.name:''),amount:Math.abs(toN(e.amount)),
+        _lid:e.lid
+      };
+    });
+
+    const allExps=[...regularExps,...amortMonthly,...ledgerExps];
+
+    // 過濾出目標類別
+    const matched=allExps.filter(e=>{
+      let mk;
+      if(e.categoryId){
+        const mc=mcats.find(x=>x.id===e.categoryId);
+        mk=mc?`${mc.icon} ${mc.name}`:(e.category||'其他');
+      }else{
+        mk=(e.category||'其他').trim()||'其他';
+      }
+      return mk===targetMainKey;
+    }).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+
+    const catTotal=matched.reduce((s,e)=>s+toN(e.amount),0);
+
+    // 來源標記
+    const srcBadge=(e)=>{
+      if(e._origin==='expense'){
+        if(e._source==='固定')return`<span style="background:var(--goldL);color:var(--goldDk);padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:600;">固定</span>`;
+        return`<span style="background:var(--bg2);color:var(--mut);padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:600;">變動</span>`;
+      }
+      if(e._origin==='amort')return`<span style="background:var(--purl);color:var(--pur);padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:600;">年繳</span>`;
+      if(e._origin==='ledger')return`<span style="background:var(--roseL);color:var(--roseDk);padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:600;">基金</span>`;
+      return'';
+    };
+
+    c=`<div class="mttl">📊 ${targetMainKey}　·　${matched.length} 筆　·　合計 $${fmt(catTotal)}</div>
+    <div style="max-height:calc(80vh - 100px);overflow-y:auto;padding-right:8px;">
+      ${matched.length===0?`<div style="text-align:center;padding:40px 20px;color:var(--mut);">
+        <div style="font-size:48px;">📋</div>
+        <div style="margin-top:8px;font-size:14px;">這個類別本月沒有支出紀錄</div>
+      </div>`:`
+      <div style="background:var(--yel);padding:10px 14px;border-radius:8px;font-size:12px;color:var(--goldDk);margin-bottom:12px;line-height:1.7;">
+        💡 這裡列出「${targetMainKey}」的所有支出。點 <b>✏️</b> 編輯 → 改主類別/子分類，就會被歸到別的地方
+      </div>
+      <div style="display:grid;gap:8px;">
+        ${matched.map(e=>{
+          const dispSrc=e._source.length>20?e._source.slice(0,20)+'…':e._source;
+          const canEdit=e._origin==='expense'||e._origin==='ledger';
+          return`<div style="padding:12px 14px;background:var(--bg2);border-radius:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+              <div style="flex:1;min-width:180px;">
+                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px;">
+                  ${srcBadge(e)}
+                  <span style="font-size:11.5px;color:var(--mut);">${e.date||''}</span>
+                  ${e.subCategoryName?`<span style="background:#fff;color:var(--roseDk);padding:1px 6px;border-radius:4px;font-size:10.5px;">📌 ${e.subCategoryName}</span>`:''}
+                </div>
+                <div style="font-size:13px;color:var(--brown);font-weight:600;line-height:1.5;">${e.item||'—'}</div>
+                <div class="tm" style="font-size:10.5px;margin-top:2px;">${dispSrc}</div>
+              </div>
+              <div style="text-align:right;flex-shrink:0;">
+                <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--red);">$${fmt(toN(e.amount))}</div>
+                ${canEdit?`<div style="margin-top:4px;">
+                  ${e._origin==='expense'?`<button onclick="closeMod();openM('editExp','${e._id}')" style="background:var(--rose);color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">✏️ 編輯</button>`:''}
+                  ${e._origin==='ledger'?`<button onclick="closeMod();openM('editLE','${e._id}')" style="background:var(--rose);color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">✏️ 編輯</button>`:''}
+                </div>`:`<div class="tm" style="font-size:10px;margin-top:4px;">${e._origin==='amort'?'到年繳頁編輯':''}</div>`}
+              </div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`}
+    </div>
+    <div class="mbtns"><button class="btn btn-p" onclick="closeMod()" style="background:var(--rose);">關閉</button></div>`;
+  }
+
   if(m.t==='addIns'){
     const editItem=m.editId?(S.data.insurancePolicies||[]).find(p=>p.id===m.editId):null;
     const isEdit=!!editItem;
@@ -11236,6 +11336,12 @@ window.addLedgerYear=()=>{
   render();
 };
 window.openM=(t,x)=>{S.modal={t,x};render();};
+
+// 📊 顯示類別筆數詳細（點類別方塊）
+window.showCatDetail=(mainKey)=>{
+  S.modal={t:'catDetail',mainKey};
+  render();
+};
 window.closeMod=()=>{S.modal=null;render();};
 window.bkClose=e=>{if(e.target===e.currentTarget)closeMod();};
 window.tglCard=()=>{const v=document.getElementById('m3')?.value==='信用卡';const bg=document.getElementById('cBG');if(bg)bg.style.display=v?'':'none';};
