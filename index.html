@@ -2792,42 +2792,6 @@ function pgExpDash(){
       </div>
     </div>
 
-    <!-- 📊 依「細節類別」統計（塊狀網格 + 顏色警示） -->
-    ${catList.length>0?`<div style="background:#fff;border-radius:14px;padding:18px 20px;margin-bottom:20px;box-shadow:0 4px 16px rgba(194,116,122,0.08);">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
-        <span style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--brown);">📊 依「細節類別」統計（${catList.length} 個主分類）</span>
-        <span class="tm" style="font-size:11px;">🔴 佔比 &gt;30% 　🟡 15-30% 　⚪ 正常</span>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;">
-        ${catList.map(([mainKey,d])=>{
-          const pct=total>0?Math.round(d.total/total*100):0;
-          // 顏色警示
-          let borderCol='var(--bdr)',bgCol='var(--bg2)',amtCol='var(--brown)',pctCol='var(--mut)';
-          if(pct>=30){
-            borderCol='var(--red)';bgCol='var(--redL)';amtCol='var(--red)';pctCol='var(--red)';
-          }else if(pct>=15){
-            borderCol='var(--yelb)';bgCol='var(--yel)';amtCol='var(--goldDk)';pctCol='var(--yelb)';
-          }
-          const subEntries=Object.entries(d.subs).sort((a,b)=>b[1]-a[1]);
-          const count=allExps.filter(e=>{
-            let mk;
-            if(e.categoryId){
-              const mc=mcats.find(x=>x.id===e.categoryId);
-              mk=mc?`${mc.icon} ${mc.name}`:(e.category||'其他');
-            }else{
-              mk=(e.category||'其他').trim()||'其他';
-            }
-            return mk===mainKey;
-          }).length;
-          return`<div onclick="showCatDetail('${mainKey.replace(/'/g,"\\\\'")}')" style="background:${bgCol};border:2px solid ${borderCol};border-radius:12px;padding:14px 16px;cursor:pointer;transition:transform 0.15s;" onmouseover="this.style.transform='translateY(-2px)';" onmouseout="this.style.transform='translateY(0)';">
-            <div style="font-size:12.5px;color:var(--brown);font-weight:700;line-height:1.4;">${mainKey}${pct>=30?' 🔴':pct>=15?' 🟡':''}</div>
-            <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:${amtCol};margin-top:6px;">$${fmt(d.total)}</div>
-            <div style="font-size:11px;color:${pctCol};margin-top:2px;font-weight:600;">佔 ${pct}% · ${count} 筆 · 點看細節 →</div>
-          </div>`;
-        }).join('')}
-      </div>
-    </div>`:''}
-
     <!-- 📊 12 個月支出趨勢表（可切換視角） -->
     ${(()=>{
       const viewMode=S.expView||'byCat'; // byCat | byNature | byPay
@@ -2902,64 +2866,59 @@ function pgExpDash(){
       };
       const all12=collect12();
 
-      // 按主類別 pivot
-      const usedMainKeys=new Set();
-      all12.forEach(e=>{
-        let mk;
+      // 按主類別 pivot — 用「主類別名稱」合併（不論有沒有 categoryId），確保「飲食」和「🍜 飲食」是同一欄
+      const mcNamesMap=new Map(); // name → {icon, id}
+      mcatsE.forEach(mc=>{mcNamesMap.set(mc.name,{icon:mc.icon,id:mc.id});});
+      // 建立「顯示 key」的規則：優先用主類別名（有 icon 就加），舊資料 fallback 名字
+      const normalizeMainKey=(e)=>{
+        // 有 categoryId → 用主類別當前名字
         if(e.categoryId){
           const mc=mcatsE.find(x=>x.id===e.categoryId);
-          mk=mc?`${mc.icon} ${mc.name}`:(e.category||'其他');
-        }else{mk=e.category||'其他';}
-        usedMainKeys.add(mk);
-      });
+          if(mc)return mc.name; // 只用純名字（不帶 icon），避免同名分兩欄
+        }
+        // fallback: 用 e.category 字串，但如果字串跟某主類別名稱一致 → 用主類別
+        const raw=(e.category||'其他').trim()||'其他';
+        // 智能匹配：抓主類別名的關鍵字
+        for(const mc of mcatsE){
+          if(raw===mc.name)return mc.name;
+        }
+        return raw;
+      };
+      const usedMainKeys=new Set();
+      all12.forEach(e=>{usedMainKeys.add(normalizeMainKey(e));});
       const mainKeyList=[...usedMainKeys];
 
-      const tblCat={},tblNat={},tblPay={};
+      const tblCat={},tblNat={};
       mKeys.forEach(k=>{
         const key=`${k.year}-${String(k.month).padStart(2,'0')}`;
         tblCat[key]={_total:0};mainKeyList.forEach(mk=>{tblCat[key][mk]=0;});
         tblNat[key]={固定:0,年繳:0,變動:0,基金:0,_total:0};
-        tblPay[key]={cash:0,transfer:0,credit:0,none:0,_total:0};
       });
       all12.forEach(e=>{
         const key=`${e.year}-${String(e.month).padStart(2,'0')}`;
         if(!tblCat[key])return;
-        // 主類別 key
-        let mk;
-        if(e.categoryId){
-          const mc=mcatsE.find(x=>x.id===e.categoryId);
-          mk=mc?`${mc.icon} ${mc.name}`:(e.category||'其他');
-        }else{mk=e.category||'其他';}
+        const mk=normalizeMainKey(e);
         tblCat[key][mk]+=e.amount;tblCat[key]._total+=e.amount;
-        // 性質
         tblNat[key][e.nature]+=e.amount;tblNat[key]._total+=e.amount;
-        // 付款方式
-        const p=e.paymentMethod||'none';
-        if(tblPay[key][p]!==undefined)tblPay[key][p]+=e.amount;
-        else tblPay[key].none+=e.amount;
-        tblPay[key]._total+=e.amount;
       });
 
       // 各欄合計
       const catTotals={};mainKeyList.forEach(mk=>{catTotals[mk]=0;});
       const natTotals={固定:0,年繳:0,變動:0,基金:0};
-      const payTotals={cash:0,transfer:0,credit:0,none:0};
       let grand12=0;
       all12.forEach(e=>{
-        let mk;
-        if(e.categoryId){
-          const mc=mcatsE.find(x=>x.id===e.categoryId);
-          mk=mc?`${mc.icon} ${mc.name}`:(e.category||'其他');
-        }else{mk=e.category||'其他';}
+        const mk=normalizeMainKey(e);
         catTotals[mk]=(catTotals[mk]||0)+e.amount;
         natTotals[e.nature]+=e.amount;
-        const p=e.paymentMethod||'none';
-        if(payTotals[p]!==undefined)payTotals[p]+=e.amount;
-        else payTotals.none+=e.amount;
         grand12+=e.amount;
       });
 
-      const payLbl={cash:'💵 現金',transfer:'🏦 轉帳',credit:'💳 信用卡',none:'其他/未指定'};
+      // 顯示 name 時，如果有主類別，加 icon
+      const displayKey=(name)=>{
+        const info=mcNamesMap.get(name);
+        return info?`${info.icon} ${name}`:name;
+      };
+
       const natLbl={固定:'📌 固定',年繳:'🏺 年繳攤提',變動:'🎲 變動',基金:'📒 基金'};
 
       return`<div style="background:#fff;border-radius:14px;padding:18px 20px;margin-bottom:20px;box-shadow:0 4px 16px rgba(194,116,122,0.08);">
@@ -2968,7 +2927,6 @@ function pgExpDash(){
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
             <button onclick="setExpView('byCat')" style="padding:6px 12px;background:${viewMode==='byCat'?'var(--rose)':'#fff'};color:${viewMode==='byCat'?'#fff':'var(--brown)'};border:1.5px solid ${viewMode==='byCat'?'var(--rose)':'var(--bdr)'};border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">🏷️ 按主類別</button>
             <button onclick="setExpView('byNature')" style="padding:6px 12px;background:${viewMode==='byNature'?'var(--gold)':'#fff'};color:${viewMode==='byNature'?'#fff':'var(--brown)'};border:1.5px solid ${viewMode==='byNature'?'var(--gold)':'var(--bdr)'};border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">📌 按性質</button>
-            <button onclick="setExpView('byPay')" style="padding:6px 12px;background:${viewMode==='byPay'?'var(--pur)':'#fff'};color:${viewMode==='byPay'?'#fff':'var(--brown)'};border:1.5px solid ${viewMode==='byPay'?'var(--pur)':'var(--bdr)'};border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">💳 按付款方式</button>
           </div>
         </div>
 
@@ -2977,7 +2935,7 @@ function pgExpDash(){
             <thead>
               <tr style="background:var(--bg2);">
                 <th style="padding:10px 12px;text-align:left;color:var(--brown);font-weight:700;font-size:12px;border-bottom:2px solid var(--bdr);position:sticky;left:0;background:var(--bg2);">月份</th>
-                ${mainKeyList.map(mk=>`<th style="padding:8px 10px;text-align:right;color:var(--brown);font-weight:700;font-size:11px;border-bottom:2px solid var(--bdr);white-space:nowrap;">${mk}</th>`).join('')}
+                ${mainKeyList.map(mk=>`<th style="padding:8px 10px;text-align:right;color:var(--brown);font-weight:700;font-size:11px;border-bottom:2px solid var(--bdr);white-space:nowrap;">${displayKey(mk)}</th>`).join('')}
                 <th style="padding:10px 12px;text-align:right;color:var(--red);font-weight:700;font-size:12px;border-bottom:2px solid var(--bdr);">合計</th>
               </tr>
             </thead>
@@ -3044,46 +3002,10 @@ function pgExpDash(){
               </tr>
             </tfoot>
           </table>`:''}
-
-          ${viewMode==='byPay'?`<table style="width:100%;border-collapse:collapse;font-size:13px;min-width:600px;">
-            <thead>
-              <tr style="background:var(--bg2);">
-                <th style="padding:10px 12px;text-align:left;color:var(--brown);font-weight:700;font-size:12px;border-bottom:2px solid var(--bdr);">月份</th>
-                ${['cash','transfer','credit','none'].map(p=>`<th style="padding:10px 12px;text-align:right;color:var(--brown);font-weight:700;font-size:12px;border-bottom:2px solid var(--bdr);">${payLbl[p]}</th>`).join('')}
-                <th style="padding:10px 12px;text-align:right;color:var(--red);font-weight:700;font-size:12px;border-bottom:2px solid var(--bdr);">合計</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${mKeys.map(k=>{
-                const key=`${k.year}-${String(k.month).padStart(2,'0')}`;
-                const row=tblPay[key];const isCur=key===thisMK;
-                return`<tr style="border-bottom:1px dashed var(--bdr);${isCur?'background:var(--goldL);':''}">
-                  <td style="padding:10px 12px;color:var(--brown);font-weight:${isCur?'700':'500'};white-space:nowrap;">${k.year}-${String(k.month).padStart(2,'0')}${isCur?' ●':''}</td>
-                  ${['cash','transfer','credit','none'].map(p=>{
-                    const v=row[p]||0;
-                    return`<td style="padding:10px 12px;text-align:right;font-family:'Noto Serif TC',serif;font-weight:${isCur?'700':'500'};color:${v>0?'var(--brown)':'var(--mut)'};">${v>0?'$'+fmt(v):'—'}</td>`;
-                  }).join('')}
-                  <td style="padding:10px 12px;text-align:right;font-family:'Noto Serif TC',serif;font-weight:700;color:${row._total>0?'var(--red)':'var(--mut)'};">${row._total>0?'$'+fmt(row._total):'—'}</td>
-                </tr>`;
-              }).join('')}
-            </tbody>
-            <tfoot>
-              <tr style="background:var(--bg2);border-top:2px solid var(--bdr);">
-                <td style="padding:12px;color:var(--brown);font-weight:700;">12 月合計</td>
-                ${['cash','transfer','credit','none'].map(p=>`<td style="padding:12px;text-align:right;font-family:'Noto Serif TC',serif;font-weight:700;color:var(--brown);">$${fmt(payTotals[p])}</td>`).join('')}
-                <td style="padding:12px;text-align:right;font-family:'Noto Serif TC',serif;font-weight:700;color:var(--red);">$${fmt(grand12)}</td>
-              </tr>
-              <tr style="background:var(--bg2);">
-                <td style="padding:8px 12px;color:var(--brown);font-weight:600;font-size:11.5px;">月平均</td>
-                ${['cash','transfer','credit','none'].map(p=>`<td style="padding:8px 12px;text-align:right;font-family:'Noto Serif TC',serif;font-weight:600;color:var(--brown);font-size:12.5px;">$${fmt(Math.round(payTotals[p]/12))}</td>`).join('')}
-                <td style="padding:8px 12px;text-align:right;font-family:'Noto Serif TC',serif;font-weight:700;color:var(--goldDk);font-size:12.5px;">$${fmt(Math.round(grand12/12))}</td>
-              </tr>
-            </tfoot>
-          </table>`:''}
         </div>
 
         <div class="tm" style="font-size:11px;margin-top:10px;padding:8px 12px;background:var(--bg2);border-radius:8px;line-height:1.6;">
-          💡 <b>金色高亮</b> = 當前月　·　點頂部 tab 切換 <b>主類別 / 性質 / 付款方式</b>
+          💡 <b>金色高亮</b> = 當前月　·　點頂部 tab 切換 <b>主類別 / 性質</b>
         </div>
       </div>`;
     })()}
@@ -3236,50 +3158,122 @@ function pgAmortNew(){
 // 🏷️ 類別管理頁
 function pgCatManage(){
   const cats=getMasterCats();
-  return`
-  <div style="max-width:720px;margin:0 auto;">
 
-    <!-- 標題 -->
+  // 統計每個主類別/子類別的金額 + 筆數（跨所有支出來源）
+  const list=[];
+  (S.data.expenses||[]).forEach(e=>{
+    if(e.fromLedger||e.excludeFromBudget)return;
+    list.push({amount:toN(e.amount),category:e.category||'',categoryId:e.categoryId||null,subCategoryId:e.subCategoryId||null});
+  });
+  (S.data.ledgerEntries||[]).forEach(e=>{
+    if(toN(e.amount)>=0)return;
+    list.push({amount:Math.abs(toN(e.amount)),category:e.cat||'',categoryId:e.categoryId||null,subCategoryId:e.subCategoryId||null});
+  });
+  (S.data.fixedItems||[]).forEach(f=>{
+    list.push({amount:toN(f.amount),category:f.category||'',categoryId:f.categoryId||null,subCategoryId:f.subCategoryId||null});
+  });
+  (S.data.amortizedItems||[]).forEach(a=>{
+    list.push({amount:toN(a.annualAmount),category:a.category||'',categoryId:a.categoryId||null,subCategoryId:a.subCategoryId||null});
+  });
+
+  const catStats={};
+  cats.forEach(c=>{
+    catStats[c.id]={total:0,count:0,subs:{}};
+    (c.subs||[]).forEach(s=>{catStats[c.id].subs[s.id]={total:0,count:0};});
+  });
+  const uncategorized={};
+  list.forEach(e=>{
+    if(e.categoryId&&catStats[e.categoryId]){
+      catStats[e.categoryId].total+=e.amount;
+      catStats[e.categoryId].count++;
+      if(e.subCategoryId&&catStats[e.categoryId].subs[e.subCategoryId]){
+        catStats[e.categoryId].subs[e.subCategoryId].total+=e.amount;
+        catStats[e.categoryId].subs[e.subCategoryId].count++;
+      }
+    }else{
+      const key=e.category||'(空)';
+      if(!uncategorized[key])uncategorized[key]={total:0,count:0};
+      uncategorized[key].total+=e.amount;
+      uncategorized[key].count++;
+    }
+  });
+  const uncatEntries=Object.entries(uncategorized).filter(([k,v])=>v.count>0).sort((a,b)=>b[1].total-a[1].total);
+
+  return`
+  <div style="max-width:900px;margin:0 auto;">
     <div style="text-align:center;padding:20px 0 16px;">
       <div style="font-size:48px;">🏷️</div>
       <div style="font-family:'Noto Serif TC',serif;font-size:24px;font-weight:700;color:var(--brown);letter-spacing:0.2em;margin-top:4px;">類別管理</div>
-      <div class="tm" style="font-size:12.5px;margin-top:4px;">所有支出/年繳/帳本統一使用的類別詞庫</div>
+      <div class="tm" style="font-size:12.5px;margin-top:4px;">全系統統一使用的類別詞庫，改一個字，全系統跟著改</div>
     </div>
 
-    <!-- 說明 -->
     <div style="background:var(--bluL);border-radius:12px;padding:14px 18px;margin-bottom:16px;line-height:1.8;font-size:13px;color:var(--blu);">
       💡 <b>怎麼運作：</b><br>
-      1. 這裡管理所有主類別（例如：🍜飲食、🚗交通、✨沐蜜）<br>
-      2. 記支出/年繳/帳本時 → 從這個清單選類別<br>
-      3. 支出總覽自動把「同一類別」的支出合計 → 一目了然
+      1. <b>改主/子類別名字</b> → 所有紀錄自動跟著改<br>
+      2. <b>點🔍</b> → 看有哪些紀錄用了這個類別（可逐筆編輯）<br>
+      3. <b>🪄 一鍵智能歸類</b> → 幫舊資料自動歸類到對應主類別
     </div>
 
-    <!-- 舊資料遷移入口 -->
-    <button onclick="setP('catMigrate')" style="width:100%;padding:14px;background:linear-gradient(135deg,#fff,var(--yel));color:var(--goldDk);border:2px solid var(--gold);border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:16px;">
-      🔄 舊分類遷移工具 →
-    </button>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px;">
+      <button onclick="autoCategorize()" style="padding:14px;background:linear-gradient(135deg,var(--grn),#5B9E7A);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;">🪄 一鍵智能歸類</button>
+      <button onclick="addMasterCat()" style="padding:14px;background:linear-gradient(135deg,var(--rose),var(--roseDk));color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;">＋ 新增主類別</button>
+      <button onclick="setP('catMigrate')" style="padding:14px;background:#fff;color:var(--goldDk);border:2px solid var(--gold);border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;">🔄 手動遷移工具</button>
+    </div>
 
-    <!-- 新增按鈕 -->
-    <button onclick="addMasterCat()" style="width:100%;padding:14px;background:linear-gradient(135deg,var(--rose),var(--roseDk));color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:16px;">
-      ＋ 新增類別
-    </button>
+    ${uncatEntries.length>0?`<div style="background:linear-gradient(135deg,#FFF3D8,#FFEAD0);border:2px solid var(--yelb);border-radius:12px;padding:14px 18px;margin-bottom:16px;">
+      <div style="font-size:14px;font-weight:700;color:var(--red);margin-bottom:6px;">⚠️ 有 ${uncatEntries.length} 個舊分類還沒歸類</div>
+      <div class="tm" style="font-size:12px;line-height:1.7;margin-bottom:8px;">
+        ${uncatEntries.slice(0,6).map(([k,v])=>`${k} (${v.count}筆/$${fmt(v.total)})`).join('、')}${uncatEntries.length>6?` 等 ${uncatEntries.length} 個`:''}
+      </div>
+      <div class="tm" style="font-size:11px;">💡 點上方「🪄 一鍵智能歸類」試試</div>
+    </div>`:''}
 
-    <!-- 類別清單 -->
     <div style="background:#fff;border-radius:14px;padding:18px 20px;box-shadow:0 4px 16px rgba(194,116,122,0.08);">
-      <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--brown);margin-bottom:14px;">📋 全部類別（${cats.length}）</div>
-      ${cats.map(c=>`<div style="padding:14px 4px;border-bottom:1px dashed var(--bdr);display:flex;justify-content:space-between;align-items:center;gap:12px;">
-        <div style="flex:1;display:flex;align-items:center;gap:12px;">
-          <span style="font-size:26px;">${c.icon}</span>
-          <div>
-            <div style="font-size:16px;color:var(--brown);font-weight:700;">${c.name}</div>
-            <div class="tm" style="font-size:10.5px;">${c.id}</div>
+      <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--brown);margin-bottom:14px;">📋 全部主類別（${cats.length}）</div>
+      ${cats.map(c=>{
+        const st=catStats[c.id];
+        const subCount=(c.subs||[]).length;
+        return`<details style="border-bottom:1px solid var(--bdr);padding:6px 0;">
+          <summary style="cursor:pointer;padding:12px 6px;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:10px;">
+            <div style="flex:1;min-width:0;display:flex;align-items:center;gap:12px;">
+              <span style="font-size:28px;">${c.icon}</span>
+              <div>
+                <div style="font-size:16px;color:var(--brown);font-weight:700;">${c.name}</div>
+                <div class="tm" style="font-size:10.5px;margin-top:2px;">${subCount} 個子分類 · ${st.count} 筆紀錄</div>
+              </div>
+            </div>
+            <div style="text-align:right;flex-shrink:0;">
+              <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:${st.total>0?'var(--red)':'var(--mut)'};">${st.total>0?'$'+fmt(st.total):'—'}</div>
+              <div class="tm" style="font-size:10px;">累計金額</div>
+            </div>
+          </summary>
+
+          <div style="padding:0 6px 14px;">
+            <div style="display:flex;gap:6px;margin-bottom:10px;padding:8px;background:var(--bg2);border-radius:8px;flex-wrap:wrap;">
+              <button onclick="viewCatRecords('${c.id}','')" style="flex:1;min-width:100px;background:var(--rose);color:#fff;border:none;padding:8px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">🔍 查看 ${st.count} 筆</button>
+              <button onclick="editMasterCat('${c.id}')" style="background:#fff;border:1.5px solid var(--gold);color:var(--goldDk);padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">✏️ 改名</button>
+              <button onclick="addSubToMain('${c.id}')" style="background:#fff;border:1.5px solid var(--grn);color:var(--grn);padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">＋ 加子分類</button>
+              <button onclick="delMasterCat('${c.id}')" style="background:#fff;border:1.5px solid var(--red);color:var(--red);padding:8px 12px;border-radius:8px;font-size:14px;cursor:pointer;">×</button>
+            </div>
+
+            ${subCount===0?`<div style="padding:12px;text-align:center;color:var(--mut);font-size:12px;">還沒有子分類</div>`:(c.subs||[]).map(s=>{
+              const sst=st.subs[s.id];
+              return`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px dashed var(--bdr);gap:8px;">
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:13px;color:var(--brown);font-weight:600;">📌 ${s.name}</div>
+                  <div class="tm" style="font-size:10.5px;">${sst.count} 筆</div>
+                </div>
+                <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:${sst.total>0?'var(--roseDk)':'var(--mut)'};">${sst.total>0?'$'+fmt(sst.total):'—'}</div>
+                <div style="display:flex;gap:4px;">
+                  <button onclick="viewCatRecords('${c.id}','${s.id}')" style="background:none;border:1px solid var(--bdr);color:var(--mut);padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;">🔍</button>
+                  <button onclick="editSubCat('${c.id}','${s.id}')" style="background:none;border:1px solid var(--bdr);color:var(--mut);padding:4px 8px;border-radius:6px;font-size:12px;cursor:pointer;">✏️</button>
+                  <button onclick="delSubCat('${c.id}','${s.id}')" style="background:none;border:1px solid var(--bdr);color:var(--red);padding:4px 8px;border-radius:6px;font-size:13px;cursor:pointer;">×</button>
+                </div>
+              </div>`;
+            }).join('')}
           </div>
-        </div>
-        <div style="display:flex;gap:6px;">
-          <button onclick="editMasterCat('${c.id}')" style="background:none;border:1px solid var(--bdr);color:var(--mut);padding:6px 10px;border-radius:8px;font-size:13px;cursor:pointer;">✏️</button>
-          <button onclick="delMasterCat('${c.id}')" style="background:none;border:1px solid var(--bdr);color:var(--red);padding:6px 10px;border-radius:8px;font-size:14px;cursor:pointer;">×</button>
-        </div>
-      </div>`).join('')}
+        </details>`;
+      }).join('')}
     </div>
   </div>`;
 }
@@ -9674,6 +9668,94 @@ function modal(){
   // 🏺 新增/編輯年繳攤提項目 modal
   // 📋 新增/編輯保單 modal
   // 📊 類別筆數詳細 modal（點類別方塊跳出）
+  // 📊 從類別管理 → 查看該類別的所有紀錄（跨月）
+  if(m.t==='catRecords'){
+    const mainId=m.mainId||'';
+    const subId=m.subId||'';
+    const mainCat=findMasterCat(mainId);
+    const subCat=subId?findSubCat(mainId,subId):null;
+    const title=mainCat?(subCat?`${mainCat.icon} ${mainCat.name} · ${subCat.name}`:`${mainCat.icon} ${mainCat.name}`):'類別';
+
+    // 收集所有支出（不限月份）
+    const matched=[];
+    (S.data.expenses||[]).forEach(e=>{
+      if(e.fromLedger||e.excludeFromBudget)return;
+      if(e.categoryId!==mainId)return;
+      if(subId&&e.subCategoryId!==subId)return;
+      matched.push({_origin:'expense',_id:e.id,_source:e.frequency==='monthly'?'固定':'變動',date:e.date,amount:toN(e.amount),item:e.item,subCategoryName:e.subCategoryName||''});
+    });
+    (S.data.ledgerEntries||[]).forEach(e=>{
+      if(toN(e.amount)>=0)return;
+      if(e.categoryId!==mainId)return;
+      if(subId&&e.subCategoryId!==subId)return;
+      const led=getAllLedgers().find(x=>x.id===e.lid);
+      matched.push({_origin:'ledger',_id:e.id,_source:'基金 '+(led?led.name:''),date:e.date,amount:Math.abs(toN(e.amount)),item:e.note||'',subCategoryName:e.subCategoryName||''});
+    });
+    (S.data.fixedItems||[]).forEach(f=>{
+      if(f.categoryId!==mainId)return;
+      if(subId&&f.subCategoryId!==subId)return;
+      matched.push({_origin:'fixed',_id:f.id,_source:'固定支出',date:'—',amount:toN(f.amount),item:f.name+' · 每月',subCategoryName:f.subCategoryName||''});
+    });
+    (S.data.amortizedItems||[]).forEach(a=>{
+      if(a.categoryId!==mainId)return;
+      if(subId&&a.subCategoryId!==subId)return;
+      matched.push({_origin:'amort',_id:a.id,_source:'年繳',date:'—',amount:toN(a.annualAmount),item:a.name+' · 年繳',subCategoryName:a.subCategoryName||''});
+    });
+
+    matched.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    const catTotal=matched.reduce((s,e)=>s+toN(e.amount),0);
+
+    const srcBadge=(e)=>{
+      if(e._origin==='expense'){
+        if(e._source==='固定')return`<span style="background:var(--goldL);color:var(--goldDk);padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:600;">固定</span>`;
+        return`<span style="background:var(--bg2);color:var(--mut);padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:600;">變動</span>`;
+      }
+      if(e._origin==='amort')return`<span style="background:var(--purl);color:var(--pur);padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:600;">年繳</span>`;
+      if(e._origin==='ledger')return`<span style="background:var(--roseL);color:var(--roseDk);padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:600;">基金</span>`;
+      if(e._origin==='fixed')return`<span style="background:var(--yel);color:var(--goldDk);padding:2px 8px;border-radius:6px;font-size:10.5px;font-weight:600;">固定</span>`;
+      return'';
+    };
+
+    c=`<div class="mttl">🔍 ${title}　·　${matched.length} 筆　·　合計 $${fmt(catTotal)}</div>
+    <div style="max-height:calc(80vh - 100px);overflow-y:auto;padding-right:8px;">
+      ${matched.length===0?`<div style="text-align:center;padding:40px 20px;color:var(--mut);">
+        <div style="font-size:48px;">📋</div>
+        <div style="margin-top:8px;font-size:14px;">這個類別還沒有任何紀錄</div>
+      </div>`:`
+      <div style="background:var(--yel);padding:10px 14px;border-radius:8px;font-size:12px;color:var(--goldDk);margin-bottom:12px;line-height:1.7;">
+        💡 這裡列出所有屬於「${title}」的紀錄（含所有月份）。點 <b>✏️</b> 編輯 → 改主/子類別，會歸到別的地方
+      </div>
+      <div style="display:grid;gap:8px;">
+        ${matched.map(e=>{
+          const canEdit=['expense','ledger','fixed','amort'].includes(e._origin);
+          return`<div style="padding:12px 14px;background:var(--bg2);border-radius:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+              <div style="flex:1;min-width:180px;">
+                <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px;">
+                  ${srcBadge(e)}
+                  <span style="font-size:11.5px;color:var(--mut);">${e.date||''}</span>
+                  ${e.subCategoryName?`<span style="background:#fff;color:var(--roseDk);padding:1px 6px;border-radius:4px;font-size:10.5px;">📌 ${e.subCategoryName}</span>`:''}
+                </div>
+                <div style="font-size:13px;color:var(--brown);font-weight:600;line-height:1.5;">${e.item||'—'}</div>
+                <div class="tm" style="font-size:10.5px;margin-top:2px;">${e._source}</div>
+              </div>
+              <div style="text-align:right;flex-shrink:0;">
+                <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--red);">$${fmt(toN(e.amount))}</div>
+                ${canEdit?`<div style="margin-top:4px;">
+                  ${e._origin==='expense'?`<button onclick="closeMod();openM('editExp','${e._id}')" style="background:var(--rose);color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">✏️ 編輯</button>`:''}
+                  ${e._origin==='ledger'?`<button onclick="closeMod();openM('editLE','${e._id}')" style="background:var(--rose);color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">✏️ 編輯</button>`:''}
+                  ${e._origin==='fixed'?`<button onclick="closeMod();editFixed('${e._id}')" style="background:var(--rose);color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">✏️ 編輯</button>`:''}
+                  ${e._origin==='amort'?`<button onclick="closeMod();editAmort('${e._id}')" style="background:var(--rose);color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">✏️ 編輯</button>`:''}
+                </div>`:''}
+              </div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`}
+    </div>
+    <div class="mbtns"><button class="btn btn-p" onclick="closeMod()" style="background:var(--rose);">關閉</button></div>`;
+  }
+
   if(m.t==='catDetail'){
     const targetMainKey=m.mainKey||'';
     const mcats=getMasterCats();
@@ -11219,7 +11301,7 @@ function modal(){
     </div>`;
   }
 
-  return`<div class="mbk" onclick="bkClose(event)"><div class="mbox" style="max-width:${m.t==='batchEntry'||m.t==='batchLE'||m.t==='importPreview'||m.t==='cardPay'||m.t==='editRewards'||m.t==='textParser'||m.t==='globalSearch'?'760px':'560px'};">${c}</div></div>`;
+  return`<div class="mbk" onclick="bkClose(event)"><div class="mbox" style="max-width:${m.t==='batchEntry'||m.t==='batchLE'||m.t==='importPreview'||m.t==='cardPay'||m.t==='editRewards'||m.t==='textParser'||m.t==='globalSearch'||m.t==='catDetail'||m.t==='catRecords'?'760px':'560px'};">${c}</div></div>`;
 }
 
 // ═══ ACTIONS ══════════════════════════════════════════════════
@@ -11397,13 +11479,177 @@ window.editMasterCat=async(id)=>{
   const idx=cats.findIndex(c=>c.id===id);
   if(idx<0)return;
   const cur=cats[idx];
-  const newName=prompt('修改類別名稱：',cur.name);
+  const oldName=cur.name;
+  const newName=prompt('修改主類別名稱：',cur.name);
   if(newName===null)return;
+  const trimmedName=newName.trim()||cur.name;
   const newIcon=prompt('修改 emoji：',cur.icon);
   if(newIcon===null)return;
-  cats[idx]={...cur,name:newName.trim()||cur.name,icon:newIcon.trim()||cur.icon};
+  const trimmedIcon=newIcon.trim()||cur.icon;
+  cats[idx]={...cur,name:trimmedName,icon:trimmedIcon};
+
+  // 🔄 全系統同步更新所有紀錄的 category 字串
+  const exps=(S.data.expenses||[]).map(e=>e.categoryId===id?{...e,category:trimmedName}:e);
+  const les=(S.data.ledgerEntries||[]).map(e=>e.categoryId===id?{...e,cat:trimmedName}:e);
+  const fixed=(S.data.fixedItems||[]).map(f=>f.categoryId===id?{...f,category:trimmedName}:f);
+  const amorts=(S.data.amortizedItems||[]).map(a=>a.categoryId===id?{...a,category:trimmedName}:a);
+
+  await saveMain({masterCategories:cats,expenses:exps,ledgerEntries:les,fixedItems:fixed,amortizedItems:amorts});
+  toast(`✅ 已改名「${oldName}」→「${trimmedName}」，全系統紀錄同步更新`);
+  render();
+};
+
+// ✏️ 編輯子分類（改名 → 全系統同步）
+window.editSubCat=async(mainId,subId)=>{
+  const cats=[...getMasterCats()];
+  const idx=cats.findIndex(c=>c.id===mainId);
+  if(idx<0)return;
+  const subs=[...(cats[idx].subs||[])];
+  const sidx=subs.findIndex(s=>s.id===subId);
+  if(sidx<0)return;
+  const cur=subs[sidx];
+  const newName=prompt('修改子分類名稱：',cur.name);
+  if(newName===null)return;
+  const trimmed=newName.trim();
+  if(!trimmed)return;
+  subs[sidx]={...cur,name:trimmed};
+  cats[idx]={...cats[idx],subs};
+
+  // 🔄 同步所有紀錄的 subCategoryName
+  const exps=(S.data.expenses||[]).map(e=>e.subCategoryId===subId?{...e,subCategoryName:trimmed}:e);
+  const les=(S.data.ledgerEntries||[]).map(e=>e.subCategoryId===subId?{...e,subCategoryName:trimmed}:e);
+  const fixed=(S.data.fixedItems||[]).map(f=>f.subCategoryId===subId?{...f,subCategoryName:trimmed}:f);
+  const amorts=(S.data.amortizedItems||[]).map(a=>a.subCategoryId===subId?{...a,subCategoryName:trimmed}:a);
+
+  await saveMain({masterCategories:cats,expenses:exps,ledgerEntries:les,fixedItems:fixed,amortizedItems:amorts});
+  toast(`✅ 已改名「${cur.name}」→「${trimmed}」`);
+  render();
+};
+
+// 🗑️ 刪除子分類
+window.delSubCat=async(mainId,subId)=>{
+  const cats=[...getMasterCats()];
+  const idx=cats.findIndex(c=>c.id===mainId);
+  if(idx<0)return;
+  const subs=cats[idx].subs||[];
+  const sub=subs.find(s=>s.id===subId);
+  if(!sub)return;
+  // 檢查有多少筆用了這個子分類
+  let count=0;
+  (S.data.expenses||[]).forEach(e=>{if(e.subCategoryId===subId)count++;});
+  (S.data.ledgerEntries||[]).forEach(e=>{if(e.subCategoryId===subId)count++;});
+  (S.data.fixedItems||[]).forEach(f=>{if(f.subCategoryId===subId)count++;});
+  (S.data.amortizedItems||[]).forEach(a=>{if(a.subCategoryId===subId)count++;});
+  if(!confirm(`確定刪除子分類「${sub.name}」？\n\n⚠️ 有 ${count} 筆紀錄使用此子分類，刪除後這些紀錄會變成「未指定子分類」（主類別仍保留）`))return;
+
+  cats[idx]={...cats[idx],subs:subs.filter(s=>s.id!==subId)};
+
+  // 清掉紀錄的 subCategoryId
+  const exps=(S.data.expenses||[]).map(e=>e.subCategoryId===subId?{...e,subCategoryId:null,subCategoryName:''}:e);
+  const les=(S.data.ledgerEntries||[]).map(e=>e.subCategoryId===subId?{...e,subCategoryId:null,subCategoryName:''}:e);
+  const fixed=(S.data.fixedItems||[]).map(f=>f.subCategoryId===subId?{...f,subCategoryId:null,subCategoryName:''}:f);
+  const amorts=(S.data.amortizedItems||[]).map(a=>a.subCategoryId===subId?{...a,subCategoryId:null,subCategoryName:''}:a);
+
+  await saveMain({masterCategories:cats,expenses:exps,ledgerEntries:les,fixedItems:fixed,amortizedItems:amorts});
+  toast('已刪除子分類');
+  render();
+};
+
+// ＋ 新增子分類到指定主類別
+window.addSubToMain=async(mainId)=>{
+  const cats=[...getMasterCats()];
+  const idx=cats.findIndex(c=>c.id===mainId);
+  if(idx<0)return;
+  const name=prompt(`為「${cats[idx].icon} ${cats[idx].name}」新增子分類：`);
+  if(!name||!name.trim())return;
+  const trimmed=name.trim();
+  const subs=cats[idx].subs||[];
+  if(subs.some(s=>s.name===trimmed)){alert('已有這個子分類');return;}
+  const newSub={id:'sub_'+Date.now()+'_'+Math.random().toString(36).slice(2,4),name:trimmed};
+  cats[idx]={...cats[idx],subs:[...subs,newSub]};
   await saveMain({masterCategories:cats});
-  toast(`✅ 已更新`);
+  toast(`✅ 已新增「${trimmed}」`);
+  render();
+};
+
+// 🔍 查看特定類別的紀錄（跳 modal）
+window.viewCatRecords=(mainId,subId)=>{
+  S.modal={t:'catRecords',mainId,subId:subId||''};
+  render();
+};
+
+// 🪄 一鍵智能歸類舊資料
+window.autoCategorize=async()=>{
+  const cats=getMasterCats();
+  const keywords={
+    cat_food:/飲食|食|吃|早餐|午餐|晚餐|飲料|零食|外食|餐廳|超市|便利商店|食材|日用|生活用品|好市多|全聯|全家|7-11|711/i,
+    cat_transport:/交通|加油|停車|機車|汽車|保養|罰單|車票|公路養管|大眾運輸|捷運|台鐵|高鐵|計程車|Uber/i,
+    cat_mumi:/沐蜜|美容|紋繡|保養品|化妝|美妝|SKII|Sisley/i,
+    cat_home:/家電|家居|傢俱|修繕|寢具|IKEA/i,
+    cat_edu:/教育|學費|補習|課程|進修|書籍|誠品|博客來/i,
+    cat_health:/健康|醫療|藥|診所|醫院|中醫|牙|眼科/i,
+    cat_entertain:/娛樂|遊戲|電影|Netflix|KKbox|Google|Spotify|機票|旅遊|旅行|飯店|Airbnb|Booking|Agoda/i,
+    cat_utility:/水電|水費|電費|天然氣|瓦斯|WIFI|手機|網路|通訊|APP|中華電信|台灣大|遠傳/i,
+    cat_insurance:/保險|人壽|強制|三商|台灣人壽|意外險|醫療險|火險/i,
+    cat_tax:/稅|工會|房屋稅|燃料稅|所得稅/i,
+    cat_gift:/節慶|紅包|過年|禮物|生日/i
+  };
+  let updated=0;
+
+  const applyGuess=(item,catField='category')=>{
+    if(item.categoryId)return item; // 已有跳過
+    const raw=(item[catField]||'').trim();
+    if(!raw)return item;
+    // 1. 精確符合主類別名
+    let matchedId=null;
+    for(const c of cats){
+      if(raw===c.name){matchedId=c.id;break;}
+    }
+    // 2. 精確符合子分類名 → 找對應主類別
+    let matchedSubId=null,matchedSubName='';
+    if(!matchedId){
+      for(const c of cats){
+        for(const s of(c.subs||[])){
+          if(raw===s.name){
+            matchedId=c.id;
+            matchedSubId=s.id;
+            matchedSubName=s.name;
+            break;
+          }
+        }
+        if(matchedId)break;
+      }
+    }
+    // 3. keyword 匹配主類別
+    if(!matchedId){
+      for(const [cid,re] of Object.entries(keywords)){
+        if(re.test(raw)){matchedId=cid;break;}
+      }
+    }
+    if(matchedId){
+      updated++;
+      const newItem={...item,categoryId:matchedId,[catField]:cats.find(c=>c.id===matchedId).name};
+      if(matchedSubId){
+        newItem.subCategoryId=matchedSubId;
+        newItem.subCategoryName=matchedSubName;
+      }
+      return newItem;
+    }
+    return item;
+  };
+
+  const exps=(S.data.expenses||[]).map(e=>applyGuess(e,'category'));
+  const les=(S.data.ledgerEntries||[]).map(e=>applyGuess(e,'cat'));
+  const fixed=(S.data.fixedItems||[]).map(f=>applyGuess(f,'category'));
+  const amorts=(S.data.amortizedItems||[]).map(a=>applyGuess(a,'category'));
+
+  if(updated===0){
+    alert('沒有可自動歸類的紀錄！\n（都已歸類過了，或名稱無法辨識）');
+    return;
+  }
+  if(!confirm(`將自動歸類 ${updated} 筆紀錄到對應主類別。\n\n此動作可以之後手動調整（每筆紀錄都能編輯）。\n\n確定執行？`))return;
+  await saveMain({expenses:exps,ledgerEntries:les,fixedItems:fixed,amortizedItems:amorts});
+  toast(`✅ 已智能歸類 ${updated} 筆紀錄！`);
   render();
 };
 
