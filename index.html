@@ -3214,8 +3214,9 @@ function pgCatManage(){
       3. <b>🪄 一鍵智能歸類</b> → 幫舊資料自動歸類到對應主類別
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px;">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:16px;">
       <button onclick="autoCategorize()" style="padding:14px;background:linear-gradient(135deg,var(--grn),#5B9E7A);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;">🪄 一鍵智能歸類</button>
+      <button onclick="resetMasterCats()" style="padding:14px;background:linear-gradient(135deg,var(--gold),var(--goldDk));color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;">🔧 重置預設 12 類別</button>
       <button onclick="addMasterCat()" style="padding:14px;background:linear-gradient(135deg,var(--rose),var(--roseDk));color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;">＋ 新增主類別</button>
       <button onclick="setP('catMigrate')" style="padding:14px;background:#fff;color:var(--goldDk);border:2px solid var(--gold);border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;">🔄 手動遷移工具</button>
     </div>
@@ -8906,11 +8907,21 @@ function pgLedger(){
     ${(()=>{
       const outEntries=allEntries.filter(e=>toN(e.amount)<0);
       if(outEntries.length===0)return'';
+      const mcatsE=getMasterCats();
+
+      // 決定每筆的「顯示 cat 名」：優先用主類別 name，fallback e.cat
+      const getCatKey=(e)=>{
+        if(e.categoryId){
+          const mc=mcatsE.find(x=>x.id===e.categoryId);
+          if(mc)return mc.name;
+        }
+        return (e.cat||'未分類').trim()||'未分類';
+      };
 
       // 找出所有分類（依總支出排序，最花錢的在前）
       const catTotals={};
       outEntries.forEach(e=>{
-        const c=(e.cat||'未分類').trim()||'未分類';
+        const c=getCatKey(e);
         catTotals[c]=(catTotals[c]||0)+Math.abs(toN(e.amount));
       });
       const cats=Object.keys(catTotals).sort((a,b)=>catTotals[b]-catTotals[a]);
@@ -8924,11 +8935,11 @@ function pgLedger(){
       // 當前選的分類（預設第一個）
       const selCat=S.ledgerCompareCat||cats[0];
 
-      // 建 12 月 × 年份 矩陣
+      // 建 12 月 × 年份 矩陣（用 getCatKey 過濾）
       const matrix=Array.from({length:12},(_,i)=>{
         const mo=i+1;
         const yearAmts=allYears.map(y=>{
-          const total=outEntries.filter(e=>(e.cat||'未分類').trim()===selCat&&e.year===y&&e.month===mo).reduce((s,e)=>s+Math.abs(toN(e.amount)),0);
+          const total=outEntries.filter(e=>getCatKey(e)===selCat&&e.year===y&&e.month===mo).reduce((s,e)=>s+Math.abs(toN(e.amount)),0);
           return{year:y,total};
         });
         // 較去年同月變化（今年 vs 去年同月）
@@ -8941,7 +8952,7 @@ function pgLedger(){
 
       // 每年合計
       const yearSums=allYears.map(y=>{
-        const total=outEntries.filter(e=>(e.cat||'未分類').trim()===selCat&&e.year===y).reduce((s,e)=>s+Math.abs(toN(e.amount)),0);
+        const total=outEntries.filter(e=>getCatKey(e)===selCat&&e.year===y).reduce((s,e)=>s+Math.abs(toN(e.amount)),0);
         return{year:y,total};
       });
 
@@ -11474,6 +11485,61 @@ window.addMasterCat=async()=>{
   render();
 };
 
+// 🔧 重置為預設 12 個主類別（保留 id 對應，只重置名字/icon/子分類）
+window.resetMasterCats=async()=>{
+  if(!confirm('確定重置類別？\n\n✅ 12 個主類別名字/icon/子分類都會恢復預設\n✅ 既有紀錄的分類對應會保留（不會弄丟）\n✅ 舊自訂類別（不在預設 12 個裡）會保留\n\n此動作無法復原。')) return;
+
+  const cur=getMasterCats();
+  // 用 id 對應：預設的 12 個 id 直接覆蓋 name/icon/subs
+  const defIds=DEF_MASTER_CATS.map(c=>c.id);
+  const newCats=DEF_MASTER_CATS.map(defC=>({...defC})); // 拷貝預設
+  // 保留自訂的主類別（不在預設 12 個 id 裡的）
+  cur.forEach(c=>{
+    if(!defIds.includes(c.id)){
+      newCats.push(c);
+    }
+  });
+
+  // 🔄 全系統同步更新所有紀錄的 category 字串（用新的主類別 name）
+  const catNameMap={};
+  newCats.forEach(c=>{catNameMap[c.id]=c.name;});
+  // 子分類 name map
+  const subNameMap={};
+  newCats.forEach(c=>{
+    (c.subs||[]).forEach(s=>{subNameMap[s.id]=s.name;});
+  });
+
+  const exps=(S.data.expenses||[]).map(e=>{
+    let ne=e;
+    if(e.categoryId&&catNameMap[e.categoryId])ne={...ne,category:catNameMap[e.categoryId]};
+    if(e.subCategoryId&&subNameMap[e.subCategoryId])ne={...ne,subCategoryName:subNameMap[e.subCategoryId]};
+    return ne;
+  });
+  const les=(S.data.ledgerEntries||[]).map(e=>{
+    let ne=e;
+    if(e.categoryId&&catNameMap[e.categoryId])ne={...ne,cat:catNameMap[e.categoryId]};
+    if(e.subCategoryId&&subNameMap[e.subCategoryId])ne={...ne,subCategoryName:subNameMap[e.subCategoryId]};
+    return ne;
+  });
+  const fixed=(S.data.fixedItems||[]).map(f=>{
+    let nf=f;
+    if(f.categoryId&&catNameMap[f.categoryId])nf={...nf,category:catNameMap[f.categoryId]};
+    if(f.subCategoryId&&subNameMap[f.subCategoryId])nf={...nf,subCategoryName:subNameMap[f.subCategoryId]};
+    return nf;
+  });
+  const amorts=(S.data.amortizedItems||[]).map(a=>{
+    let na=a;
+    if(a.categoryId&&catNameMap[a.categoryId])na={...na,category:catNameMap[a.categoryId]};
+    if(a.subCategoryId&&subNameMap[a.subCategoryId])na={...na,subCategoryName:subNameMap[a.subCategoryId]};
+    return na;
+  });
+
+  await saveMain({masterCategories:newCats,expenses:exps,ledgerEntries:les,fixedItems:fixed,amortizedItems:amorts});
+  toast('✅ 已重置為預設 12 個主類別 + 子分類');
+  render();
+};
+
+// 🔧 重置為預設 12 個主類別 (舊 API 保留)
 window.editMasterCat=async(id)=>{
   const cats=[...getMasterCats()];
   const idx=cats.findIndex(c=>c.id===id);
