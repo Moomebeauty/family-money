@@ -8892,7 +8892,7 @@ function pgLedger(){
           const isIn=toN(r.amount)>=0;
           return`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 4px;border-bottom:1px dashed var(--bdr);gap:10px;">
             <div style="flex:1;min-width:0;">
-              <div style="font-size:13.5px;color:var(--brown);font-weight:600;">${r.date||''}　<span style="font-size:11px;color:var(--mut);font-weight:400;background:var(--bg2);padding:1px 6px;border-radius:4px;">${r.cat||'未分類'}</span></div>
+              <div style="font-size:13.5px;color:var(--brown);font-weight:600;">${r.date||''}　<span style="font-size:11px;color:var(--mut);font-weight:400;background:var(--bg2);padding:1px 6px;border-radius:4px;">${getCatDisplay(r)}</span></div>
               ${r.note?`<div class="tm" style="font-size:11px;margin-top:2px;">${r.note}</div>`:''}
             </div>
             <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:${isIn?'var(--grn)':'var(--red)'};white-space:nowrap;">${isIn?'+':'−'}$${fmt(Math.abs(toN(r.amount)))}</div>
@@ -8909,11 +8909,18 @@ function pgLedger(){
       if(outEntries.length===0)return'';
       const mcatsE=getMasterCats();
 
-      // 決定每筆的「顯示 cat 名」：優先用主類別 name，fallback e.cat
+      // 決定每筆的「顯示 cat 名」：
+      // 優先「主類別 · 子類別」（例如「交通 · 汽車保養」）
+      // 有主類別沒子類別 → 只用主類別
+      // 都沒有 → fallback e.cat
       const getCatKey=(e)=>{
         if(e.categoryId){
           const mc=mcatsE.find(x=>x.id===e.categoryId);
-          if(mc)return mc.name;
+          if(mc){
+            const subName=(e.subCategoryName||'').trim();
+            if(subName)return`${mc.name} · ${subName}`;
+            return mc.name;
+          }
         }
         return (e.cat||'未分類').trim()||'未分類';
       };
@@ -12718,6 +12725,9 @@ window.saveLE=async()=>{
         date,
         amount:expAmount,
         category:cat,
+        categoryId:categoryId||null,
+        subCategoryId:subCategoryId||null,
+        subCategoryName:subCategoryName||'',
         item:expItem,
         note:`⛓️ 來自預備金 - ${l.name}`,
         payMethod:'信用卡',
@@ -12891,6 +12901,9 @@ window.updLE=async(id)=>{
       const newCCData={
         date,amount:expAmount,
         category:cat,
+        categoryId:categoryId||null,
+        subCategoryId:subCategoryId||null,
+        subCategoryName:subCategoryName||'',
         item:expItem,
         note:`⛓️ 來自預備金 - ${l.name}`,
         payMethod:'信用卡',
