@@ -8467,46 +8467,6 @@ function pgCC(){
     <div class="card-bd">${catRows}</div>
   </div>
 
-  <!-- 💳 信用卡繳費紀錄 -->
-  <div class="card">
-    <div class="card-hd">
-      <span class="card-ttl">💳 本月信用卡繳費紀錄</span>
-      <button class="btn btn-p btn-sm" onclick="openM('cardPay')">📝 管理繳費</button>
-    </div>
-    <div class="card-bd">
-      ${(()=>{
-        const mk0=mk();
-        const pays=(S.data.cardPayments||{})[mk0]||{};
-        return`<div class="sg sg3">${banks.map(b=>{
-          const p=pays[b]||{};
-          const dueDate=p.dueDate||'';
-          const today0=new Date();today0.setHours(0,0,0,0);
-          let status='⏳ 待繳費',col='var(--yelb)',bg='var(--yel)';
-          if(p.paid){status='✅ 已繳費';col='var(--grn)';bg='var(--grnl)';}
-          else if(dueDate){
-            const due=new Date(dueDate);
-            const days=Math.ceil((due-today0)/86400000);
-            if(days<0){status=`🔴 已逾期 ${-days} 天`;col='var(--red)';bg='var(--redl)';}
-            else if(days<=3){status=`⚠️ ${days} 天內到期`;col='var(--red)';bg='var(--redl)';}
-            else if(days<=7){status=`⏰ 還剩 ${days} 天`;col='var(--yelb)';bg='var(--yel)';}
-            else status=`📅 還剩 ${days} 天`;
-          }
-          return`<div style="border:1.5px solid var(--bdr);border-left:4px solid ${col};border-radius:var(--r-sm);padding:14px 16px;background:${bg};">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-              <b style="font-size:15px;color:var(--brown);font-family:'Noto Serif TC',serif;letter-spacing:0.08em;">${b}</b>
-              <span class="bdg" style="background:${col};color:#fff;font-size:11px;">${status}</span>
-            </div>
-            <div class="tm" style="font-size:12.5px;line-height:1.7;">
-              ${dueDate?`📅 截止：<b>${dueDate}</b><br>`:'<span style="color:var(--mut);">📅 尚未設定截止日</span><br>'}
-              ${p.amount?`💰 應繳：<b>$${fmt(p.amount)}</b>`:`💰 應繳：<span style="color:var(--mut);">未填</span>`}
-              ${p.paid&&p.paidDate?`<br>✅ 已於 ${p.paidDate} 繳費`:''}
-            </div>
-          </div>`;
-        }).join('')}</div>`;
-      })()}
-    </div>
-  </div>
-
   <!-- 💎 聰明消費分析（每張卡優惠 vs 實際消費）-->
   <div class="card card-feature">
     <div class="card-hd">
@@ -11184,7 +11144,7 @@ function modal(){
           <td><select id="batch-sub-${i}" onchange="updateStageSubCat(${i},this.value)" style="font-size:12.5px;padding:6px;width:100%;border:1px solid var(--bdr);border-radius:6px;">${getSubCats(curCatId).map(sc=>`<option value="${sc.id}" ${sc.id===curSubId?'selected':''}>${sc.name}</option>`).join('')}</select></td>
           <td><div style="display:flex;gap:4px;align-items:center;">
             <button onclick="toggleRefund(${i})" title="切換退款" style="padding:5px 7px;font-size:11px;border:1.5px solid ${toN(s.amount)<0?'var(--grn)':'var(--bdr)'};background:${toN(s.amount)<0?'var(--grnl)':'#fff'};color:${toN(s.amount)<0?'var(--grn)':'var(--mut)'};border-radius:6px;cursor:pointer;font-weight:700;flex-shrink:0;">${toN(s.amount)<0?'↻ 退':'+/−'}</button>
-            <input type="number" inputmode="decimal" value="${s.amount||''}" placeholder="0" oninput="updateStage(${i},'amount',this.value)" class="amt-input" style="font-size:14px;padding:6px 8px;width:100%;min-width:0;text-align:right;border:1px solid var(--bdr);border-radius:6px;color:${toN(s.amount)<0?'var(--grn)':'var(--brown)'};font-weight:${toN(s.amount)<0?'700':'500'};">
+            <input type="number" inputmode="decimal" value="${s.amount||''}" placeholder="0" oninput="updateStage(${i},'amount',this.value)" class="amt-input" style="font-size:15px;padding:8px 10px;flex:1;min-width:100px;text-align:right;border:1px solid var(--bdr);border-radius:6px;color:${toN(s.amount)<0?'var(--grn)':'var(--brown)'};font-weight:700;">
           </div></td>
           <td><select onchange="updateStage(${i},'cardBank',this.value)" style="font-size:12.5px;padding:6px;width:100%;border:1px solid var(--bdr);border-radius:6px;">${banks.map(b=>`<option value="${b}" ${b===s.cardBank?'selected':''}>${b}</option>`).join('')}</select></td>
           <td><select onchange="updateLedgerAndCats(${i},this.value)" style="font-size:12px;padding:6px;width:100%;border:1.5px solid ${s.ledgerId?'var(--pur)':'var(--bdr)'};border-radius:6px;background:${s.ledgerId?'var(--purl)':'#fff'};color:${s.ledgerId?'var(--pur)':'var(--mut)'};font-weight:${s.ledgerId?'700':'500'};">
@@ -11196,15 +11156,13 @@ function modal(){
       </table>
     </div>
     <div style="display:flex;gap:10px;margin-top:12px;align-items:center;flex-wrap:wrap;">
-      <button class="btn btn-s btn-sm" onclick="openTextParser()">📋 從文字解析（貼一大段）</button>
       <button class="btn btn-s btn-sm" onclick="addBatchRows(5)">＋ 再加 5 行</button>
       <button class="btn btn-s btn-sm" onclick="addBatchRows(10)">＋ 再加 10 行</button>
-      <button class="btn btn-s btn-sm" onclick="openM('addCat')">＋ 新增類別</button>
       <span class="tm" style="margin-left:auto;">退款請填負數（如 -500），空白行或金額為 0 不會儲存</span>
     </div>
     <div class="mbtns" style="margin-top:18px;">
       <button class="btn btn-s" onclick="cancelBatch()">取消</button>
-      ${keptCount>0?`<button class="btn btn-p" onclick="confirmImport()">✅ 儲存這 ${keptCount} 筆</button>`:'<button class="btn btn-s" disabled>請至少填一筆</button>'}
+      <button class="btn btn-p" onclick="confirmImport()" style="background:var(--rose);">✅ 儲存所有填好的筆數</button>
     </div>`;}
 
   // ─── 📋 大段文字解析 modal ───
