@@ -977,6 +977,7 @@ const PAGES=[
   {id:'settings', ico:'⚙️',lbl:'進階功能',group:'main'},
   {id:'catManage', ico:'🏷️',lbl:'類別管理',group:'hidden'},
   {id:'catMigrate',ico:'🔄',lbl:'舊分類遷移',group:'hidden'},
+  {id:'wealth10x',ico:'🎯',lbl:'10X 財富心法',group:'hidden'},
   // 舊「固定支出」跟「年繳攤提」改為隱藏（保留路由與資料）
   {id:'fixedNew', ico:'📌',lbl:'固定支出',group:'hidden'},
   {id:'amortNew', ico:'🏺',lbl:'年繳攤提',group:'hidden'},
@@ -1065,6 +1066,8 @@ let S={
     masterCategories:null,  // 首次載入時填入 DEF_MASTER_CATS
     // 💵 收入來源清單
     incomeSources:null,  // 首次載入時填入預設
+    // 🎯 Cardone 10X 淨值目標
+    wealth10xGoal:10000000,  // 預設 1,000 萬
     importStaging:[]
   }
 };
@@ -1134,6 +1137,7 @@ function startSync(){
       S.data.customLedgerCats=d.customLedgerCats||{};
       S.data.masterCategories=d.masterCategories||DEF_MASTER_CATS.slice();
       S.data.incomeSources=d.incomeSources||['薪資','股息','補助','獎金','兼職','其他'];
+      S.data.wealth10xGoal=d.wealth10xGoal||10000000;
       S.data.investNotes=d.investNotes||{};
     }
     setSyncing('synced');
@@ -1347,6 +1351,7 @@ function page(){
     case'insurance':return pgInsurance();
     case'catManage':return pgCatManage();
     case'catMigrate':return pgCatMigrate();
+    case'wealth10x':return pgWealth10X();
     case'networth': return pgNetworth();
     case'cashflow': return pgCashflow();
     case'expenses': return pgExpenses();
@@ -1762,6 +1767,12 @@ function pgSimple(){
 
   const medals=['🥇','🥈','🥉','4️⃣','5️⃣'];
 
+  // 🎯 10X Cardone 本月成績
+  const monthDeposit10x=(S.data.ledgerEntries||[]).filter(e=>e.year===yr()&&e.month===S.month&&toN(e.amount)>0).reduce((s,e)=>s+toN(e.amount),0);
+  const saveRate10x=M.tInc>0?Math.round((monthDeposit10x/M.tInc)*100):0;
+  const targetInvest10x=Math.round(M.tInc*0.4);
+  const state10x=saveRate10x>=40?{col:'var(--grn)',bg:'var(--grnl)',emoji:'✅',txt:'達成 Cardone 標準'}:saveRate10x>=20?{col:'var(--goldDk)',bg:'var(--yel)',emoji:'🟡',txt:'中產水準，再加油'}:{col:'var(--red)',bg:'var(--redl)',emoji:'🔴',txt:'窮人模式，請調整'};
+
   return`
   <div style="max-width:720px;margin:0 auto;">
 
@@ -1769,6 +1780,29 @@ function pgSimple(){
     <div style="text-align:center;padding:20px 0 10px;">
       <div style="font-family:'Noto Serif TC',serif;font-size:32px;font-weight:700;color:var(--roseDk);letter-spacing:0.15em;">${S.month} 月</div>
       <div class="tm" style="font-size:13px;letter-spacing:0.2em;margin-top:2px;">${yr()} · ${['一','二','三','四','五','六','七','八','九','十','十一','十二'][S.month-1]}月的錢</div>
+    </div>
+
+    <!-- 🎯 10X Cardone 迷你儀表板 -->
+    <div onclick="setP('wealth10x')" style="background:linear-gradient(135deg,#2C1810,#4A2C1F);color:#fff;border-radius:16px;padding:18px 22px;margin-bottom:14px;cursor:pointer;box-shadow:0 6px 20px rgba(44,24,16,0.2);">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:180px;">
+          <div style="font-size:10.5px;letter-spacing:0.25em;color:#C4A46B;font-weight:600;">🎯 CARDONE 本月存錢率</div>
+          <div style="display:flex;align-items:baseline;gap:10px;margin-top:4px;">
+            <span style="font-family:'Noto Serif TC',serif;font-size:34px;font-weight:700;color:${saveRate10x>=40?'#7DB89A':saveRate10x>=20?'#FFD700':'#FF6B6B'};">${saveRate10x}%</span>
+            <span style="font-size:12px;color:#aaa;">目標 40%</span>
+          </div>
+          <div style="font-size:11.5px;color:#C4A46B;margin-top:2px;">${state10x.emoji} ${state10x.txt}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-size:10.5px;color:#aaa;letter-spacing:0.1em;">本月該存</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:#C4A46B;">$${fmt(targetInvest10x)}</div>
+          <div style="font-size:10.5px;color:#aaa;margin-top:2px;">實存 $${fmt(monthDeposit10x)}</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;background:rgba(255,255,255,0.1);border-radius:999px;overflow:hidden;height:8px;">
+        <div style="width:${Math.min(100,saveRate10x/40*100)}%;background:linear-gradient(90deg,#C4A46B,#7DB89A);height:100%;"></div>
+      </div>
+      <div style="font-size:10.5px;color:#aaa;margin-top:8px;text-align:center;">點看完整 Cardone 10X 財富心法 →</div>
     </div>
 
     <!-- 💰 頂部主卡：本月狀況 -->
@@ -3156,6 +3190,124 @@ function pgAmortNew(){
 
 // 📋 家庭保險簿
 // 🏷️ 類別管理頁
+// 🎯 Grant Cardone 10X 財富心法頁
+function pgWealth10X(){
+  // 本月統計
+  const now=new Date();
+  const curYear=now.getFullYear(),curMonth=now.getMonth()+1;
+  const monthInc=(S.data.incomes||[]).filter(i=>i.year===curYear&&i.month===curMonth).reduce((s,i)=>s+toN(i.amount),0);
+  const monthExp=(S.data.expenses||[]).filter(e=>e.year===curYear&&e.month===curMonth&&!e.fromLedger&&!e.excludeFromBudget).reduce((s,e)=>s+toN(e.amount),0);
+  // 本月已存（儲蓄本正數）
+  const monthDeposit=(S.data.ledgerEntries||[]).filter(e=>e.year===curYear&&e.month===curMonth&&toN(e.amount)>0).reduce((s,e)=>s+toN(e.amount),0);
+  // Cardone 40/20/40
+  const targetInvest=Math.round(monthInc*0.4);
+  const targetSave=Math.round(monthInc*0.2);
+  const targetSpend=Math.round(monthInc*0.4);
+  // 進度（存錢率）
+  const saveRate=monthInc>0?Math.round((monthDeposit/monthInc)*100):0;
+  // 10X 目標進度
+  const goal10X=toN(S.data.wealth10xGoal)||10000000;
+  const curNetWorth=((S.data.assets||[]).reduce((s,a)=>s+toN(a.value),0))-((S.data.debts||[]).reduce((s,d)=>s+toN(d.remainingAmount),0));
+  const progress10X=goal10X>0?Math.min(100,Math.round((curNetWorth/goal10X)*100)):0;
+
+  // 心法狀態
+  const stateInvest=monthDeposit>=targetInvest?'✅':(monthDeposit>=targetInvest*0.5?'🟡':'🔴');
+  const stateRate=saveRate>=40?'✅':(saveRate>=20?'🟡':'🔴');
+
+  return`
+  <div style="max-width:900px;margin:0 auto;">
+    <!-- 標題 -->
+    <div style="text-align:center;padding:20px 0 16px;">
+      <div style="font-size:56px;">🎯</div>
+      <div style="font-family:'Noto Serif TC',serif;font-size:26px;font-weight:700;color:var(--brown);letter-spacing:0.25em;margin-top:6px;">10X 財富心法</div>
+      <div class="tm" style="font-size:12.5px;margin-top:6px;letter-spacing:0.1em;">Grant Cardone 教女兒的 6 大財商法則　·　此系統的底層邏輯</div>
+    </div>
+
+    <!-- 本月成績單 -->
+    <div style="background:linear-gradient(135deg,#2C1810,#4A2C1F);color:#fff;border-radius:18px;padding:28px;margin-bottom:20px;box-shadow:0 8px 32px rgba(44,24,16,0.3);">
+      <div style="text-align:center;margin-bottom:20px;">
+        <div style="font-size:11px;letter-spacing:0.3em;color:#C4A46B;font-weight:600;">PAY YOURSELF FIRST</div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;margin-top:4px;letter-spacing:0.15em;">${curMonth} 月 Cardone 成績單</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+        <div style="background:rgba(196,164,107,0.15);border:1.5px solid #C4A46B;border-radius:12px;padding:16px 14px;text-align:center;">
+          <div style="font-size:11px;color:#C4A46B;letter-spacing:0.1em;font-weight:600;">💎 投資（40%）</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:#fff;margin-top:6px;">$${fmt(targetInvest)}</div>
+          <div style="font-size:10.5px;color:#C4A46B;margin-top:4px;">實際：$${fmt(monthDeposit)} ${stateInvest}</div>
+        </div>
+        <div style="background:rgba(125,184,154,0.15);border:1.5px solid #7DB89A;border-radius:12px;padding:16px 14px;text-align:center;">
+          <div style="font-size:11px;color:#7DB89A;letter-spacing:0.1em;font-weight:600;">🏦 儲蓄（20%）</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:#fff;margin-top:6px;">$${fmt(targetSave)}</div>
+          <div style="font-size:10.5px;color:#7DB89A;margin-top:4px;">買房金/應急金</div>
+        </div>
+        <div style="background:rgba(194,116,122,0.15);border:1.5px solid #C2747A;border-radius:12px;padding:16px 14px;text-align:center;">
+          <div style="font-size:11px;color:#C2747A;letter-spacing:0.1em;font-weight:600;">💸 可花（40%）</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:#fff;margin-top:6px;">$${fmt(targetSpend)}</div>
+          <div style="font-size:10.5px;color:#C2747A;margin-top:4px;">實際花：$${fmt(monthExp)}</div>
+        </div>
+      </div>
+      <div style="margin-top:18px;padding:14px;background:rgba(255,255,255,0.05);border-radius:10px;text-align:center;">
+        <div style="font-size:11px;color:#C4A46B;letter-spacing:0.15em;font-weight:600;">本月存錢率</div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:36px;font-weight:700;margin-top:4px;color:${saveRate>=40?'#7DB89A':saveRate>=20?'#FFD700':'#FF6B6B'};">${saveRate}%</div>
+        <div style="font-size:11px;margin-top:4px;color:#aaa;">${stateRate} Cardone 目標 ≥ 40% ｜ 窮人 &lt; 10% ｜ 中產 10-20% ｜ 富人 40%+</div>
+      </div>
+    </div>
+
+    <!-- 10X 淨值目標 -->
+    <div style="background:#fff;border-radius:14px;padding:22px;margin-bottom:16px;box-shadow:0 4px 16px rgba(194,116,122,0.08);border-top:4px solid var(--gold);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);letter-spacing:0.1em;">🚀 你的 10X 淨值目標</span>
+        <button onclick="editWealth10xGoal()" style="background:var(--gold);color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">✏️ 設定</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;text-align:center;">
+        <div><div class="tm" style="font-size:11px;">目前淨值</div><div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:var(--brown);margin-top:4px;">$${fmt(curNetWorth)}</div></div>
+        <div><div class="tm" style="font-size:11px;">10X 目標</div><div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:var(--gold);margin-top:4px;">$${fmt(goal10X)}</div></div>
+        <div><div class="tm" style="font-size:11px;">距離目標</div><div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:var(--red);margin-top:4px;">$${fmt(Math.max(0,goal10X-curNetWorth))}</div></div>
+      </div>
+      <div style="margin-top:14px;background:var(--bg2);border-radius:999px;overflow:hidden;height:14px;">
+        <div style="width:${progress10X}%;background:linear-gradient(90deg,var(--gold),var(--goldDk));height:100%;"></div>
+      </div>
+      <div class="tm" style="font-size:11px;margin-top:6px;text-align:center;">${progress10X}% 達成</div>
+    </div>
+
+    <!-- 6 大心法 -->
+    <div style="background:#fff;border-radius:14px;padding:22px;box-shadow:0 4px 16px rgba(194,116,122,0.08);">
+      <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);margin-bottom:16px;letter-spacing:0.1em;">💎 Cardone 6 大財商法則</div>
+
+      <div style="display:grid;gap:12px;">
+        ${[
+          {n:'1',ttl:'Pay Yourself First（先付給未來的自己）',en:'The rich save first, then spend. The poor spend first, then save.',txt:'薪水入帳的第一件事：先把 40% 轉到投資帳戶，剩下才拿來花。不是「花剩下的存」，而是「存剩下的花」。',action:'💡 記薪水時，立刻把 40% 存入儲蓄本'},
+          {n:'2',ttl:'10X Rule（10 倍法則）',en:'Set targets 10× bigger. Take 10× more action.',txt:'目標要設大 10 倍。不是存 100 萬，是存 1,000 萬。平凡的目標只會帶來平凡的人生。擴大視野才會逼自己突破。',action:'💡 你的 00891 目標 7 張 → 10X = 70 張（看得更遠）'},
+          {n:'3',ttl:'3 Account Rule（三帳戶法則）',en:'Spend / Save / Invest — never cross them.',txt:'錢分三份：① 花費帳戶（日常）② 儲蓄帳戶（買房等大目標，不碰）③ 投資帳戶（讓錢賺錢，永遠只進不出）。三個帳戶絕對不互相挪用。',action:'💡 你的儲蓄本就是「儲蓄 + 投資」帳戶，絕不動用'},
+          {n:'4',ttl:'Never Buy Depreciating Assets With Savings',en:'Never use savings to buy things that lose value.',txt:'儲蓄只能用來買會增值的東西（房子、生意、股票）。絕對不能用儲蓄買車、衣服、旅遊、奢侈品。那些要用「花費帳戶」。',action:'💡 旅遊/衣服/3C → 從「可花 40%」裡扣，不碰儲蓄'},
+          {n:'5',ttl:'Increase Income >> Reduce Expenses',en:'You cannot cut your way to wealth. Earn more.',txt:'省錢有極限（最多省到 0），收入沒有上限。別把精力都花在省咖啡錢，多想「怎麼讓今年收入 ×2」。',action:'💡 定期檢視：本月收入有比去年同月成長嗎？'},
+          {n:'6',ttl:'Track Every Dollar（追蹤每一塊錢）',en:'What gets measured gets managed.',txt:'有錢人知道自己每一塊錢去哪了。這個系統就是你的「金錢顯微鏡」。沒追蹤 = 沒管理 = 沒財富。',action:'💡 每天花 2 分鐘記帳，比月底對帳省時 10 倍'},
+        ].map(law=>`<div style="background:var(--bg2);border-radius:12px;padding:16px 18px;border-left:4px solid var(--gold);">
+          <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px;">
+            <span style="font-family:'Noto Serif TC',serif;font-size:28px;font-weight:700;color:var(--gold);">${law.n}</span>
+            <span style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--brown);letter-spacing:0.05em;">${law.ttl}</span>
+          </div>
+          <div style="font-size:11.5px;color:var(--mut);font-style:italic;margin-bottom:8px;">"${law.en}"</div>
+          <div style="font-size:13px;color:var(--brown);line-height:1.75;margin-bottom:8px;">${law.txt}</div>
+          <div style="font-size:12px;color:var(--goldDk);background:var(--yel);padding:8px 12px;border-radius:8px;font-weight:600;">${law.action}</div>
+        </div>`).join('')}
+      </div>
+    </div>
+
+    <!-- 本月行動清單 -->
+    <div style="background:linear-gradient(135deg,var(--roseL),#fff);border-radius:14px;padding:22px;margin-top:16px;border:2px solid var(--rose);">
+      <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--roseDk);margin-bottom:12px;">✅ 本月行動清單</div>
+      <div style="display:grid;gap:8px;font-size:13px;line-height:1.7;color:var(--brown);">
+        <div>□ 收入入帳後 24 小時內 → 把 <b>40% ($${fmt(targetInvest)})</b> 存入投資/儲蓄本</div>
+        <div>□ 本月變動支出控制在 <b>$${fmt(targetSpend)}</b> 以內（已花 $${fmt(monthExp)}）</div>
+        <div>□ 檢查：這個月有沒有「用儲蓄買貶值品」？</div>
+        <div>□ 問自己：這個月有多賺一筆嗎？</div>
+        <div>□ 月底對帳 → 存錢率是否達 40%？</div>
+      </div>
+    </div>
+  </div>`;
+}
+
 function pgCatManage(){
   const cats=getMasterCats();
 
@@ -6152,6 +6304,14 @@ function pgSettings(){
   <div class="pg-sub">家庭資料、保單、固定支出、信用卡、預備金帳本等進階設定</div>
 
   <div class="sg sg2">
+    <button onclick="setP('wealth10x')" style="padding:24px;border:2px solid var(--gold);border-radius:var(--r-sm);background:linear-gradient(135deg,#2C1810,#4A2C1F);cursor:pointer;text-align:left;transition:all .25s;display:flex;gap:18px;align-items:center;color:#fff;">
+      <div style="font-size:42px;flex-shrink:0;">🎯</div>
+      <div style="flex:1;">
+        <div style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:#C4A46B;letter-spacing:0.08em;">10X 財富心法 <span style="background:var(--gold);color:#fff;font-size:10px;padding:2px 8px;border-radius:6px;margin-left:6px;">NEW</span></div>
+        <div style="margin-top:4px;color:#ccc;font-size:12.5px;">Grant Cardone 6 大法則 · 40/20/40 分配 · 10X 目標追蹤</div>
+      </div>
+      <div style="font-size:24px;color:var(--gold);">→</div>
+    </button>
     <button onclick="setP('catManage')" style="padding:24px;border:2px solid var(--rose);border-radius:var(--r-sm);background:linear-gradient(135deg,#fff,var(--roseL));cursor:pointer;text-align:left;transition:all .25s;display:flex;gap:18px;align-items:center;">
       <div style="font-size:42px;flex-shrink:0;">🏷️</div>
       <div style="flex:1;">
@@ -11974,6 +12134,18 @@ window.setIncView=(v)=>{
 // 📊 切換支出總覽 12 個月表格視角
 window.setExpView=(v)=>{
   S.expView=v;
+  render();
+};
+
+// 🎯 設定 10X 淨值目標
+window.editWealth10xGoal=async()=>{
+  const cur=toN(S.data.wealth10xGoal)||10000000;
+  const v=prompt('你的 10X 淨值目標是多少？\n（Cardone：設定比現在想像的大 10 倍）\n\n範例：\n· 1,000 萬 → 10000000\n· 2,000 萬 → 20000000\n· 5,000 萬 → 50000000',cur);
+  if(v===null)return;
+  const num=toN(v);
+  if(num<=0){alert('請輸入正數');return;}
+  await saveMain({wealth10xGoal:num});
+  toast(`🎯 10X 目標設為 $${fmt(num)}`);
   render();
 };
 
