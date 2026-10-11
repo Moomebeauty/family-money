@@ -978,6 +978,7 @@ const PAGES=[
   {id:'catManage', ico:'🏷️',lbl:'類別管理',group:'hidden'},
   {id:'catMigrate',ico:'🔄',lbl:'舊分類遷移',group:'hidden'},
   {id:'wealth10x',ico:'🎯',lbl:'10X 財富心法',group:'hidden'},
+  {id:'safetyNet',ico:'🛡️',lbl:'家庭安全網',group:'hidden'},
   // 舊「固定支出」跟「年繳攤提」改為隱藏（保留路由與資料）
   {id:'fixedNew', ico:'📌',lbl:'固定支出',group:'hidden'},
   {id:'amortNew', ico:'🏺',lbl:'年繳攤提',group:'hidden'},
@@ -1072,6 +1073,8 @@ let S={
     decisions:[],  // [{id,lid,title,amount,status,notes,financialCheck,createdAt,decidedAt}]
     // 👨‍👩‍👧 帳本所有人標記（三層分流法）
     ledgerOwners:{},  // {lid: 'joint'|'youquan'|'yumi'}
+    // 🛡️ 家庭安全網檢查清單
+    safetyChecks:{},  // {key: true/false, 例如 lifeInsBeneficiary, cohabitAgreement, will...}
     importStaging:[]
   }
 };
@@ -1144,6 +1147,7 @@ function startSync(){
       S.data.wealth10xGoal=d.wealth10xGoal||10000000;
       S.data.decisions=d.decisions||[];
       S.data.ledgerOwners=d.ledgerOwners||{};
+      S.data.safetyChecks=d.safetyChecks||{};
       S.data.investNotes=d.investNotes||{};
     }
     setSyncing('synced');
@@ -1358,6 +1362,7 @@ function page(){
     case'catManage':return pgCatManage();
     case'catMigrate':return pgCatMigrate();
     case'wealth10x':return pgWealth10X();
+    case'safetyNet':return pgSafetyNet();
     case'networth': return pgNetworth();
     case'cashflow': return pgCashflow();
     case'expenses': return pgExpenses();
@@ -3234,6 +3239,178 @@ function pgAmortNew(){
 
 // 📋 家庭保險簿
 // 🏷️ 類別管理頁
+// 🛡️ 家庭安全網儀表板
+function pgSafetyNet(){
+  const now=new Date();
+  const curYear=now.getFullYear(),curMonth=now.getMonth()+1;
+
+  // 計算：近 3 月平均收入、支出
+  const incs3=[],exps3=[];
+  for(let i=0;i<3;i++){
+    const d=new Date(curYear,curMonth-1-i,1);
+    const y=d.getFullYear(),mo=d.getMonth()+1;
+    incs3.push((S.data.incomes||[]).filter(ic=>ic.year===y&&ic.month===mo).reduce((s,ic)=>s+toN(ic.amount),0));
+    exps3.push((S.data.expenses||[]).filter(e=>e.year===y&&e.month===mo&&!e.fromLedger&&!e.excludeFromBudget).reduce((s,e)=>s+toN(e.amount),0));
+  }
+  const fixedTotal=(S.data.fixedItems||[]).reduce((s,f)=>s+toN(f.amount),0);
+  const avgInc=incs3.reduce((s,x)=>s+x,0)/3;
+  const avgExp=(exps3.reduce((s,x)=>s+x,0)/3)+fixedTotal;
+
+  // 1. 緊急預備金（現金類資產）
+  const cashAssets=(S.data.assets||[]).filter(a=>['現金存款','定存'].includes(a.type)).reduce((s,a)=>s+toN(a.value),0);
+  const emergencyMonths=avgExp>0?(cashAssets/avgExp):0;
+  const emergencyScore=emergencyMonths>=6?100:emergencyMonths>=3?60:emergencyMonths>=1?30:0;
+
+  // 2. 壽險保障（總壽險保額）
+  const insurances=S.data.insurancePolicies||[];
+  const lifeInsTotal=insurances.filter(i=>/壽險|意外|人壽/.test(i.category||'')).reduce((s,i)=>{
+    const amtStr=(i.fields&&(i.fields['保額']||i.fields['保障額']||i.fields['身故保險金']))||'';
+    const n=toN(amtStr.toString().replace(/[^\d.]/g,''));
+    return s+n;
+  },0);
+  // 建議壽險 = 10 倍年收入
+  const recommendedLifeIns=avgInc*12*10;
+  const lifeInsScore=lifeInsTotal>=recommendedLifeIns?100:lifeInsTotal>=recommendedLifeIns*0.5?60:lifeInsTotal>0?30:0;
+
+  // 3. 月保費占比
+  const insExps=insurances.length;
+  const monthlyPremium=(S.data.amortizedItems||[]).filter(a=>/保險|壽險|醫療|意外/.test(a.category||'')).reduce((s,a)=>s+(toN(a.monthlyAmortize)||Math.ceil(toN(a.annualAmount)/12)),0);
+  const premiumPct=avgInc>0?Math.round((monthlyPremium/avgInc)*100):0;
+  const premiumScore=premiumPct>=5&&premiumPct<=15?100:premiumPct>0&&premiumPct<20?60:0;
+
+  // 4. 負債比
+  const totalAssets=(S.data.assets||[]).reduce((s,a)=>s+toN(a.value),0);
+  const totalDebts=(S.data.debts||[]).reduce((s,d)=>s+toN(d.remainingAmount),0);
+  const debtRatio=totalAssets>0?Math.round((totalDebts/totalAssets)*100):0;
+  const debtScore=debtRatio<30?100:debtRatio<50?60:debtRatio<70?30:0;
+
+  // 5. 保障完整度（6 大險種）
+  const requiredIns=['壽險','意外險','醫療險','癌症險','重大傷病','失能險'];
+  const haveIns=requiredIns.filter(r=>insurances.some(i=>(i.category||'').includes(r.replace('險',''))||r.includes((i.category||'').replace('險',''))));
+  const insCompleteness=Math.round((haveIns.length/requiredIns.length)*100);
+  const insScore=insCompleteness;
+
+  // 6. 失業耐受度（現金 / 月支出）
+  const unemploymentMonths=avgExp>0?Math.floor(cashAssets/avgExp):0;
+  const unemploymentScore=unemploymentMonths>=12?100:unemploymentMonths>=6?80:unemploymentMonths>=3?50:unemploymentMonths>=1?20:0;
+
+  // 整體分數
+  const totalScore=Math.round((emergencyScore+lifeInsScore+premiumScore+debtScore+insScore+unemploymentScore)/6);
+  const scoreGrade=totalScore>=80?{lbl:'🟢 堡壘穩固',col:'var(--grn)',bg:'var(--grnl)'}:totalScore>=60?{lbl:'🟡 中度風險',col:'var(--yelb)',bg:'var(--yel)'}:totalScore>=40?{lbl:'🟠 高度風險',col:'var(--gold)',bg:'var(--goldL)'}:{lbl:'🔴 極度危險',col:'var(--red)',bg:'var(--redl)'};
+
+  // 法律保護檢查清單
+  const sc=S.data.safetyChecks||{};
+  const legalChecks=[
+    {k:'lifeInsBeneficiary',ttl:'又權的壽險受益人指定為妳',why:'未婚配偶不是法定繼承人，不指定妳 → 保險金給他父母',urgent:true},
+    {k:'yumiLifeInsBeneficiary',ttl:'妳的壽險受益人指定好（含女兒教育信託）',why:'妳如果走了，女兒的教育金可能被生父監護人動用',urgent:true},
+    {k:'cohabitAgreement',ttl:'同居協議書已簽（白紙黑字寫清楚）',why:'避免分手時共同財產爭議，法律上有效',urgent:false},
+    {k:'will',ttl:'妳有寫遺囑（指定女兒教育金用途+執行人）',why:'遺囑可指定非法定繼承人（例如又權）協助照顧女兒',urgent:true},
+    {k:'youquanAssetUnderHim',ttl:'又權的儲蓄都在他名下（不是在妳名下）',why:'避免贈與稅（超過 244 萬/年）+ 法律糾紛',urgent:true},
+    {k:'emergencyFund6m',ttl:'緊急預備金達 6 個月家庭支出',why:'失業/生病/意外時的生存底盤',urgent:emergencyMonths<6},
+    {k:'medicalIns',ttl:'三人都有實支實付醫療險',why:'生病住院的費用保護，特別是楷宸',urgent:false},
+    {k:'accidentIns',ttl:'三人都有意外險',why:'意外是最便宜的保障',urgent:false},
+    {k:'autoRenewCheck',ttl:'每年 1 次重新檢視所有保單',why:'人生階段變化 → 保障也要跟著變',urgent:false},
+  ];
+  const checkedCount=legalChecks.filter(c=>sc[c.k]).length;
+  const legalPct=Math.round((checkedCount/legalChecks.length)*100);
+
+  const mkIndicator=(ttl,val,unit,target,score,extra)=>{
+    const col=score>=80?'var(--grn)':score>=60?'var(--yelb)':score>=30?'var(--gold)':'var(--red)';
+    const bg=score>=80?'var(--grnl)':score>=60?'var(--yel)':score>=30?'var(--goldL)':'var(--redl)';
+    const emoji=score>=80?'✅':score>=60?'🟡':score>=30?'🟠':'🔴';
+    return`<div style="background:${bg};border:2px solid ${col};border-radius:14px;padding:16px 18px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span style="font-size:12.5px;font-weight:700;color:var(--brown);">${ttl}</span>
+        <span style="font-size:16px;">${emoji}</span>
+      </div>
+      <div style="font-family:'Noto Serif TC',serif;font-size:24px;font-weight:700;color:${col};line-height:1.1;">${val}${unit?`<span style="font-size:12px;">${unit}</span>`:''}</div>
+      <div style="font-size:11px;color:var(--mut);margin-top:4px;line-height:1.5;">目標：${target}${extra?' · '+extra:''}</div>
+    </div>`;
+  };
+
+  return`
+  <div style="max-width:1000px;margin:0 auto;">
+    <!-- 標題 -->
+    <div style="text-align:center;padding:20px 0 16px;">
+      <div style="font-size:56px;">🛡️</div>
+      <div style="font-family:'Noto Serif TC',serif;font-size:26px;font-weight:700;color:var(--brown);letter-spacing:0.25em;margin-top:6px;">家庭安全網</div>
+      <div class="tm" style="font-size:12.5px;margin-top:6px;letter-spacing:0.1em;">「有錢人先築好堡壘，才去追財富」· Grant Cardone</div>
+    </div>
+
+    <!-- 整體分數 -->
+    <div style="background:linear-gradient(135deg,#2C1810,#4A2C1F);color:#fff;border-radius:18px;padding:28px;margin-bottom:16px;box-shadow:0 8px 32px rgba(44,24,16,0.3);text-align:center;">
+      <div style="font-size:11px;letter-spacing:0.3em;color:#C4A46B;font-weight:600;">OVERALL SAFETY SCORE</div>
+      <div style="font-family:'Noto Serif TC',serif;font-size:72px;font-weight:700;margin-top:8px;color:${totalScore>=80?'#7DB89A':totalScore>=60?'#FFD700':totalScore>=40?'#FFA500':'#FF6B6B'};line-height:1;">${totalScore}<span style="font-size:28px;color:#aaa;">/100</span></div>
+      <div style="margin-top:10px;padding:8px 20px;display:inline-block;background:rgba(255,255,255,0.1);border-radius:999px;font-size:14px;font-weight:700;">${scoreGrade.lbl}</div>
+    </div>
+
+    <!-- 6 大安全指標 -->
+    <div style="background:#fff;border-radius:14px;padding:20px;margin-bottom:16px;box-shadow:0 4px 16px rgba(194,116,122,0.08);">
+      <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);margin-bottom:14px;letter-spacing:0.1em;">📊 6 大安全指標</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;">
+        ${mkIndicator('🚨 緊急預備金',emergencyMonths.toFixed(1),' 個月',`6 個月 = $${fmt(Math.round(avgExp*6))}`,emergencyScore,`目前 $${fmt(cashAssets)}`)}
+        ${mkIndicator('🛡️ 壽險保障額',`$${fmt(Math.round(lifeInsTotal/10000))}`,' 萬',`10 倍年收 = $${fmt(Math.round(recommendedLifeIns/10000))} 萬`,lifeInsScore,'')}
+        ${mkIndicator('💰 月保費占比',premiumPct,'%',`健康區間 5-15%`,premiumScore,`$${fmt(monthlyPremium)}/月`)}
+        ${mkIndicator('📊 負債比',debtRatio,'%',`健康 < 30%，危險 ≥ 50%`,debtScore,`負債 $${fmt(totalDebts)}`)}
+        ${mkIndicator('🩺 保障完整度',`${haveIns.length}/${requiredIns.length}`,'',`6 大險種齊全`,insScore,haveIns.length<requiredIns.length?'缺：'+requiredIns.filter(r=>!haveIns.includes(r)).join('、'):'全齊')}
+        ${mkIndicator('⏰ 失業耐受度',unemploymentMonths,' 個月',`至少 6 個月`,unemploymentScore,'現金 ÷ 月支出')}
+      </div>
+    </div>
+
+    <!-- 📋 法律保護檢查清單 -->
+    <div style="background:#fff;border-radius:14px;padding:20px;margin-bottom:16px;box-shadow:0 4px 16px rgba(194,116,122,0.08);border-top:4px solid var(--pur);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+        <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);letter-spacing:0.1em;">📋 法律保護檢查清單</span>
+        <span style="background:${legalPct>=80?'var(--grn)':legalPct>=50?'var(--gold)':'var(--red)'};color:#fff;padding:4px 14px;border-radius:999px;font-size:12px;font-weight:700;">${checkedCount}/${legalChecks.length} 項 · ${legalPct}%</span>
+      </div>
+
+      <div style="background:var(--purl);padding:10px 14px;border-radius:8px;font-size:12px;color:var(--pur);margin-bottom:14px;line-height:1.7;">
+        💡 未婚同居家庭最常忽略的 9 項法律保護，勾選完成的項目
+      </div>
+
+      <div style="display:grid;gap:10px;">
+        ${legalChecks.map(c=>{
+          const done=sc[c.k];
+          return`<label style="cursor:pointer;background:${done?'var(--grnl)':c.urgent?'#FFF5F5':'var(--bg2)'};border:1.5px solid ${done?'var(--grn)':c.urgent?'var(--red)':'var(--bdr)'};border-radius:10px;padding:12px 14px;display:flex;gap:12px;align-items:flex-start;">
+            <input type="checkbox" ${done?'checked':''} onchange="toggleSafetyCheck('${c.k}',this.checked)" style="margin-top:2px;width:20px;height:20px;cursor:pointer;flex-shrink:0;accent-color:var(--grn);">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13.5px;color:var(--brown);font-weight:700;line-height:1.5;">${done?'✅':c.urgent?'🔴':'⚪'} ${c.ttl}</div>
+              <div style="font-size:11.5px;color:var(--mut);margin-top:4px;line-height:1.6;">${c.why}</div>
+            </div>
+          </label>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <!-- 🚨 緊急行動建議 -->
+    ${totalScore<80?`<div style="background:linear-gradient(135deg,var(--redl),#fff);border:2px solid var(--red);border-radius:14px;padding:20px;margin-bottom:16px;">
+      <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--red);margin-bottom:10px;">🚨 本月優先行動</div>
+      <div style="display:grid;gap:8px;font-size:13px;line-height:1.7;color:var(--brown);">
+        ${emergencyScore<60?`<div>🔴 <b>補足緊急預備金</b> → 目前 ${emergencyMonths.toFixed(1)} 月，建議 6 月（需再存 $${fmt(Math.round(avgExp*6-cashAssets))}）</div>`:''}
+        ${lifeInsScore<60?`<div>🔴 <b>補強壽險保障</b> → 目前 $${fmt(Math.round(lifeInsTotal/10000))} 萬，建議至少 $${fmt(Math.round(recommendedLifeIns/10000))} 萬</div>`:''}
+        ${insScore<80?`<div>🟡 <b>補齊險種</b> → 缺：${requiredIns.filter(r=>!haveIns.includes(r)).join('、')}</div>`:''}
+        ${debtScore<60?`<div>🟡 <b>降低負債比</b> → 目前 ${debtRatio}%，建議 < 30%</div>`:''}
+        ${legalPct<80?`<div>🔴 <b>完成法律保護檢查</b> → 還有 ${legalChecks.length-checkedCount} 項未確認</div>`:''}
+        ${totalScore>=80?'<div>🎉 恭喜！堡壘已經很穩固</div>':''}
+      </div>
+    </div>`:`<div style="background:linear-gradient(135deg,var(--grnl),#fff);border:2px solid var(--grn);border-radius:14px;padding:20px;margin-bottom:16px;text-align:center;">
+      <div style="font-size:48px;">🎉</div>
+      <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--grn);margin-top:8px;">堡壘已經很穩固！可以放心去進攻（投資/擴大）</div>
+    </div>`}
+
+    <!-- 📚 說明 -->
+    <div style="background:var(--bg2);border-radius:12px;padding:16px 20px;font-size:12px;color:var(--mut);line-height:1.8;">
+      💡 <b>家庭安全網計算方式</b>：<br>
+      · <b>緊急預備金</b> = 現金類資產（存款/定存）÷ 月平均支出<br>
+      · <b>壽險保障</b> = 讀取保險簿「壽險/意外」類別的保額<br>
+      · <b>月保費占比</b> = 保險年繳攤提 ÷ 月平均收入<br>
+      · <b>負債比</b> = 總負債 ÷ 總資產<br>
+      · <b>保障完整度</b> = 保險簿已有的 6 大險種 / 6<br>
+      · <b>失業耐受度</b> = 現金資產 ÷ 月支出（不工作可以撐幾個月）
+    </div>
+  </div>`;
+}
+
 // 🎯 Grant Cardone 10X 財富心法頁
 function pgWealth10X(){
   // 本月統計
@@ -6348,6 +6525,14 @@ function pgSettings(){
   <div class="pg-sub">家庭資料、保單、固定支出、信用卡、預備金帳本等進階設定</div>
 
   <div class="sg sg2">
+    <button onclick="setP('safetyNet')" style="padding:24px;border:2px solid #7DB89A;border-radius:var(--r-sm);background:linear-gradient(135deg,#1a3328,#2d5540);cursor:pointer;text-align:left;transition:all .25s;display:flex;gap:18px;align-items:center;color:#fff;">
+      <div style="font-size:42px;flex-shrink:0;">🛡️</div>
+      <div style="flex:1;">
+        <div style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:#7DB89A;letter-spacing:0.08em;">家庭安全網 <span style="background:#7DB89A;color:#fff;font-size:10px;padding:2px 8px;border-radius:6px;margin-left:6px;">NEW</span></div>
+        <div style="margin-top:4px;color:#ccc;font-size:12.5px;">6 大安全指標 · 法律保護檢查 · 未婚同居家庭專用</div>
+      </div>
+      <div style="font-size:24px;color:#7DB89A;">→</div>
+    </button>
     <button onclick="setP('wealth10x')" style="padding:24px;border:2px solid var(--gold);border-radius:var(--r-sm);background:linear-gradient(135deg,#2C1810,#4A2C1F);cursor:pointer;text-align:left;transition:all .25s;display:flex;gap:18px;align-items:center;color:#fff;">
       <div style="font-size:42px;flex-shrink:0;">🎯</div>
       <div style="flex:1;">
@@ -10465,6 +10650,74 @@ function modal(){
     }
   }
 
+  // 🎯 收入分配提示（Cardone 40/20/40）
+  if(m.t==='incomeAllocation'){
+    const amount=toN(m.amount);
+    const member=m.member||'';
+    const isYouquan=member==='又權';
+    const isYumi=member==='于蜜';
+    const owners=S.data.ledgerOwners||{};
+    const ALL=getAllLedgers();
+    const jointLedgers=ALL.filter(l=>owners[l.id]==='joint');
+    const youquanLedgers=ALL.filter(l=>owners[l.id]==='youquan');
+    const yumiLedgers=ALL.filter(l=>owners[l.id]==='yumi');
+
+    // 建議分配
+    let plan=[];
+    if(isYouquan){
+      plan=[
+        {ttl:'👨‍👩‍👧 公積金（三人共用）',pct:50,amount:Math.round(amount*0.5),target:'joint',ledgers:jointLedgers,hint:'房租/三人伙食/水電'},
+        {ttl:'💙 又權個人儲蓄',pct:40,amount:Math.round(amount*0.4),target:'youquan',ledgers:youquanLedgers,hint:'他名下儲蓄/投資'},
+        {ttl:'💙 又權保費/預備',pct:10,amount:Math.round(amount*0.1),target:'youquan',ledgers:youquanLedgers,hint:'他的保險費'}
+      ];
+    }else if(isYumi){
+      plan=[
+        {ttl:'👨‍👩‍👧 公積金（三人共用）',pct:35,amount:Math.round(amount*0.35),target:'joint',ledgers:jointLedgers,hint:'家庭共同開銷'},
+        {ttl:'💗 妳的儲蓄（10X 投資）',pct:40,amount:Math.round(amount*0.4),target:'yumi',ledgers:yumiLedgers,hint:'存股/投資'},
+        {ttl:'🎓 女兒教育金',pct:15,amount:Math.round(amount*0.15),target:'yumi',ledgers:yumiLedgers,hint:'楷宸教育專戶'},
+        {ttl:'💗 妳的保費/預備',pct:10,amount:Math.round(amount*0.1),target:'yumi',ledgers:yumiLedgers,hint:'保險/預備'}
+      ];
+    }else{
+      plan=[
+        {ttl:'🎓 教育金',pct:50,amount:Math.round(amount*0.5),target:'yumi',ledgers:yumiLedgers,hint:'楷宸未來'},
+        {ttl:'👨‍👩‍👧 公積金',pct:50,amount:Math.round(amount*0.5),target:'joint',ledgers:jointLedgers,hint:'家庭'}
+      ];
+    }
+
+    c=`<div class="mttl">🎯 Cardone 智能分配建議</div>
+    <div style="background:linear-gradient(135deg,#2C1810,#4A2C1F);color:#fff;border-radius:12px;padding:14px 18px;margin-bottom:14px;">
+      <div style="font-size:11px;color:#C4A46B;letter-spacing:0.15em;font-weight:600;">PAY YOURSELF FIRST</div>
+      <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;margin-top:4px;">${member} 的薪水 $${fmt(amount)} 這樣分配 ⬇️</div>
+    </div>
+
+    <div style="display:grid;gap:10px;">
+      ${plan.map(p=>`<div style="background:var(--bg2);border-radius:10px;padding:12px 14px;border-left:4px solid var(--gold);">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+          <div style="flex:1;min-width:160px;">
+            <div style="font-size:13.5px;color:var(--brown);font-weight:700;">${p.ttl}</div>
+            <div class="tm" style="font-size:11px;margin-top:2px;">${p.hint} · ${p.pct}%</div>
+          </div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:var(--goldDk);white-space:nowrap;">$${fmt(p.amount)}</div>
+        </div>
+        ${p.ledgers.length>0?`<div style="margin-top:8px;padding:8px 10px;background:#fff;border-radius:6px;font-size:11.5px;color:var(--mut);">
+          💡 建議存入：${p.ledgers.map(l=>l.name).join('、')}
+        </div>`:`<div style="margin-top:8px;padding:8px 10px;background:var(--redl);border-radius:6px;font-size:11.5px;color:var(--red);">
+          ⚠️ 還沒有「${p.target==='joint'?'公積金':p.target==='youquan'?'又權個人':'妳+楷宸'}」類帳本<br>
+          請先去預備金帳本頁，點每個帳本「設定所有人」
+        </div>`}
+      </div>`).join('')}
+    </div>
+
+    <div style="background:var(--yel);padding:10px 14px;border-radius:8px;font-size:12px;color:var(--goldDk);margin-top:14px;line-height:1.7;">
+      💡 <b>怎麼執行：</b>記下來建議金額，然後進對應的帳本「＋ 新增一筆存入」，手動分配。<br>
+      ⚠️ 未婚同居重點：又權的錢一定要在他名下帳戶
+    </div>
+
+    <div class="mbtns">
+      <button class="btn btn-p" onclick="closeMod()" style="background:var(--gold);">✓ 知道了</button>
+    </div>`;
+  }
+
   // 💭 新增/編輯決策筆記
   if(m.t==='addDecision'||m.t==='editDecision'){
     const isEdit=m.t==='editDecision';
@@ -12320,7 +12573,16 @@ window.quickSaveIncome=async()=>{
     toast(`✅ 已記錄 ${member} · ${item} +$${fmt(amount)}`);
     document.getElementById('qi-amt').value='';
     document.getElementById('qi-note').value='';
-    setTimeout(()=>render(),300);
+
+    // 🎯 Cardone 智能分配提示（只有薪資類收入 + 金額夠大時觸發）
+    if(item==='薪資'&&amount>=20000){
+      setTimeout(()=>{
+        S.modal={t:'incomeAllocation',member,amount};
+        render();
+      },500);
+    }else{
+      setTimeout(()=>render(),300);
+    }
   }catch(err){alert('儲存失敗：'+err.message);}
 };
 
@@ -12417,6 +12679,15 @@ window.markDecision=async(id,status)=>{
   list[idx]={...list[idx],status,decidedAt:status==='evaluating'?'':today()};
   await saveMain({decisions:list});
   toast(statusLbl[status]||'已更新');
+  render();
+};
+
+// 🛡️ 切換安全網檢查項目
+window.toggleSafetyCheck=async(key,checked)=>{
+  const sc={...(S.data.safetyChecks||{})};
+  if(checked)sc[key]=true;
+  else delete sc[key];
+  await saveMain({safetyChecks:sc});
   render();
 };
 
