@@ -1070,6 +1070,8 @@ let S={
     wealth10xGoal:10000000,  // 預設 1,000 萬
     // 💭 決策筆記（每個帳本都有）
     decisions:[],  // [{id,lid,title,amount,status,notes,financialCheck,createdAt,decidedAt}]
+    // 👨‍👩‍👧 帳本所有人標記（三層分流法）
+    ledgerOwners:{},  // {lid: 'joint'|'youquan'|'yumi'}
     importStaging:[]
   }
 };
@@ -1141,6 +1143,7 @@ function startSync(){
       S.data.incomeSources=d.incomeSources||['薪資','股息','補助','獎金','兼職','其他'];
       S.data.wealth10xGoal=d.wealth10xGoal||10000000;
       S.data.decisions=d.decisions||[];
+      S.data.ledgerOwners=d.ledgerOwners||{};
       S.data.investNotes=d.investNotes||{};
     }
     setSyncing('synced');
@@ -2525,6 +2528,44 @@ function pgLedgerHome(){
         </div>
       </div>
     </div>
+
+    <!-- 👨‍👩‍👧 三層分流儀表板 -->
+    ${(()=>{
+      const owners=S.data.ledgerOwners||{};
+      const jointBal=cards.filter(c=>owners[c.id]==='joint').reduce((s,c)=>s+c.balance,0);
+      const youquanBal=cards.filter(c=>owners[c.id]==='youquan').reduce((s,c)=>s+c.balance,0);
+      const yumiBal=cards.filter(c=>owners[c.id]==='yumi').reduce((s,c)=>s+c.balance,0);
+      const unassigned=cards.filter(c=>!owners[c.id]).length;
+      return`<div style="background:linear-gradient(135deg,#2C1810,#4A2C1F);color:#fff;border-radius:18px;padding:22px 24px;margin-bottom:16px;box-shadow:0 6px 20px rgba(44,24,16,0.2);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+          <div>
+            <div style="font-size:11px;letter-spacing:0.25em;color:#C4A46B;font-weight:600;">三層分流儀表板</div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;margin-top:2px;letter-spacing:0.1em;">👨‍👩‍👧 誰的錢 · 分別多少</div>
+          </div>
+          ${unassigned>0?`<span style="background:#FF6B6B;color:#fff;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;">⚠️ ${unassigned} 本未設定</span>`:''}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+          <div style="background:rgba(196,164,107,0.15);border:1.5px solid #C4A46B;border-radius:12px;padding:14px 12px;text-align:center;">
+            <div style="font-size:11px;color:#C4A46B;font-weight:600;">👨‍👩‍👧 共用公積金</div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;margin-top:4px;">$${fmt(jointBal)}</div>
+            <div style="font-size:10px;color:#aaa;margin-top:2px;">三人共用</div>
+          </div>
+          <div style="background:rgba(59,130,246,0.15);border:1.5px solid #3B82F6;border-radius:12px;padding:14px 12px;text-align:center;">
+            <div style="font-size:11px;color:#60A5FA;font-weight:600;">💙 又權個人</div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;margin-top:4px;">$${fmt(youquanBal)}</div>
+            <div style="font-size:10px;color:#aaa;margin-top:2px;">他名下儲蓄</div>
+          </div>
+          <div style="background:rgba(236,72,153,0.15);border:1.5px solid #EC4899;border-radius:12px;padding:14px 12px;text-align:center;">
+            <div style="font-size:11px;color:#F472B6;font-weight:600;">💗 于蜜+楷宸</div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;margin-top:4px;">$${fmt(yumiBal)}</div>
+            <div style="font-size:10px;color:#aaa;margin-top:2px;">妳+女兒</div>
+          </div>
+        </div>
+        <div style="margin-top:12px;padding:10px 14px;background:rgba(255,255,255,0.05);border-radius:8px;font-size:11px;color:#C4A46B;line-height:1.7;">
+          💡 <b>未婚同居理財法則：</b>男友的錢必須在他名下（避免贈與稅），妳管但不占有。點每個帳本進去設定所有人。
+        </div>
+      </div>`;
+    })()}
 
     <!-- 新增帳本按鈕 -->
     <button onclick="openM('addLedger')" style="width:100%;padding:14px;background:linear-gradient(135deg,var(--rose),var(--roseDk));color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;letter-spacing:0.1em;cursor:pointer;box-shadow:0 4px 12px rgba(194,116,122,0.3);margin-bottom:16px;">
@@ -8907,6 +8948,15 @@ function pgLedger(){
     <div style="text-align:center;padding:16px 0;">
       <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--brown);letter-spacing:0.15em;">${l.name}</div>
       <div class="tm" style="font-size:12px;margin-top:2px;">${yr()} 年 ${S.month} 月</div>
+      ${(()=>{
+        const owner=(S.data.ledgerOwners||{})[l.id]||'';
+        const ownerLbl={joint:'👨‍👩‍👧 共用公積金',youquan:'💙 又權個人',yumi:'💗 于蜜 + 楷宸'};
+        const ownerCol={joint:'var(--gold)',youquan:'#3B82F6',yumi:'#EC4899'};
+        const ownerBg={joint:'var(--yel)',youquan:'#DBEAFE',yumi:'#FCE7F3'};
+        return`<div style="margin-top:8px;">
+          <button onclick="setLedgerOwner('${l.id}')" style="background:${owner?ownerBg[owner]:'var(--bg2)'};color:${owner?ownerCol[owner]:'var(--mut)'};border:1.5px solid ${owner?ownerCol[owner]:'var(--bdr)'};padding:4px 14px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;">${owner?ownerLbl[owner]:'👆 點此設定帳本所有人'}</button>
+        </div>`;
+      })()}
     </div>
 
     <!-- 📅 年份切換（在月份上方，順序：先選年 → 再選月） -->
@@ -12367,6 +12417,30 @@ window.markDecision=async(id,status)=>{
   list[idx]={...list[idx],status,decidedAt:status==='evaluating'?'':today()};
   await saveMain({decisions:list});
   toast(statusLbl[status]||'已更新');
+  render();
+};
+
+// 👨‍👩‍👧 設定帳本所有人
+window.setLedgerOwner=async(lid)=>{
+  const owners={...(S.data.ledgerOwners||{})};
+  const cur=owners[lid]||'';
+  const options=[
+    {v:'joint',lbl:'👨‍👩‍👧 共用公積金（三人共享）'},
+    {v:'youquan',lbl:'💙 又權個人（他名下儲蓄/保費）'},
+    {v:'yumi',lbl:'💗 于蜜 + 楷宸（妳+女兒）'},
+    {v:'',lbl:'（取消設定）'},
+  ];
+  const msg='這個帳本是「誰的錢」？\n\n'+options.map((o,i)=>`${i+1}. ${o.lbl}${o.v===cur?' ✓ 目前':''}`).join('\n')+'\n\n請輸入 1、2、3 或 4：';
+  const choice=prompt(msg);
+  if(!choice)return;
+  const idx=parseInt(choice)-1;
+  if(idx<0||idx>=options.length){alert('請輸入 1-4');return;}
+  const newVal=options[idx].v;
+  if(newVal)owners[lid]=newVal;
+  else delete owners[lid];
+  await saveMain({ledgerOwners:owners});
+  const lblMap={joint:'共用公積金',youquan:'又權個人',yumi:'于蜜+楷宸'};
+  toast(`✅ 已設為「${lblMap[newVal]||'已取消'}」`);
   render();
 };
 
