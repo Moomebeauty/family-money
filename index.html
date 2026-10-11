@@ -1068,6 +1068,8 @@ let S={
     incomeSources:null,  // 首次載入時填入預設
     // 🎯 Cardone 10X 淨值目標
     wealth10xGoal:10000000,  // 預設 1,000 萬
+    // 💭 決策筆記（每個帳本都有）
+    decisions:[],  // [{id,lid,title,amount,status,notes,financialCheck,createdAt,decidedAt}]
     importStaging:[]
   }
 };
@@ -1138,6 +1140,7 @@ function startSync(){
       S.data.masterCategories=d.masterCategories||DEF_MASTER_CATS.slice();
       S.data.incomeSources=d.incomeSources||['薪資','股息','補助','獎金','兼職','其他'];
       S.data.wealth10xGoal=d.wealth10xGoal||10000000;
+      S.data.decisions=d.decisions||[];
       S.data.investNotes=d.investNotes||{};
     }
     setSyncing('synced');
@@ -9023,6 +9026,71 @@ function pgLedger(){
       </div>`}
     </div>
 
+    <!-- 💭 決策筆記（這個帳本範圍內的大型決策） -->
+    ${(()=>{
+      const decisions=(S.data.decisions||[]).filter(d=>d.lid===l.id);
+      const active=decisions.filter(d=>d.status==='evaluating');
+      const decided=decisions.filter(d=>d.status!=='evaluating');
+      const statusLbl={evaluating:'🟡 評估中',buy:'✅ 決定買',skip:'❌ 決定不買',done:'🎉 已完成'};
+      const statusCol={evaluating:'var(--yelb)',buy:'var(--grn)',skip:'var(--mut)',done:'var(--gold)'};
+      return`<div style="background:#fff;border-radius:18px;padding:22px;box-shadow:0 4px 16px rgba(194,116,122,0.10);margin-bottom:16px;border-top:4px solid var(--pur);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+          <div>
+            <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);">💭 決策筆記</span>
+            <span class="tm" style="font-size:11px;margin-left:8px;">${decisions.length} 個決策（評估中 ${active.length}）</span>
+          </div>
+          <button onclick="openM('addDecision','${l.id}')" style="background:linear-gradient(135deg,var(--pur),#8E6BA4);color:#fff;border:none;padding:8px 16px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">＋ 新增決策</button>
+        </div>
+
+        <div style="background:var(--purl);padding:10px 14px;border-radius:8px;font-size:12px;color:var(--pur);margin-bottom:12px;line-height:1.7;">
+          💡 遇到大額支出猶豫時，先在這裡建一個決策、做功課、系統自動幫你檢查「這筆錢該不該花」
+        </div>
+
+        ${decisions.length===0?`<div style="text-align:center;padding:30px 20px;color:var(--mut);">
+          <div style="font-size:36px;">💭</div>
+          <div style="margin-top:8px;font-size:13px;">還沒有決策紀錄</div>
+          <div class="tm" style="font-size:11.5px;margin-top:6px;line-height:1.6;">
+            常見情境：<br>
+            🚗 交通帳本 → 換車、買機車、保養升級<br>
+            ✨ 沐蜜帳本 → 進修課程、紋繡設備<br>
+            🏠 家電帳本 → 電器汰換、家具採購
+          </div>
+        </div>`:`
+        <div style="display:grid;gap:10px;">
+          ${[...active,...decided].map(d=>{
+            const fc=d.financialCheck||{};
+            const passCount=Object.values(fc).filter(v=>v===true).length;
+            const totalCount=Object.keys(fc).length;
+            return`<div style="background:var(--bg2);border-radius:12px;padding:14px 16px;border-left:4px solid ${statusCol[d.status]||'var(--mut)'};">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+                <div style="flex:1;min-width:200px;">
+                  <div style="font-size:15px;color:var(--brown);font-weight:700;">${d.title||'未命名'}</div>
+                  <div class="tm" style="font-size:11.5px;margin-top:3px;">
+                    <span style="background:${statusCol[d.status]||'var(--mut)'};color:#fff;padding:2px 8px;border-radius:4px;font-size:10.5px;font-weight:700;">${statusLbl[d.status]||d.status}</span>
+                    ${d.createdAt?` · 建立 ${d.createdAt}`:''}
+                    ${d.decidedAt?` · 決定 ${d.decidedAt}`:''}
+                  </div>
+                </div>
+                <div style="text-align:right;">
+                  <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--pur);">$${fmt(toN(d.amount))}</div>
+                  ${totalCount>0?`<div class="tm" style="font-size:10.5px;margin-top:2px;">財務檢查 ${passCount}/${totalCount}</div>`:''}
+                </div>
+              </div>
+              ${d.notes?`<div style="background:#fff;padding:8px 12px;border-radius:8px;font-size:12.5px;color:var(--brown);line-height:1.7;margin-top:6px;white-space:pre-wrap;">${d.notes}</div>`:''}
+              <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
+                <button onclick="editDecision('${d.id}')" style="background:#fff;border:1px solid var(--bdr);color:var(--brown);padding:5px 12px;border-radius:6px;font-size:11.5px;cursor:pointer;">✏️ 編輯</button>
+                ${d.status==='evaluating'?`
+                  <button onclick="markDecision('${d.id}','buy')" style="background:var(--grn);border:none;color:#fff;padding:5px 12px;border-radius:6px;font-size:11.5px;font-weight:600;cursor:pointer;">✅ 決定買</button>
+                  <button onclick="markDecision('${d.id}','skip')" style="background:#fff;border:1px solid var(--mut);color:var(--mut);padding:5px 12px;border-radius:6px;font-size:11.5px;cursor:pointer;">❌ 決定不買</button>
+                `:`<button onclick="markDecision('${d.id}','evaluating')" style="background:#fff;border:1px solid var(--yelb);color:var(--yelb);padding:5px 12px;border-radius:6px;font-size:11.5px;cursor:pointer;">⏸ 改回評估</button>`}
+                <button onclick="delDecision('${d.id}')" style="background:none;border:1px solid var(--bdr);color:var(--red);padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;">×</button>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>`}
+      </div>`;
+    })()}
+
     <!-- 📊 分類歷年比較（12 個月完整表格） -->
     ${(()=>{
       const outEntries=allEntries.filter(e=>toN(e.amount)<0);
@@ -10345,6 +10413,113 @@ function modal(){
       </div>
       <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="savePayFixed('${item.id}')" style="background:var(--grn);">✓ 確認已繳</button></div>`;
     }
+  }
+
+  // 💭 新增/編輯決策筆記
+  if(m.t==='addDecision'||m.t==='editDecision'){
+    const isEdit=m.t==='editDecision';
+    const d=isEdit?(S.data.decisions||[]).find(x=>x.id===m.x)||{}:{};
+    const lid=isEdit?d.lid:m.x; // addDecision 傳的是 lid
+    const ALL=getAllLedgers();
+    const led=ALL.find(x=>x.id===lid)||ALL[0];
+    const fc=d.financialCheck||{};
+
+    // 自動財務計算
+    const now=new Date();
+    const curYear=now.getFullYear(),curMonth=now.getMonth()+1;
+    // 最近 3 個月平均月收入
+    const incs3=[];
+    for(let i=0;i<3;i++){
+      const dt=new Date(curYear,curMonth-1-i,1);
+      const y=dt.getFullYear(),mo=dt.getMonth()+1;
+      incs3.push((S.data.incomes||[]).filter(ic=>ic.year===y&&ic.month===mo).reduce((s,ic)=>s+toN(ic.amount),0));
+    }
+    const avgInc=incs3.reduce((s,x)=>s+x,0)/3;
+    // 最近 3 個月平均月支出
+    const exps3=[];
+    for(let i=0;i<3;i++){
+      const dt=new Date(curYear,curMonth-1-i,1);
+      const y=dt.getFullYear(),mo=dt.getMonth()+1;
+      exps3.push((S.data.expenses||[]).filter(e=>e.year===y&&e.month===mo&&!e.fromLedger&&!e.excludeFromBudget).reduce((s,e)=>s+toN(e.amount),0));
+    }
+    const avgExp=exps3.reduce((s,x)=>s+x,0)/3;
+    // 緊急預備金（現金類資產）
+    const cashAssets=(S.data.assets||[]).filter(a=>['現金存款','定存'].includes(a.type)).reduce((s,a)=>s+toN(a.value),0);
+    const emergencyMonths=avgExp>0?Math.floor(cashAssets/avgExp):0;
+
+    c=`<div class="mttl">💭 ${isEdit?'編輯':'新增'}決策筆記${led?` · ${led.name}`:''}</div>
+    <div style="background:var(--purl);padding:10px 14px;border-radius:8px;font-size:12px;color:var(--pur);margin-bottom:14px;line-height:1.7;">
+      💡 把你在猶豫的大型支出記下來。做功課、填金額，系統幫你檢查「該不該買」
+    </div>
+
+    <div class="fg fg2">
+      <div class="fgrp" style="grid-column:1/-1"><label>決策標題（簡短描述你在考慮什麼）</label>
+        <input type="text" id="dec-title" value="${(d.title||'').replace(/"/g,'&quot;')}" placeholder="例：換 Toyota Cross、報名紋繡進階課、買氣炸鍋">
+      </div>
+      <div class="fgrp"><label>💰 預計金額</label>
+        <input type="number" id="dec-amt" value="${d.amount||''}" placeholder="0" class="amt-input" style="font-size:18px;font-weight:700;color:var(--pur);">
+      </div>
+      <div class="fgrp"><label>⏰ 時間性</label>
+        <select id="dec-timing">
+          <option value="now" ${d.timing==='now'?'selected':''}>一次付清</option>
+          <option value="loan" ${d.timing==='loan'?'selected':''}>分期/貸款</option>
+          <option value="save" ${d.timing==='save'?'selected':''}>存一段時間再買</option>
+        </select>
+      </div>
+      <div class="fgrp" id="dec-monthly-wrap"><label>月付款（分期才填）</label>
+        <input type="number" id="dec-monthly" value="${d.monthlyPayment||''}" placeholder="0">
+      </div>
+      <div class="fgrp"><label>📅 考慮時長</label>
+        <input type="text" id="dec-period" value="${d.period||''}" placeholder="例：3 個月、半年">
+      </div>
+    </div>
+
+    <!-- 🔍 自動財務檢查 -->
+    <div style="background:linear-gradient(135deg,var(--yel),#fff);border:2px solid var(--gold);border-radius:12px;padding:16px 18px;margin-top:14px;">
+      <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--goldDk);margin-bottom:10px;">🔍 系統自動財務檢查</div>
+      <div style="display:grid;gap:8px;font-size:12.5px;line-height:1.7;color:var(--brown);">
+        <div>
+          <div style="font-weight:600;">① 緊急預備金：目前 $${fmt(cashAssets)}（≈ ${emergencyMonths} 個月生活費）</div>
+          <div class="tm" style="font-size:11px;">Cardone 建議：至少 6 個月生活費（$${fmt(Math.round(avgExp*6))}）${emergencyMonths>=6?' ✅ 達標':' 🔴 不足'}</div>
+        </div>
+        <div>
+          <div style="font-weight:600;">② 月付款占比（分期才算）</div>
+          <div class="tm" style="font-size:11px;">月收入 $${fmt(Math.round(avgInc))} · 建議大額月付 < 10%（$${fmt(Math.round(avgInc*0.1))}）</div>
+        </div>
+        <div>
+          <div style="font-weight:600;">③ Cardone 第 4 條：這是會「貶值」還是「增值」？</div>
+          <div class="tm" style="font-size:11px;">🔴 車/3C/旅遊/奢侈品 → 貶值 → 不該用儲蓄買<br>🟢 房/股票/生意/進修 → 增值 → 可用儲蓄買</div>
+        </div>
+        <div style="margin-top:4px;">
+          <label style="display:block;font-weight:600;margin-bottom:6px;">✅ 勾選你已確認的項目</label>
+          <div style="display:grid;gap:4px;">
+            <label style="font-size:12px;cursor:pointer;"><input type="checkbox" id="fc-emergency" ${fc.emergency?'checked':''}> 緊急預備金 ≥ 6 個月生活費</label>
+            <label style="font-size:12px;cursor:pointer;"><input type="checkbox" id="fc-monthly" ${fc.monthly?'checked':''}> 月付款 < 月收入 10%</label>
+            <label style="font-size:12px;cursor:pointer;"><input type="checkbox" id="fc-notTouchInvest" ${fc.notTouchInvest?'checked':''}> 不會動用股票/基金投資</label>
+            <label style="font-size:12px;cursor:pointer;"><input type="checkbox" id="fc-notSavings" ${fc.notSavings?'checked':''}> 用「可花費 40%」累積，不碰儲蓄</label>
+            <label style="font-size:12px;cursor:pointer;"><input type="checkbox" id="fc-researched" ${fc.researched?'checked':''}> 已做完 3 家以上比較/功課</label>
+            <label style="font-size:12px;cursor:pointer;"><input type="checkbox" id="fc-coolDown" ${fc.coolDown?'checked':''}> 已冷靜期 ≥ 7 天</label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:14px;">
+      <label style="display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">📝 功課筆記（可寫很多）</label>
+      <textarea id="dec-notes" rows="6" placeholder="例：
+· Toyota Cross 油電版約 95 萬
+· 60 期月付 1.5 萬，利率 2.68%
+· 油耗 18.5km/L，比現在車省
+· A 車行報價 vs B 車行差 2 萬
+· 保養費約 1 萬/年
+· 二手保值率 70%"
+      style="width:100%;padding:12px;border:1.5px solid var(--bdr);border-radius:10px;font-size:13px;line-height:1.7;color:var(--brown);font-family:inherit;resize:vertical;">${(d.notes||'').replace(/</g,'&lt;')}</textarea>
+    </div>
+
+    <div class="mbtns">
+      <button class="btn btn-s" onclick="closeMod()">取消</button>
+      <button class="btn btn-p" onclick="saveDecision('${isEdit?d.id:''}','${lid}')" style="background:var(--pur);">${isEdit?'✓ 儲存變更':'＋ 建立決策'}</button>
+    </div>`;
   }
 
   if(m.t==='addFixed'){
@@ -12134,6 +12309,75 @@ window.setIncView=(v)=>{
 // 📊 切換支出總覽 12 個月表格視角
 window.setExpView=(v)=>{
   S.expView=v;
+  render();
+};
+
+// 💭 儲存決策筆記
+window.saveDecision=async(editId,lid)=>{
+  const title=g('dec-title')||'';
+  if(!title.trim()){alert('請填決策標題');return;}
+  const amount=toN(g('dec-amt'));
+  const timing=g('dec-timing')||'now';
+  const monthlyPayment=toN(g('dec-monthly'));
+  const period=g('dec-period')||'';
+  const notes=g('dec-notes')||'';
+  const financialCheck={
+    emergency:document.getElementById('fc-emergency')?.checked||false,
+    monthly:document.getElementById('fc-monthly')?.checked||false,
+    notTouchInvest:document.getElementById('fc-notTouchInvest')?.checked||false,
+    notSavings:document.getElementById('fc-notSavings')?.checked||false,
+    researched:document.getElementById('fc-researched')?.checked||false,
+    coolDown:document.getElementById('fc-coolDown')?.checked||false,
+  };
+  const list=[...(S.data.decisions||[])];
+  if(editId){
+    const idx=list.findIndex(x=>x.id===editId);
+    if(idx>=0){
+      list[idx]={...list[idx],title,amount,timing,monthlyPayment,period,notes,financialCheck};
+      await saveMain({decisions:list});
+      toast('✅ 已更新決策筆記');
+    }
+  }else{
+    const newD={
+      id:'dec_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+      lid,title,amount,timing,monthlyPayment,period,notes,financialCheck,
+      status:'evaluating',
+      createdAt:today(),
+      decidedAt:''
+    };
+    list.push(newD);
+    await saveMain({decisions:list});
+    toast('💭 已建立決策，開始評估！');
+  }
+  closeMod();
+};
+
+// 💭 編輯決策
+window.editDecision=(id)=>{
+  S.modal={t:'editDecision',x:id};
+  render();
+};
+
+// 💭 標記決策狀態
+window.markDecision=async(id,status)=>{
+  const list=[...(S.data.decisions||[])];
+  const idx=list.findIndex(x=>x.id===id);
+  if(idx<0)return;
+  const statusLbl={buy:'✅ 決定買',skip:'❌ 決定不買',evaluating:'🟡 改回評估',done:'🎉 已完成'};
+  list[idx]={...list[idx],status,decidedAt:status==='evaluating'?'':today()};
+  await saveMain({decisions:list});
+  toast(statusLbl[status]||'已更新');
+  render();
+};
+
+// 💭 刪除決策
+window.delDecision=async(id)=>{
+  const d=(S.data.decisions||[]).find(x=>x.id===id);
+  if(!d)return;
+  if(!confirm(`確定刪除決策「${d.title}」？\n\n（整個紀錄會消失，無法復原）`))return;
+  const list=(S.data.decisions||[]).filter(x=>x.id!==id);
+  await saveMain({decisions:list});
+  toast('已刪除');
   render();
 };
 
