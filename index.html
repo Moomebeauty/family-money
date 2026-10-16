@@ -1917,19 +1917,58 @@ function pgOverviewNew(){
     </div>
 
     <!-- 1-12 月切換 -->
-    <div style="display:flex;gap:6px;justify-content:center;margin-bottom:20px;flex-wrap:wrap;padding:0 8px;">
+    <div style="display:flex;gap:6px;justify-content:center;margin-bottom:16px;flex-wrap:wrap;padding:0 8px;">
       ${mBtns}
     </div>
 
-    <!-- ━━━ 💵 本月收入 ━━━ -->
-    <div style="background:linear-gradient(135deg,#fff,var(--grnl));border-radius:18px;padding:24px 26px;margin-bottom:14px;box-shadow:0 6px 20px rgba(125,184,154,0.15);border:2px solid var(--grn);">
-      <div class="tm" style="font-size:11px;letter-spacing:0.25em;color:var(--grn);font-weight:700;margin-bottom:6px;">💵 ${curMonth} 月 · 全家收入</div>
+    <!-- ━━━ 📊 四大指標儀表板（像沐蜜那樣） ━━━ -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:14px;">
+      <!-- 💵 本月收入 -->
+      <div onclick="document.getElementById('sec-income').scrollIntoView({behavior:'smooth',block:'start'})" style="background:#fff;border:2px solid var(--grn);border-radius:14px;padding:16px 18px;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+        <div class="tm" style="font-size:10.5px;letter-spacing:0.15em;color:var(--grn);font-weight:700;margin-bottom:4px;">💵 本月總營收</div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:28px;font-weight:700;color:var(--grn);line-height:1.1;">$${fmt(monthInc)}</div>
+        <div style="font-size:10.5px;color:var(--mut);margin-top:6px;">👨‍👩‍👧 全家合計</div>
+      </div>
+
+      <!-- 💎 本月投資 -->
+      <div onclick="document.getElementById('sec-invest').scrollIntoView({behavior:'smooth',block:'start'})" style="background:#fff;border:2px solid var(--gold);border-radius:14px;padding:16px 18px;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+        <div class="tm" style="font-size:10.5px;letter-spacing:0.15em;color:var(--goldDk);font-weight:700;margin-bottom:4px;">💎 本月投資</div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:28px;font-weight:700;color:var(--goldDk);line-height:1.1;">$${fmt(monthInvest)}</div>
+        <div style="font-size:10.5px;color:var(--mut);margin-top:6px;">📐 建議 <b style="color:var(--gold);">$${fmt(sugInvestTotal)}</b></div>
+      </div>
+
+      <!-- 🏦 本月儲蓄 -->
+      <div onclick="document.getElementById('sec-save').scrollIntoView({behavior:'smooth',block:'start'})" style="background:#fff;border:2px solid #0EA5E9;border-radius:14px;padding:16px 18px;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+        <div class="tm" style="font-size:10.5px;letter-spacing:0.15em;color:#0369A1;font-weight:700;margin-bottom:4px;">🏦 本月儲蓄</div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:28px;font-weight:700;color:#0369A1;line-height:1.1;">$${fmt(monthSave)}</div>
+        <div style="font-size:10.5px;color:var(--mut);margin-top:6px;">📐 建議 <b style="color:#0EA5E9;">$${fmt(sugSaveTotal)}</b></div>
+      </div>
+
+      <!-- 🚨 緊急預備金 -->
+      <div onclick="document.getElementById('sec-emg').scrollIntoView({behavior:'smooth',block:'start'})" style="background:#fff;border:2px solid ${emgMonths>=emgTargetMonths?'var(--grn)':'var(--yelb)'};border-radius:14px;padding:16px 18px;cursor:pointer;transition:transform .15s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+        <div class="tm" style="font-size:10.5px;letter-spacing:0.15em;color:var(--brown);font-weight:700;margin-bottom:4px;">🚨 緊急預備金</div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:28px;font-weight:700;color:${emgMonths>=emgTargetMonths?'var(--grn)':'var(--goldDk)'};line-height:1.1;">${emgMonths.toFixed(1)} 月</div>
+        <div style="font-size:10.5px;color:var(--mut);margin-top:6px;">💰 已存 <b style="color:var(--brown);">$${fmt(emgBal)}</b> · ${Math.min(100,Math.round(emgMonths/emgTargetMonths*100))}%</div>
+      </div>
+    </div>
+
+    <!-- 💡 分配比例設定（直接可調） -->
+    <div style="background:linear-gradient(135deg,#FFF8E7,#fff);border:1.5px solid var(--gold);border-radius:12px;padding:12px 16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+      <div style="font-size:12px;color:var(--brown);line-height:1.5;">
+        💡 <b>目前分配比例</b>：花費 <b style="color:var(--rose);">${ratios.spend}%</b> · 儲蓄 <b style="color:#0EA5E9;">${ratios.save}%</b> · 投資 <b style="color:var(--gold);">${ratios.invest}%</b>
+      </div>
+      <button onclick="openM('allocRatios','')" style="background:var(--gold);color:#fff;border:none;padding:7px 14px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;">⚙️ 調整比例</button>
+    </div>
+
+    <!-- ━━━ 💵 本月收入 詳細 ━━━ -->
+    <div id="sec-income" style="background:linear-gradient(135deg,#fff,var(--grnl));border-radius:18px;padding:20px 24px;margin-bottom:14px;box-shadow:0 4px 16px rgba(125,184,154,0.12);border:1.5px solid var(--grn);">
+      <div class="tm" style="font-size:11px;letter-spacing:0.25em;color:var(--grn);font-weight:700;margin-bottom:10px;">💵 ${curMonth} 月 · 全家收入 · 詳細</div>
       <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:14px;">
         <div>
-          <div style="font-family:'Noto Serif TC',serif;font-size:40px;font-weight:700;color:var(--grn);line-height:1;">$${fmt(monthInc)}</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:34px;font-weight:700;color:var(--grn);line-height:1;">$${fmt(monthInc)}</div>
           <div style="font-size:11px;color:var(--mut);margin-top:4px;">👨‍👩‍👧 全家合計</div>
         </div>
-        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
           ${members.map(m=>`<div style="text-align:center;padding:8px 14px;background:#fff;border:1px solid ${memCols[m]};border-radius:10px;">
             <div style="font-size:10px;color:${memCols[m]};font-weight:600;">${m}</div>
             <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:${memCols[m]};margin-top:2px;">$${fmt(memInc[m])}</div>
@@ -1938,11 +1977,11 @@ function pgOverviewNew(){
       </div>
     </div>
 
-    <!-- ━━━ 💎 投資 + 🏦 儲蓄 兩欄並排 ━━━ -->
+    <!-- ━━━ 💎 投資 + 🏦 儲蓄 兩欄並排（詳細） ━━━ -->
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:14px;margin-bottom:14px;">
 
       <!-- 投資 -->
-      <div style="background:#fff;border-radius:16px;padding:20px;box-shadow:0 4px 16px rgba(194,116,122,0.08);border-top:4px solid var(--gold);">
+      <div id="sec-invest" style="background:#fff;border-radius:16px;padding:20px;box-shadow:0 4px 16px rgba(194,116,122,0.08);border-top:4px solid var(--gold);">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
           <span class="tm" style="font-size:11px;letter-spacing:0.2em;color:var(--goldDk);font-weight:700;">💎 本月投資額</span>
           <button onclick="openM('addSavingRecord','invest')" style="background:var(--gold);color:#fff;border:none;padding:5px 12px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;">＋ 記錄投資</button>
@@ -1961,8 +2000,9 @@ function pgOverviewNew(){
             </div>`;
           }).join('')}
         </div>
-        <div style="margin-top:10px;padding:8px 12px;background:#FFF8E7;border-radius:8px;font-size:10.5px;color:var(--brown);line-height:1.5;">
-          💡 建議 = 各人收入 × <b>${ratios.invest}%</b>（可到「進階 > 分配比例」調整）
+        <div style="margin-top:10px;padding:8px 12px;background:#FFF8E7;border-radius:8px;font-size:10.5px;color:var(--brown);line-height:1.5;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+          <span>💡 建議 = 各人收入 × <b>${ratios.invest}%</b></span>
+          <button onclick="openM('allocRatios','')" style="background:none;border:1px solid var(--gold);color:var(--goldDk);padding:2px 8px;border-radius:999px;font-size:10px;cursor:pointer;">⚙️ 調整</button>
         </div>
         <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--bdr);">
           <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -1974,7 +2014,7 @@ function pgOverviewNew(){
       </div>
 
       <!-- 儲蓄 -->
-      <div style="background:#fff;border-radius:16px;padding:20px;box-shadow:0 4px 16px rgba(194,116,122,0.08);border-top:4px solid #0EA5E9;">
+      <div id="sec-save" style="background:#fff;border-radius:16px;padding:20px;box-shadow:0 4px 16px rgba(194,116,122,0.08);border-top:4px solid #0EA5E9;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
           <span class="tm" style="font-size:11px;letter-spacing:0.2em;color:#0369A1;font-weight:700;">🏦 本月儲蓄額</span>
           <button onclick="openM('addSavingRecord','save')" style="background:#0EA5E9;color:#fff;border:none;padding:5px 12px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;">＋ 記錄儲蓄</button>
@@ -1993,8 +2033,9 @@ function pgOverviewNew(){
             </div>`;
           }).join('')}
         </div>
-        <div style="margin-top:10px;padding:8px 12px;background:#EEF9FF;border-radius:8px;font-size:10.5px;color:var(--brown);line-height:1.5;">
-          💡 建議 = 各人收入 × <b>${ratios.save}%</b>（可到「進階 > 分配比例」調整）
+        <div style="margin-top:10px;padding:8px 12px;background:#EEF9FF;border-radius:8px;font-size:10.5px;color:var(--brown);line-height:1.5;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+          <span>💡 建議 = 各人收入 × <b>${ratios.save}%</b></span>
+          <button onclick="openM('allocRatios','')" style="background:none;border:1px solid #0EA5E9;color:#0369A1;padding:2px 8px;border-radius:999px;font-size:10px;cursor:pointer;">⚙️ 調整</button>
         </div>
         <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--bdr);">
           <div class="tm" style="font-size:10.5px;">📈 累積儲蓄額（${cumStart} 起）</div>
@@ -2028,7 +2069,7 @@ function pgOverviewNew(){
     </details>`:''}
 
     <!-- ━━━ 🚨 緊急預備金 ━━━ -->
-    <div style="background:${emgMonths>=emgTargetMonths?'linear-gradient(135deg,#fff,var(--grnl))':'linear-gradient(135deg,#fff,var(--yel))'};border-radius:16px;padding:20px 24px;margin-bottom:14px;border:2px solid ${emgMonths>=emgTargetMonths?'var(--grn)':'var(--yelb)'};">
+    <div id="sec-emg" style="background:${emgMonths>=emgTargetMonths?'linear-gradient(135deg,#fff,var(--grnl))':'linear-gradient(135deg,#fff,var(--yel))'};border-radius:16px;padding:20px 24px;margin-bottom:14px;border:2px solid ${emgMonths>=emgTargetMonths?'var(--grn)':'var(--yelb)'};">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:14px;">
         <div style="flex:1;min-width:200px;">
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -11342,6 +11383,75 @@ function modal(){
     </div>`;
   }
 
+  // ⚙️ 分配比例設定（花費/儲蓄/投資）
+  if(m.t==='allocRatios'){
+    const r=S.data.allocationRatios||{spend:40,save:40,invest:20};
+    c=`<div class="mttl">⚙️ 收入分配比例設定</div>
+    <div style="margin-bottom:16px;padding:12px 14px;background:#FFF8E7;border-radius:10px;font-size:12.5px;color:var(--brown);line-height:1.7;">
+      💡 這套系統會根據「<b>每人本月收入 × 比例</b>」自動算出三人該存多少/投資多少<br>
+      三個數字相加必須 = <b>100%</b>（會自動檢查）
+    </div>
+
+    <div style="margin-bottom:14px;">
+      <label style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">
+        <span>🛍️ 花費比例（spend）</span>
+        <span id="ratio-spend-val" style="color:var(--rose);">${r.spend}%</span>
+      </label>
+      <input type="range" id="ratio-spend" min="0" max="100" step="5" value="${r.spend}" style="width:100%;accent-color:var(--rose);" oninput="updateRatioDisplay()">
+      <div style="font-size:10.5px;color:var(--mut);margin-top:3px;">房租、伙食、水電、交通等日常開銷</div>
+    </div>
+
+    <div style="margin-bottom:14px;">
+      <label style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">
+        <span>🏦 儲蓄比例（save）</span>
+        <span id="ratio-save-val" style="color:#0EA5E9;">${r.save}%</span>
+      </label>
+      <input type="range" id="ratio-save" min="0" max="100" step="5" value="${r.save}" style="width:100%;accent-color:#0EA5E9;" oninput="updateRatioDisplay()">
+      <div style="font-size:10.5px;color:var(--mut);margin-top:3px;">銀行存款、緊急預備金、買房頭期</div>
+    </div>
+
+    <div style="margin-bottom:14px;">
+      <label style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">
+        <span>💎 投資比例（invest）</span>
+        <span id="ratio-invest-val" style="color:var(--gold);">${r.invest}%</span>
+      </label>
+      <input type="range" id="ratio-invest" min="0" max="100" step="5" value="${r.invest}" style="width:100%;accent-color:var(--gold);" oninput="updateRatioDisplay()">
+      <div style="font-size:10.5px;color:var(--mut);margin-top:3px;">ETF、股票、基金等長期增值資產</div>
+    </div>
+
+    <div id="ratio-sum-row" style="padding:10px 14px;background:var(--grnl);border-radius:10px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:12.5px;font-weight:700;color:var(--brown);">總和</span>
+      <span id="ratio-sum" style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:var(--grn);">${r.spend+r.save+r.invest}%</span>
+    </div>
+
+    <div style="margin-bottom:14px;">
+      <div class="tm" style="font-size:11px;color:var(--brown);font-weight:700;margin-bottom:8px;">🎁 快速套用常見組合</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px;">
+        <button type="button" onclick="setRatio(40,40,20)" style="padding:8px;background:#fff;border:1.5px solid var(--bdr);border-radius:8px;font-size:11.5px;color:var(--brown);cursor:pointer;font-weight:600;">
+          <div>Cardone 經典</div>
+          <div style="font-size:10px;color:var(--mut);margin-top:2px;">40 / 40 / 20</div>
+        </button>
+        <button type="button" onclick="setRatio(50,30,20)" style="padding:8px;background:#fff;border:1.5px solid var(--bdr);border-radius:8px;font-size:11.5px;color:var(--brown);cursor:pointer;font-weight:600;">
+          <div>50/30/20</div>
+          <div style="font-size:10px;color:var(--mut);margin-top:2px;">保守平衡</div>
+        </button>
+        <button type="button" onclick="setRatio(30,30,40)" style="padding:8px;background:#fff;border:1.5px solid var(--bdr);border-radius:8px;font-size:11.5px;color:var(--brown);cursor:pointer;font-weight:600;">
+          <div>積極投資</div>
+          <div style="font-size:10px;color:var(--mut);margin-top:2px;">30 / 30 / 40</div>
+        </button>
+        <button type="button" onclick="setRatio(60,30,10)" style="padding:8px;background:#fff;border:1.5px solid var(--bdr);border-radius:8px;font-size:11.5px;color:var(--brown);cursor:pointer;font-weight:600;">
+          <div>家計吃緊</div>
+          <div style="font-size:10px;color:var(--mut);margin-top:2px;">60 / 30 / 10</div>
+        </button>
+      </div>
+    </div>
+
+    <div class="mbtns">
+      <button class="btn btn-s" onclick="closeMod()">取消</button>
+      <button class="btn btn-p" onclick="saveAllocRatios()" style="background:var(--gold);">✓ 儲存比例</button>
+    </div>`;
+  }
+
   // 🚨 新增/編輯緊急預備金紀錄
   if(m.t==='addEmgRecord'||m.t==='editEmgRecord'){
     const isEdit=m.t==='editEmgRecord';
@@ -13501,6 +13611,38 @@ window.delEmgRecord=async(id)=>{
   await saveMain({emgRecords:list});
   toast('已刪除');
   render();
+};
+
+// ⚙️ 分配比例設定
+window.updateRatioDisplay=()=>{
+  const sp=toN(g('ratio-spend')),sa=toN(g('ratio-save')),iv=toN(g('ratio-invest'));
+  const sum=sp+sa+iv;
+  const spEl=document.getElementById('ratio-spend-val');if(spEl)spEl.textContent=sp+'%';
+  const saEl=document.getElementById('ratio-save-val');if(saEl)saEl.textContent=sa+'%';
+  const ivEl=document.getElementById('ratio-invest-val');if(ivEl)ivEl.textContent=iv+'%';
+  const sumEl=document.getElementById('ratio-sum');
+  const row=document.getElementById('ratio-sum-row');
+  if(sumEl)sumEl.textContent=sum+'%';
+  if(row){
+    if(sum===100){row.style.background='var(--grnl)';sumEl.style.color='var(--grn)';}
+    else{row.style.background='var(--redl)';sumEl.style.color='var(--red)';}
+  }
+};
+window.setRatio=(sp,sa,iv)=>{
+  const spE=document.getElementById('ratio-spend');if(spE)spE.value=sp;
+  const saE=document.getElementById('ratio-save');if(saE)saE.value=sa;
+  const ivE=document.getElementById('ratio-invest');if(ivE)ivE.value=iv;
+  window.updateRatioDisplay();
+};
+window.saveAllocRatios=async()=>{
+  const spend=toN(g('ratio-spend'));
+  const save=toN(g('ratio-save'));
+  const invest=toN(g('ratio-invest'));
+  const sum=spend+save+invest;
+  if(sum!==100){alert(`三個比例相加必須 = 100%（目前是 ${sum}%）\n\n請調整到剛好 100%`);return;}
+  await saveMain({allocationRatios:{spend,save,invest}});
+  toast(`✅ 分配比例已更新：花費 ${spend}% / 儲蓄 ${save}% / 投資 ${invest}%`);
+  closeMod();
 };
 
 // 🎯 編輯緊急預備金目標月數
