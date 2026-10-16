@@ -1333,25 +1333,51 @@ function sidebar(){
     return'📁';
   };
 
+  // 📒 預算儲水池：按使用者指定順序排序
+  const POOL_ORDER=['utility','traffic','union','home','gift','travel','beauty','food','muji'];
+  const sortedLedgers=[...allLedgers].sort((a,b)=>{
+    const ia=POOL_ORDER.indexOf(a.id);
+    const ib=POOL_ORDER.indexOf(b.id);
+    // 預設池按指定順序，自訂池放最後保持原本順序
+    if(ia===-1&&ib===-1)return 0;
+    if(ia===-1)return 1;
+    if(ib===-1)return -1;
+    return ia-ib;
+  });
+
+  // 主選單分兩段：expDash 之前 vs 之後，中間插入預算儲水池
+  const mainPages=PAGES.filter(p=>p.group==='main');
+  const expDashIdx=mainPages.findIndex(p=>p.id==='expDash');
+  const topPages=expDashIdx>=0?mainPages.slice(0,expDashIdx+1):mainPages;
+  const bottomPages=expDashIdx>=0?mainPages.slice(expDashIdx+1):[];
+  const renderPage=p=>`<div class="sb-item${S.page===p.id?' active':''}" data-pg="${p.id}" onclick="setP('${p.id}')"><span class="ico">${p.ico}</span><span>${p.lbl}</span></div>`;
+
   return`<nav class="sidebar">
 <div style="padding:20px 22px 24px;border-bottom:1px solid rgba(255,255,255,0.08);margin-bottom:8px;">
   <div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:#fff;letter-spacing:5px;">🌸 家庭錢包</div>
   <div style="font-size:11px;color:rgba(255,255,255,0.5);letter-spacing:0.3em;margin-top:4px;font-weight:500;">MY MONEY</div>
 </div>
-${PAGES.filter(p=>p.group==='main').map(p=>`<div class="sb-item${S.page===p.id?' active':''}" data-pg="${p.id}" onclick="setP('${p.id}')"><span class="ico">${p.ico}</span><span>${p.lbl}</span></div>`).join('')}
+${topPages.map(renderPage).join('')}
 
-${allLedgers.length>0?`
-<!-- 分隔線 + 帳本 section -->
-<div class="sb-sec-lbl" style="border-top:1px solid rgba(255,255,255,0.1);padding-top:14px;margin-top:8px;">📒 預算儲水池</div>
-${allLedgers.map((l,idx)=>{
-  const isActive=S.page==='ledger'&&S.ledgerIdx===idx;
+${sortedLedgers.length>0?`
+<!-- 分隔線 + 預算儲水池 section（放在支出總覽下面） -->
+<div class="sb-sec-lbl" style="border-top:1px solid rgba(255,255,255,0.1);padding-top:14px;margin-top:8px;">
+  <span onclick="setP('ledgerHome')" style="cursor:pointer;">📒 預算儲水池</span>
+</div>
+${sortedLedgers.map((l,idx)=>{
+  // 注意：idx 要用原本 allLedgers 的 index 以保持 selLedger 一致
+  const origIdx=allLedgers.findIndex(x=>x.id===l.id);
+  const isActive=S.page==='ledger'&&S.ledgerIdx===origIdx;
   const ico=ledgerIco(l.name||'');
-  return`<div class="sb-item${isActive?' active':''}" onclick="selLedger(${idx})" style="font-size:14px;padding:11px 22px 11px 26px;">
+  return`<div class="sb-item${isActive?' active':''}" onclick="selLedger(${origIdx})" style="font-size:14px;padding:11px 22px 11px 26px;">
     <span class="ico" style="font-size:17px;width:22px;">${ico}</span>
     <span>${l.name}</span>
   </div>`;
 }).join('')}
 `:''}
+
+${bottomPages.length>0?`<div style="border-top:1px solid rgba(255,255,255,0.1);margin-top:8px;padding-top:8px;"></div>
+${bottomPages.map(renderPage).join('')}`:''}
 </nav>`;
 }
 function mobNav(){
@@ -1870,26 +1896,56 @@ function pgOverviewNew(){
   const loanItems=fixedItems.filter(f=>loanKeywords.test(f.name||'')||loanKeywords.test(f.category||''));
   const loanTotal=loanItems.reduce((s,f)=>s+toN(f.amount),0);
   const allFixedTotal=fixedItems.reduce((s,f)=>s+toN(f.amount),0);
-  const debtRatio=monthInc>0?Math.round((loanTotal/monthInc)*100):0;
+
+  // 📊 收入浮動 → 用三種基礎算債務比例
+  // 1. 本月收入 2. 近 3 月平均 3. 近 12 月最低（Cardone 保守）
+  const allIncs=(S.data.incomes||[]);
+  // 回推最近 3 個月、12 個月的月收入
+  const monthlyIncHistory=[];
+  for(let i=0;i<12;i++){
+    const d=new Date(curYear,curMonth-1-i,1);
+    const y=d.getFullYear(),mo=d.getMonth()+1;
+    const total=allIncs.filter(x=>x.year===y&&x.month===mo).reduce((s,x)=>s+toN(x.amount),0);
+    if(total>0)monthlyIncHistory.push(total);
+  }
+  const avg3M=monthlyIncHistory.length>0?Math.round(monthlyIncHistory.slice(0,3).reduce((s,v)=>s+v,0)/Math.min(3,monthlyIncHistory.length)):0;
+  const min12M=monthlyIncHistory.length>0?Math.min(...monthlyIncHistory):0;
+  const avg12M=monthlyIncHistory.length>0?Math.round(monthlyIncHistory.reduce((s,v)=>s+v,0)/monthlyIncHistory.length):0;
+
+  // 計算三種 ratio
+  const dr_cur=monthInc>0?Math.round((loanTotal/monthInc)*100):0;
+  const dr_avg3=avg3M>0?Math.round((loanTotal/avg3M)*100):0;
+  const dr_min12=min12M>0?Math.round((loanTotal/min12M)*100):0;
+  // 預設顯示用近 3 月平均（最平衡）
+  const debtRatio=dr_avg3||dr_cur;
   const debtStatus=debtRatio<30?{col:'var(--grn)',bg:'var(--grnl)',txt:'✅ 安全'}:debtRatio<50?{col:'var(--goldDk)',bg:'var(--yel)',txt:'🟡 中度注意'}:{col:'var(--red)',bg:'var(--redl)',txt:'🔴 危險'};
 
-  // 預算儲水池每月分流（從 budgetMode 計算）
+  // 預算儲水池每月分流（從 budgetMode 計算）+ 構成明細
   const ledgerBudgetMode=S.data.ledgerBudgetMode||{};
   const equipItems=S.data.equipmentItems||{};
   const redItems=S.data.redEnvelopeItems||{};
   const ldBudgets=S.data.ledgerBudgets||{};
-  let budgetPoolTotal=0;
+  const poolDetails=[]; // [{id,name,amount,mode,hint}]
   (getAllLedgers()||[]).forEach(l=>{
     const bm=ledgerBudgetMode[l.id];
-    if(bm==='monthly')budgetPoolTotal+=toN(ldBudgets[l.id])||0;
-    else if(bm==='equipment'){
-      (equipItems[l.id]||[]).forEach(it=>{budgetPoolTotal+=toN(it.amount)/((toN(it.years)||5)*12);});
+    if(!bm||bm==='event')return;
+    let amt=0,hint='';
+    if(bm==='monthly'){
+      amt=toN(ldBudgets[l.id])||0;
+      hint='📅 每月固定';
+    }else if(bm==='equipment'){
+      const items=equipItems[l.id]||[];
+      amt=items.reduce((s,it)=>s+toN(it.amount)/((toN(it.years)||5)*12),0);
+      hint=`🔧 設備攤提（${items.length} 項）`;
     }else if(bm==='yearly'){
-      const yt=(redItems[l.id]||[]).reduce((s,it)=>s+toN(it.amount),0);
-      budgetPoolTotal+=yt/12;
+      const items=redItems[l.id]||[];
+      const yt=items.reduce((s,it)=>s+toN(it.amount),0);
+      amt=yt/12;
+      hint=`🧧 年度 $${fmt(yt)} ÷ 12`;
     }
+    if(amt>0)poolDetails.push({id:l.id,name:l.name,amount:Math.round(amt),mode:bm,hint});
   });
-  budgetPoolTotal=Math.round(budgetPoolTotal);
+  const budgetPoolTotal=poolDetails.reduce((s,p)=>s+p.amount,0);
 
   // 旅遊變美池（event 類，本月已存入的金額）
   const eventPools=(getAllLedgers()||[]).filter(l=>ledgerBudgetMode[l.id]==='event');
@@ -2152,14 +2208,38 @@ function pgOverviewNew(){
         </div>
         <button onclick="setP('fixedNew')" style="background:#9E5A60;color:#fff;border:none;padding:8px 16px;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;">管理 →</button>
       </div>
-      <div style="padding:14px 16px;background:${debtStatus.bg};border-radius:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-        <div>
-          <div style="font-size:11.5px;color:var(--brown);font-weight:600;">📊 月負債比率</div>
-          <div class="tm" style="font-size:10.5px;margin-top:2px;line-height:1.6;">每月總還款 ÷ 月收入<br>安全線：&lt;30% ✅ 　中度：30-40% 🟡 　含房貸最高 50%</div>
+      <!-- 📊 三種基礎的月負債比率 -->
+      <div style="background:${debtStatus.bg};border-radius:12px;padding:14px 16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px;">
+          <div style="font-size:12.5px;color:var(--brown);font-weight:700;">📊 月負債比率（因為收入浮動，用 3 種基礎看）</div>
+          <div style="font-size:10.5px;color:var(--mut);">安全線 &lt;30% ✅　中度 30-40% 🟡　危險 &gt;50% 🔴</div>
         </div>
-        <div style="text-align:center;">
-          <div style="font-family:'Noto Serif TC',serif;font-size:34px;font-weight:700;color:${debtStatus.col};line-height:1;">${debtRatio}%</div>
-          <div style="font-size:11px;color:${debtStatus.col};margin-top:2px;font-weight:700;">${debtStatus.txt}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;">
+          <!-- 當月 -->
+          <div style="background:#fff;border-radius:10px;padding:10px 12px;border:1.5px dashed var(--bdr);">
+            <div style="font-size:10.5px;color:var(--mut);font-weight:600;">A. 本月收入</div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:${dr_cur<30?'var(--grn)':dr_cur<50?'var(--goldDk)':'var(--red)'};margin-top:3px;">${dr_cur}%</div>
+            <div style="font-size:10px;color:var(--mut);margin-top:2px;">基礎 $${fmt(monthInc)}</div>
+          </div>
+          <!-- 近 3 月平均（主要判斷） -->
+          <div style="background:#fff;border-radius:10px;padding:10px 12px;border:2px solid ${dr_avg3<30?'var(--grn)':dr_avg3<50?'var(--goldDk)':'var(--red)'};position:relative;">
+            <div style="position:absolute;top:-9px;left:10px;background:var(--brown);color:#fff;font-size:9.5px;padding:2px 8px;border-radius:999px;font-weight:700;">⭐ 主要判斷</div>
+            <div style="font-size:10.5px;color:var(--mut);font-weight:600;margin-top:4px;">B. 近 3 月平均</div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:${dr_avg3<30?'var(--grn)':dr_avg3<50?'var(--goldDk)':'var(--red)'};margin-top:3px;">${dr_avg3}%</div>
+            <div style="font-size:10px;color:var(--mut);margin-top:2px;">基礎 $${fmt(avg3M)}</div>
+          </div>
+          <!-- 近 12 月最低 -->
+          <div style="background:#fff;border-radius:10px;padding:10px 12px;border:1.5px dashed var(--bdr);">
+            <div style="font-size:10.5px;color:var(--mut);font-weight:600;">C. 近 12 月最低</div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:${dr_min12<30?'var(--grn)':dr_min12<50?'var(--goldDk)':'var(--red)'};margin-top:3px;">${dr_min12}%</div>
+            <div style="font-size:10px;color:var(--mut);margin-top:2px;">基礎 $${fmt(min12M)} <span style="color:var(--red);">⚠️ 最保守</span></div>
+          </div>
+        </div>
+        <div style="margin-top:10px;padding:10px 12px;background:#fff;border-radius:10px;font-size:11.5px;color:var(--brown);line-height:1.7;">
+          💡 <b>為什麼要看 3 種？</b>你們收入每月浮動（紋繡/美容/又權的業績），不能只看當月。<br>
+          · <b>B 主要判斷</b>（近 3 月平均）→ 比較穩定的中期判斷<br>
+          · <b>C 最保守</b>（最低那個月）→ Cardone 風格：你能在「最糟那月」還得起才算真的安全<br>
+          · 如果 C 的比例也 &lt;30% → 你很穩　｜　如果只有 A &lt;30% 但 B/C &gt;30% → 其實很危險，只是這個月運氣好
         </div>
       </div>
     </div>
@@ -2182,9 +2262,26 @@ function pgOverviewNew(){
           <span style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:${r1>=0?'#0EA5E9':'var(--red)'};">$${fmt(r1)}</span>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;color:var(--mut);">
-          <span style="font-size:12.5px;">－ 預算儲水池自動分流</span>
+          <span style="font-size:12.5px;">－ 預算儲水池自動分流 ${poolDetails.length>0?`<button onclick="document.getElementById('pool-detail').open=!document.getElementById('pool-detail').open" style="background:none;border:none;color:#0EA5E9;font-size:11px;cursor:pointer;text-decoration:underline;">看構成 ▼</button>`:'<span style="font-size:11px;color:var(--mut);">（還沒設定）</span>'}</span>
           <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:600;color:#0EA5E9;">-$${fmt(budgetPoolTotal)}</span>
         </div>
+        ${poolDetails.length>0?`<details id="pool-detail" style="padding:0 14px;">
+          <summary style="display:none;"></summary>
+          <div style="background:#F0F9FF;border-radius:8px;padding:10px 12px;margin-bottom:4px;">
+            <div style="font-size:11px;color:var(--brown);font-weight:700;margin-bottom:6px;">💦 預算儲水池構成（${poolDetails.length} 個池）</div>
+            ${poolDetails.map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px dashed rgba(14,165,233,0.2);font-size:12px;">
+              <span style="color:var(--brown);">${p.name} <span style="color:var(--mut);font-size:10.5px;">· ${p.hint}</span></span>
+              <b style="color:#0369A1;font-family:'Noto Serif TC',serif;">$${fmt(p.amount)}</b>
+            </div>`).join('')}
+            <div style="padding:6px 0 0;display:flex;justify-content:space-between;font-size:12px;font-weight:700;">
+              <span style="color:var(--brown);">合計</span>
+              <b style="color:#0369A1;font-family:'Noto Serif TC',serif;">$${fmt(budgetPoolTotal)}</b>
+            </div>
+            <div style="margin-top:6px;font-size:10.5px;color:var(--mut);">
+              💡 水電/交通/飲食 → 每月固定　｜　家庭設備 → 設備金額÷使用年數÷12　｜　紅包/工會 → 年度總額÷12
+            </div>
+          </div>
+        </details>`:''}
         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#FDF4FF;border-radius:8px;border-left:3px solid #A855F7;">
           <span style="font-size:12.5px;color:var(--brown);font-weight:600;">= 扣預算池後剩餘</span>
           <span style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:${r2>=0?'#A855F7':'var(--red)'};">$${fmt(r2)}</span>
@@ -2892,6 +2989,60 @@ function pgFixedNew(){
       </div>`:''}
     </div>
 
+    <!-- 🚨 什麼是個人壞債 + 鋼鐵定律 -->
+    <details style="background:linear-gradient(135deg,#FFF4F4,#fff);border:2px solid var(--red);border-radius:18px;padding:0;margin-bottom:16px;box-shadow:0 4px 16px rgba(226,116,116,0.12);overflow:hidden;" open>
+      <summary style="cursor:pointer;padding:16px 20px;list-style:none;font-weight:700;color:var(--red);font-size:15px;display:flex;justify-content:space-between;align-items:center;">
+        <span>🚨 什麼是「個人壞債」？Cardone 鋼鐵定律 ▼</span>
+      </summary>
+      <div style="padding:0 20px 20px;">
+
+        <!-- 什麼是個人壞債 -->
+        <div style="background:#fff;border-left:4px solid var(--red);border-radius:10px;padding:14px 16px;margin-bottom:12px;">
+          <div style="font-family:'Noto Serif TC',serif;font-size:14.5px;font-weight:700;color:var(--red);margin-bottom:8px;">⚠️ 什麼是個人壞債？</div>
+          <div style="font-size:13px;color:var(--brown);line-height:1.9;">
+            <b>房貸、車貸、信用卡卡債</b>，以及：<br>
+            <span style="color:var(--red);font-weight:600;">任何為了「消費、旅遊、購買折舊資產」而借的錢</span><br>
+            <br>
+            <div style="padding:10px 12px;background:#FFF8E7;border-radius:8px;">
+              <b>📋 怎麼分辨？</b> 用一個問題檢查：<br>
+              <span style="color:var(--goldDk);">「這筆錢借來買的東西，<b>以後能幫你賺更多錢嗎</b>？」</span><br>
+              · 答案是「<b style="color:var(--red);">不會，只會貶值</b>」→ 這是壞債（車貸、消費分期、信用卡循環）<br>
+              · 答案是「<b style="color:var(--grn);">會，而且會產生現金流</b>」→ 這是好債（投資房的房貸、生意的設備貸款）<br>
+              · <b>自住房貸</b>？Cardone 說它是壞債，因為自住房不生現金，還要繳稅、修繕、折舊
+            </div>
+          </div>
+        </div>
+
+        <!-- 鋼鐵定律 -->
+        <div style="background:#000;color:#fff;border-radius:12px;padding:16px 18px;margin-bottom:12px;">
+          <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:#FFD700;margin-bottom:10px;letter-spacing:0.15em;">⚔️ 鋼鐵定律</div>
+          <div style="font-size:13.5px;line-height:2;color:#fff;">
+            <b style="color:#FFD700;font-size:15px;">「絕對不准用『明天才會賺到的錢』去扛今天的負債。」</b><br>
+            <br>
+            <span style="color:#FFB4B4;">如果你用主動收入去背負這些每個月固定要還的貸款，</span><br>
+            <span style="color:#FFD700;">你的月負債比例只要不是 0%，</span><br>
+            <span style="color:#FFB4B4;">你賺錢的彈藥就會被<b>死死鎖住</b>，根本無法累積財富。</span><br>
+            <br>
+            <div style="padding:10px 12px;background:rgba(255,215,0,0.15);border-radius:8px;font-size:12.5px;">
+              💡 這也是為什麼 Cardone <b style="color:#FFD700;">寧願租房、租車</b>，<br>
+              　  也絕不在個人名下背負任何房貸與車貸的原因。
+            </div>
+          </div>
+        </div>
+
+        <!-- 行動指南 -->
+        <div style="background:var(--grnl);border-radius:10px;padding:14px 16px;">
+          <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--grn);margin-bottom:8px;">✅ 你能做的 3 步</div>
+          <div style="font-size:12.5px;color:var(--brown);line-height:1.9;">
+            <b>1.</b> 列出所有「壞債」→ 加總每月還款金額<br>
+            <b>2.</b> 把月負債比率壓到 <b style="color:var(--grn);">&lt;30%</b>（以近 3 月平均收入為基礎）<br>
+            <b>3.</b> 停止用主動收入「新增」壞債 → 要花大錢（旅遊/美容/換車）就靠<br>
+            　　<span style="color:var(--gold);">💎 投資收益、🧧 獎金</span>進「旅遊變美池」，而不是刷卡分期
+          </div>
+        </div>
+      </div>
+    </details>
+
     <!-- 新增按鈕 -->
     <button onclick="openM('addFixed')" style="width:100%;padding:14px;background:linear-gradient(135deg,var(--gold),var(--goldDk));color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;letter-spacing:0.1em;cursor:pointer;box-shadow:0 4px 12px rgba(196,164,107,0.3);margin-bottom:16px;">
       ＋ 新增固定支出
@@ -2952,7 +3103,16 @@ function pgFixedNew(){
 // 📊 支出總覽 — 一頁看完預算/實花/付款方式/攤提
 // 📒 預算儲水池總覽（卡片式一目了然）
 function pgLedgerHome(){
-  const ALL_LEDGERS=getAllLedgers();
+  // 按使用者指定順序：水電/交通/工會保險/家庭設備/紅包/旅遊/美麗/飲食/沐蜜
+  const POOL_ORDER=['utility','traffic','union','home','gift','travel','beauty','food','muji'];
+  const ALL_LEDGERS=[...getAllLedgers()].sort((a,b)=>{
+    const ia=POOL_ORDER.indexOf(a.id);
+    const ib=POOL_ORDER.indexOf(b.id);
+    if(ia===-1&&ib===-1)return 0;
+    if(ia===-1)return 1;
+    if(ib===-1)return -1;
+    return ia-ib;
+  });
   const ldTargets=S.data.ledgerTargets||{}; // 每個帳本的目標金額
 
   // 計算每個帳本的當前餘額（所有歷史累積）
