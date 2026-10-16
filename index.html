@@ -1864,7 +1864,7 @@ function pgOverviewNew(){
   // 月份按鈕
   const mBtns=Array.from({length:12},(_,i)=>i+1).map(m=>{
     const act=m===curMonth;
-    return `<button onclick="setMonth(${m})" style="padding:8px 16px;background:${act?'var(--roseDk)':'#fff'};color:${act?'#fff':'var(--brown)'};border:1.5px solid ${act?'var(--roseDk)':'var(--bdr)'};border-radius:999px;font-size:13px;font-weight:${act?'700':'500'};cursor:pointer;font-family:inherit;">${m} 月</button>`;
+    return `<button onclick="setMo(${m})" style="padding:8px 16px;background:${act?'var(--roseDk)':'#fff'};color:${act?'#fff':'var(--brown)'};border:1.5px solid ${act?'var(--roseDk)':'var(--bdr)'};border-radius:999px;font-size:13px;font-weight:${act?'700':'500'};cursor:pointer;font-family:inherit;">${m} 月</button>`;
   }).join('');
 
   return`
