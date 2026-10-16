@@ -10242,14 +10242,36 @@ function pgLedger(){
       if(budgetMode==='monthly'){
         const budget=toN((S.data.ledgerBudgets||{})[l.id])||0;
         const balance=getLedgerAll(l.id).reduce((s,e)=>s+toN(e.amount),0);
-        return`<div style="background:linear-gradient(135deg,#f0fdf4,#fff);border-radius:14px;padding:18px 22px;margin-bottom:16px;border-top:4px solid var(--grn);">
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-            <div style="flex:1;min-width:200px;">
-              <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--grn);">📅 每月固定預算模式</div>
-              <div class="tm" style="font-size:11.5px;margin-top:2px;">每月要存 $${fmt(budget)}</div>
+        const needSetup=budget<=0;
+        return`<div style="background:${needSetup?'linear-gradient(135deg,#FFF8E7,#fff)':'linear-gradient(135deg,#f0fdf4,#fff)'};border-radius:14px;padding:18px 22px;margin-bottom:16px;border:${needSetup?'2px dashed var(--gold)':'none'};border-top:4px solid ${needSetup?'var(--gold)':'var(--grn)'};box-shadow:0 4px 16px rgba(194,116,122,0.08);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+            <div>
+              <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:${needSetup?'var(--goldDk)':'var(--grn)'};">📅 每月固定預算模式</span>
+              <div class="tm" style="font-size:11.5px;margin-top:2px;">適用：水電、瓦斯、通訊、交通油錢等每月變動不大的開銷</div>
             </div>
             <button onclick="setLedgerBudgetMode('${l.id}')" style="background:none;border:1px solid var(--bdr);color:var(--mut);padding:5px 12px;border-radius:8px;font-size:11px;cursor:pointer;">切換模式</button>
           </div>
+
+          <!-- 預算 + 餘額 卡 -->
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:${needSetup?'12':'0'}px;">
+            <div style="background:${needSetup?'#FFF4D6':'var(--grnl)'};padding:14px;border-radius:10px;text-align:center;">
+              <div class="tm" style="font-size:11px;">每月預算</div>
+              <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:${needSetup?'var(--goldDk)':'var(--grn)'};margin-top:3px;">$${fmt(budget)}</div>
+            </div>
+            <div style="background:${balance>=budget?'var(--grnl)':'var(--yel)'};padding:14px;border-radius:10px;text-align:center;">
+              <div class="tm" style="font-size:11px;">目前餘額</div>
+              <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:${balance>=budget?'var(--grn)':'var(--goldDk)'};margin-top:3px;">$${fmt(balance)}</div>
+            </div>
+          </div>
+
+          <!-- 編輯預算 -->
+          ${needSetup?`<div style="background:#FFF4D6;border:1.5px dashed var(--goldDk);border-radius:10px;padding:12px 14px;margin-bottom:10px;">
+            <div style="font-size:12.5px;color:var(--brown);font-weight:600;margin-bottom:8px;">💡 這個池還沒設預算金額 → 填一下才會進總覽計算</div>
+            <button onclick="editLedgerBudget('${l.id}','${(l.name||'').replace(/'/g,"\\'")}')" style="background:var(--goldDk);color:#fff;border:none;padding:10px 20px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;width:100%;">💰 設定每月預算金額</button>
+          </div>`:`<div style="display:flex;justify-content:space-between;align-items:center;background:#F9FAFB;border-radius:10px;padding:10px 14px;margin-top:12px;">
+            <span style="font-size:12px;color:var(--mut);">每月預算 $${fmt(budget)}</span>
+            <button onclick="editLedgerBudget('${l.id}','${(l.name||'').replace(/'/g,"\\'")}')" style="background:none;border:1px solid var(--grn);color:var(--grn);padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;">✏️ 修改金額</button>
+          </div>`}
         </div>`;
       }
 
@@ -15090,6 +15112,29 @@ window.saveLedgerBudget=async(lid,val)=>{
   const ledgerBudgets={...(S.data.ledgerBudgets||{})};
   ledgerBudgets[lid]=toN(val);
   await saveMain({ledgerBudgets});toast('✅ 預算已更新');
+};
+// 💰 編輯「每月固定」預算金額
+window.editLedgerBudget=async(lid,lname)=>{
+  const cur=toN((S.data.ledgerBudgets||{})[lid])||0;
+  const examples={
+    utility:'水電瓦斯通訊：建議 $3,000-6,000',
+    traffic:'交通汽機車：建議 $5,000-15,000（含油/停車/保養/稅）',
+    union:'工會保險稅金：建議 $500-2,000（年繳 ÷ 12）',
+    home:'家庭設備汰舊換新：建議 $2,000-5,000',
+    gift:'紅包基金：建議 $500-2,000（年度 ÷ 12）',
+    food:'飲食日常雜支：建議 $8,000-15,000',
+    muji:'沐蜜：按實際需求'
+  };
+  const example=examples[lid]||'';
+  const v=prompt(`「${lname}」每月預算金額是？\n\n${example?example+'\n\n':''}目前：$${fmt(cur)}\n（填 0 = 清空）`,cur||'');
+  if(v===null)return;
+  const n=toN(v);
+  if(n<0){alert('請填 0 或正數');return;}
+  const ledgerBudgets={...(S.data.ledgerBudgets||{})};
+  ledgerBudgets[lid]=n;
+  await saveMain({ledgerBudgets});
+  toast(`✅「${lname}」每月預算改為 $${fmt(n)}`);
+  render();
 };
 
 // ─── 📒 帳本類型與設定 ──────────────────────────
