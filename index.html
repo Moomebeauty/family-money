@@ -1077,6 +1077,12 @@ let S={
     safetyChecks:{},  // {key: true/false, 例如 lifeInsBeneficiary, cohabitAgreement, will...}
     // 💼 帳本用途標籤（Cardone 三帳戶：花費/儲蓄-緊急/儲蓄-增值/投資）
     ledgerPurpose:{},  // {lid: 'spend'|'saveEmergency'|'saveGrowth'|'invest'}
+    // 📘 預算型帳本的計算模式
+    ledgerBudgetMode:{},  // {lid: 'monthly'|'yearly'|'equipment'|'event'}
+    // 🔧 設備汰換池的 items 清單
+    equipmentItems:{},  // {lid: [{id,name,amount,years}]}
+    // 🧧 紅包池的年度事件清單
+    redEnvelopeItems:{},  // {lid: [{id,name,amount}]}
     // 💰 40/40/20 分配比例（可自訂）
     allocationRatios:{spend:40,save:40,invest:20},
     // 🚨 緊急預備金目標月數（預設 6）
@@ -1157,6 +1163,9 @@ function startSync(){
       S.data.ledgerPurpose=d.ledgerPurpose||{};
       S.data.allocationRatios=d.allocationRatios||{spend:40,save:40,invest:20};
       S.data.emergencyFundMonths=d.emergencyFundMonths||6;
+      S.data.ledgerBudgetMode=d.ledgerBudgetMode||{};
+      S.data.equipmentItems=d.equipmentItems||{};
+      S.data.redEnvelopeItems=d.redEnvelopeItems||{};
       S.data.investNotes=d.investNotes||{};
     }
     setSyncing('synced');
@@ -3484,99 +3493,180 @@ function pgSafetyNet(){
   </div>`;
 }
 
-// 🎯 Grant Cardone 10X 財富心法頁 (40/40/20 Cardone 經典版)
+// 🎯 Cardone 財富心法頁（4 層支付順序 + 2 種能花的錢）
 function pgWealth10X(){
   const now=new Date();
   const curYear=now.getFullYear(),curMonth=now.getMonth()+1;
-
-  // 近 3 月平均收入
-  const incs3=[];
-  for(let i=0;i<3;i++){
-    const d=new Date(curYear,curMonth-1-i,1);
-    const y=d.getFullYear(),mo=d.getMonth()+1;
-    incs3.push((S.data.incomes||[]).filter(ic=>ic.year===y&&ic.month===mo).reduce((s,ic)=>s+toN(ic.amount),0));
-  }
   const monthInc=(S.data.incomes||[]).filter(i=>i.year===curYear&&i.month===curMonth).reduce((s,i)=>s+toN(i.amount),0);
-  const avgInc=incs3.reduce((s,x)=>s+x,0)/3||monthInc;
-  const avgExp=(S.data.expenses||[]).filter(e=>e.year===curYear&&!e.fromLedger&&!e.excludeFromBudget).reduce((s,e)=>s+toN(e.amount),0)/curMonth;
+  const members=S.data.familyMembers||['又權','于蜜','楷宸'];
+  // 各家人本月收入
+  const memInc={};
+  members.forEach(m=>{memInc[m]=(S.data.incomes||[]).filter(i=>i.year===curYear&&i.month===curMonth&&i.member===m).reduce((s,i)=>s+toN(i.amount),0);});
 
-  const ratios=S.data.allocationRatios||{spend:40,save:40,invest:20};
-  const targetSpend=Math.round(monthInc*ratios.spend/100);
-  const targetSave=Math.round(monthInc*ratios.save/100);
-  const targetInvest=Math.round(monthInc*ratios.invest/100);
-
-  // 本月實際
-  const monthExp=(S.data.expenses||[]).filter(e=>e.year===curYear&&e.month===curMonth&&!e.fromLedger&&!e.excludeFromBudget).reduce((s,e)=>s+toN(e.amount),0);
-  // 用「用途」計算三帳戶
-  const purpose=S.data.ledgerPurpose||{};
-  const les=(S.data.ledgerEntries||[]).filter(e=>e.year===curYear&&e.month===curMonth&&toN(e.amount)>0);
-  const saveAmt=les.filter(e=>['saveEmergency','saveGrowth'].includes(purpose[e.lid])).reduce((s,e)=>s+toN(e.amount),0);
-  const investAmt=les.filter(e=>purpose[e.lid]==='invest').reduce((s,e)=>s+toN(e.amount),0);
-
-  // 緊急預備金：所有「saveEmergency」帳本累積餘額
-  const ALL=getAllLedgers();
-  const emgLedgers=ALL.filter(l=>purpose[l.id]==='saveEmergency');
-  const emgBal=emgLedgers.reduce((s,l)=>{
-    const es=(S.data.ledgerEntries||[]).filter(e=>e.lid===l.id);
-    return s+es.reduce((ss,e)=>ss+toN(e.amount),0);
-  },0);
-  const emgTargetMonths=S.data.emergencyFundMonths||6;
-  const emgTarget=Math.round(avgExp*emgTargetMonths);
-  const emgPct=emgTarget>0?Math.min(100,Math.round(emgBal/emgTarget*100)):0;
-
-  // 10X 目標
+  // 10X 淨值目標
   const goal10X=toN(S.data.wealth10xGoal)||10000000;
   const curNetWorth=((S.data.assets||[]).reduce((s,a)=>s+toN(a.value),0))-((S.data.debts||[]).reduce((s,d)=>s+toN(d.remainingAmount),0));
   const progress10X=goal10X>0?Math.min(100,Math.round((curNetWorth/goal10X)*100)):0;
 
-  // 狀態
-  const stInvest=investAmt>=targetInvest?'✅':(investAmt>=targetInvest*0.5?'🟡':'🔴');
-  const stSave=saveAmt>=targetSave?'✅':(saveAmt>=targetSave*0.5?'🟡':'🔴');
-  const stSpend=monthExp<=targetSpend?'✅':(monthExp<=targetSpend*1.2?'🟡':'🔴');
-
   return'<div style="max-width:900px;margin:0 auto;">'+
+
+    // 大標題
     '<div style="text-align:center;padding:20px 0 16px;"><div style="font-size:56px;">🎯</div>'+
-    '<div style="font-family:\'Noto Serif TC\',serif;font-size:26px;font-weight:700;color:var(--brown);letter-spacing:0.25em;margin-top:6px;">Cardone 10X 財富心法</div>'+
-    '<div class="tm" style="font-size:12.5px;margin-top:6px;letter-spacing:0.1em;">40/40/20 法則　·　三帳戶絕對不互相挪用</div></div>'+
+    '<div style="font-family:\'Noto Serif TC\',serif;font-size:26px;font-weight:700;color:var(--brown);letter-spacing:0.25em;margin-top:6px;">Cardone 財富心法</div>'+
+    '<div class="tm" style="font-size:12.5px;margin-top:6px;letter-spacing:0.1em;">妳的錢，有順序地付出去</div></div>'+
 
-    // 本月 40/40/20
-    '<div style="background:linear-gradient(135deg,#2C1810,#4A2C1F);color:#fff;border-radius:18px;padding:28px;margin-bottom:20px;box-shadow:0 8px 32px rgba(44,24,16,0.3);">'+
-      '<div style="text-align:center;margin-bottom:20px;"><div style="font-size:11px;letter-spacing:0.3em;color:#C4A46B;font-weight:600;">PAY YOURSELF FIRST · THREE ACCOUNTS</div>'+
-      '<div style="font-family:\'Noto Serif TC\',serif;font-size:20px;font-weight:700;margin-top:4px;letter-spacing:0.15em;">'+curMonth+' 月三帳戶分配</div>'+
-      '<div style="font-size:12px;color:#aaa;margin-top:4px;">本月收入 $'+fmt(monthInc)+'</div></div>'+
-      '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">'+
-        '<div style="background:rgba(194,116,122,0.15);border:1.5px solid #C2747A;border-radius:12px;padding:16px 14px;text-align:center;">'+
-          '<div style="font-size:11px;color:#C2747A;letter-spacing:0.1em;font-weight:600;">① 花費帳戶 · 40%</div>'+
-          '<div style="font-family:\'Noto Serif TC\',serif;font-size:22px;font-weight:700;color:#fff;margin-top:6px;">$'+fmt(targetSpend)+'</div>'+
-          '<div style="font-size:10.5px;color:#C2747A;margin-top:4px;">實花 $'+fmt(monthExp)+' '+stSpend+'</div>'+
-          '<div style="font-size:10px;color:#aaa;margin-top:4px;line-height:1.5;">房租·伙食·交通<br>水電·保險</div></div>'+
-        '<div style="background:rgba(125,184,154,0.15);border:1.5px solid #7DB89A;border-radius:12px;padding:16px 14px;text-align:center;">'+
-          '<div style="font-size:11px;color:#7DB89A;letter-spacing:0.1em;font-weight:600;">② 儲蓄帳戶 · 40%</div>'+
-          '<div style="font-family:\'Noto Serif TC\',serif;font-size:22px;font-weight:700;color:#fff;margin-top:6px;">$'+fmt(targetSave)+'</div>'+
-          '<div style="font-size:10.5px;color:#7DB89A;margin-top:4px;">實存 $'+fmt(saveAmt)+' '+stSave+'</div>'+
-          '<div style="font-size:10px;color:#aaa;margin-top:4px;line-height:1.5;">緊急金<br>+ 買房頭期</div></div>'+
-        '<div style="background:rgba(196,164,107,0.15);border:1.5px solid #C4A46B;border-radius:12px;padding:16px 14px;text-align:center;">'+
-          '<div style="font-size:11px;color:#C4A46B;letter-spacing:0.1em;font-weight:600;">③ 投資帳戶 · 20%</div>'+
-          '<div style="font-family:\'Noto Serif TC\',serif;font-size:22px;font-weight:700;color:#fff;margin-top:6px;">$'+fmt(targetInvest)+'</div>'+
-          '<div style="font-size:10.5px;color:#C4A46B;margin-top:4px;">實投 $'+fmt(investAmt)+' '+stInvest+'</div>'+
-          '<div style="font-size:10px;color:#aaa;margin-top:4px;line-height:1.5;">ETF·基金<br>永遠只進不出</div></div>'+
-      '</div>'+
-
-      '<div style="margin-top:18px;padding:14px;background:rgba(255,255,255,0.05);border-radius:10px;">'+
-        '<div style="font-size:11px;color:#C4A46B;letter-spacing:0.2em;font-weight:600;text-align:center;margin-bottom:8px;">🚨 緊急預備金進度（儲蓄帳戶第 1 階段）</div>'+
-        '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">'+
-          '<span style="font-family:\'Noto Serif TC\',serif;font-size:24px;font-weight:700;color:'+(emgPct>=100?'#7DB89A':'#FFD700')+';">$'+fmt(emgBal)+'</span>'+
-          '<span style="font-size:12px;color:#aaa;">目標 $'+fmt(emgTarget)+'（'+emgTargetMonths+' 月生活費）</span>'+
+    // 💥 核心哲學（醒目紅底）
+    '<div style="background:linear-gradient(135deg,#8B0000,#4A0000);color:#fff;border-radius:20px;padding:30px 28px;margin-bottom:20px;box-shadow:0 10px 36px rgba(139,0,0,0.4);text-align:center;position:relative;overflow:hidden;">'+
+      '<div style="font-size:11px;letter-spacing:0.4em;color:#FFD700;font-weight:700;margin-bottom:12px;">THE ONLY TWO THINGS YOU CAN SPEND ON</div>'+
+      '<div style="font-family:\'Noto Serif TC\',serif;font-size:18px;font-weight:700;letter-spacing:0.1em;line-height:1.9;">目前只有兩種東西可以花</div>'+
+      '<div style="margin-top:16px;display:grid;gap:12px;">'+
+        '<div style="background:rgba(255,215,0,0.15);border:2px solid #FFD700;border-radius:12px;padding:16px 20px;">'+
+          '<div style="font-family:\'Noto Serif TC\',serif;font-size:20px;font-weight:700;color:#FFD700;">🍚「生存必需品」</div>'+
+          '<div style="font-size:12.5px;color:#eee;margin-top:6px;line-height:1.6;">房租/房貸·伙食·水電·交通·保險·稅金</div>'+
         '</div>'+
-        '<div style="background:rgba(255,255,255,0.1);border-radius:999px;overflow:hidden;height:8px;"><div style="width:'+emgPct+'%;background:linear-gradient(90deg,#C4A46B,#7DB89A);height:100%;"></div></div>'+
-        '<div style="font-size:10.5px;color:#aaa;margin-top:4px;text-align:center;">'+emgPct+'% 達成 · 存滿後才可開始存買房頭期</div>'+
+        '<div style="background:rgba(255,215,0,0.15);border:2px solid #FFD700;border-radius:12px;padding:16px 20px;">'+
+          '<div style="font-family:\'Noto Serif TC\',serif;font-size:20px;font-weight:700;color:#FFD700;">💼「100% 能幫你賺更多錢的工具」</div>'+
+          '<div style="font-size:12.5px;color:#eee;margin-top:6px;line-height:1.6;">投資自己·投資事業·真的能生被動收入的資產</div>'+
+        '</div>'+
+      '</div>'+
+      '<div style="margin-top:20px;padding:16px 20px;background:rgba(0,0,0,0.3);border-radius:12px;">'+
+        '<div style="font-family:\'Noto Serif TC\',serif;font-size:17px;font-weight:700;color:#FF6B6B;line-height:1.6;">其他的通通都是在幫別人的水池存錢 💸</div>'+
+      '</div>'+
+    '</div>'+
+
+    // 本月家人收入
+    (monthInc>0?'<div style="background:#fff;border-radius:14px;padding:20px 22px;margin-bottom:16px;box-shadow:0 4px 16px rgba(194,116,122,0.08);border-top:4px solid var(--grn);">'+
+      '<div style="font-family:\'Noto Serif TC\',serif;font-size:15px;font-weight:700;color:var(--brown);margin-bottom:12px;">💵 '+curMonth+' 月家庭收入（計算分配基礎）</div>'+
+      '<div style="display:grid;grid-template-columns:repeat('+(members.length+1)+',1fr);gap:10px;text-align:center;">'+
+        members.map(m=>'<div style="background:var(--grnl);padding:12px 10px;border-radius:10px;">'+
+          '<div style="font-size:11px;color:var(--brown);font-weight:600;">'+m+'</div>'+
+          '<div style="font-family:\'Noto Serif TC\',serif;font-size:17px;font-weight:700;color:var(--grn);margin-top:4px;">$'+fmt(memInc[m])+'</div>'+
+          '<div style="font-size:10px;color:var(--grn);margin-top:2px;">儲蓄 40% → $'+fmt(Math.round(memInc[m]*0.4))+'</div>'+
+        '</div>').join('')+
+        '<div style="background:linear-gradient(135deg,var(--grn),#5B9E7A);color:#fff;padding:12px 10px;border-radius:10px;">'+
+          '<div style="font-size:11px;font-weight:600;opacity:0.9;">👨‍👩‍👧 全家合計</div>'+
+          '<div style="font-family:\'Noto Serif TC\',serif;font-size:18px;font-weight:700;margin-top:4px;">$'+fmt(monthInc)+'</div>'+
+          '<div style="font-size:10px;margin-top:2px;opacity:0.9;">儲蓄 40% → $'+fmt(Math.round(monthInc*0.4))+'</div>'+
+        '</div>'+
+      '</div>'+
+    '</div>':'')+
+
+    // 🎯 4 層支付順序（這是心法主體！）
+    '<div style="background:#fff;border-radius:14px;padding:24px;margin-bottom:16px;box-shadow:0 4px 16px rgba(194,116,122,0.08);">'+
+      '<div style="font-family:\'Noto Serif TC\',serif;font-size:17px;font-weight:700;color:var(--brown);margin-bottom:6px;letter-spacing:0.1em;">💎 收入進來，4 層支付順序</div>'+
+      '<div class="tm" style="font-size:12px;margin-bottom:16px;">按順序付出去，不能跳順序</div>'+
+
+      '<div style="display:grid;gap:14px;">'+
+
+        // 第 1 層
+        '<div style="background:linear-gradient(135deg,#faf3e3,#fff);border-left:6px solid #C4A46B;border-radius:12px;padding:20px;">'+
+          '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'+
+            '<span style="font-family:\'Noto Serif TC\',serif;font-size:36px;font-weight:700;color:#C4A46B;line-height:1;">1</span>'+
+            '<div><div style="font-size:11px;letter-spacing:0.2em;color:#8C6B3A;font-weight:700;">FIRST PAY</div>'+
+            '<div style="font-family:\'Noto Serif TC\',serif;font-size:18px;font-weight:700;color:var(--brown);">💎 儲蓄池 · 40%</div></div>'+
+          '</div>'+
+          '<div style="font-size:13.5px;color:var(--brown);line-height:1.8;background:#fff;padding:12px 14px;border-radius:8px;">'+
+            '<b style="color:#8C6B3A;">「先付給未來的自己」</b><br>'+
+            '收入進來的第一件事，不是繳費、不是買菜，而是把 <b>40%</b> 轉進儲蓄池。<br>'+
+            '剩下的 60% 才拿來付其他的。'+
+          '</div>'+
+          (monthInc>0?'<div style="margin-top:10px;background:rgba(196,164,107,0.15);padding:10px 14px;border-radius:8px;font-size:13px;color:#8C6B3A;font-weight:700;">💡 本月該存：$'+fmt(Math.round(monthInc*0.4))+'（全家 40%）</div>':'')+
+        '</div>'+
+
+        // 第 2 層
+        '<div style="background:linear-gradient(135deg,#fce7e7,#fff);border-left:6px solid #C2747A;border-radius:12px;padding:20px;">'+
+          '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'+
+            '<span style="font-family:\'Noto Serif TC\',serif;font-size:36px;font-weight:700;color:#C2747A;line-height:1;">2</span>'+
+            '<div><div style="font-size:11px;letter-spacing:0.2em;color:#9E5A60;font-weight:700;">SECOND PAY</div>'+
+            '<div style="font-family:\'Noto Serif TC\',serif;font-size:18px;font-weight:700;color:var(--brown);">🏠 每月固定支出池</div></div>'+
+          '</div>'+
+          '<div style="font-size:13.5px;color:var(--brown);line-height:1.8;background:#fff;padding:12px 14px;border-radius:8px;">'+
+            '<b style="color:#9E5A60;">固定要繳的大錢</b><br>'+
+            '✓ 房貸 / 房租<br>'+
+            '✓ 車貸<br>'+
+            '✓ 創業貸款<br>'+
+            '不繳會出事的，第二順位處理'+
+          '</div>'+
+        '</div>'+
+
+        // 第 3 層
+        '<div style="background:linear-gradient(135deg,#DBEAFE,#fff);border-left:6px solid #0EA5E9;border-radius:12px;padding:20px;">'+
+          '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'+
+            '<span style="font-family:\'Noto Serif TC\',serif;font-size:36px;font-weight:700;color:#0EA5E9;line-height:1;">3</span>'+
+            '<div><div style="font-size:11px;letter-spacing:0.2em;color:#0369A1;font-weight:700;">THIRD PAY</div>'+
+            '<div style="font-family:\'Noto Serif TC\',serif;font-size:18px;font-weight:700;color:var(--brown);">📒 預算儲水池</div></div>'+
+          '</div>'+
+          '<div style="font-size:13.5px;color:var(--brown);line-height:1.8;background:#fff;padding:12px 14px;border-radius:8px;">'+
+            '<b style="color:#0369A1;">「遲早要付、金額可預估」的開銷</b><br>'+
+            '原則：只放「未來 12 個月剛好夠用」的錢<br><br>'+
+            '📘 分 5 個池子：<br>'+
+            '· 💡 <b>水電瓦斯通訊池</b>：電費/手機/WiFi/Netflix/天然氣/水費/APP<br>'+
+            '· 🚗 <b>交通專屬池</b>：加油/停車/牌照稅/燃料稅/車險<br>'+
+            '· 🛡️ <b>工會保險稅金池</b>：工會/防癌險/醫療險/地價稅/房屋稅<br>'+
+            '· 🔧 <b>家庭設備汰舊換新池</b>：家電/手機/電腦/換車頭期（自動計算）<br>'+
+            '· 🧧 <b>紅包池</b>：三節/過年/紅白包/生日（年度結算）'+
+          '</div>'+
+        '</div>'+
+
+        // 第 4 層
+        '<div style="background:linear-gradient(135deg,#fce7e7,#fff);border-left:6px solid #C2747A;border-radius:12px;padding:20px;">'+
+          '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'+
+            '<span style="font-family:\'Noto Serif TC\',serif;font-size:36px;font-weight:700;color:#C2747A;line-height:1;">4</span>'+
+            '<div><div style="font-size:11px;letter-spacing:0.2em;color:#9E5A60;font-weight:700;">LAST PAY</div>'+
+            '<div style="font-family:\'Noto Serif TC\',serif;font-size:18px;font-weight:700;color:var(--brown);">🍜 生活與享樂</div></div>'+
+          '</div>'+
+          '<div style="font-size:13.5px;color:var(--brown);line-height:1.8;background:#fff;padding:12px 14px;border-radius:8px;">'+
+            '<b style="color:#9E5A60;">「剩下的才能花」</b><br><br>'+
+            '🍜 <b>飲食日常雜支池</b>：全家吃喝、看醫生、孩子零用錢<br>'+
+            '　→ 月底可刷到接近 0，但不能透支<br>'+
+            '　→ 不夠吃喝 = 收入問題，不是支出問題<br><br>'+
+            '✨ <b>旅遊變美池</b>：共用一個水庫<br>'+
+            '　→ 絕對不設固定轉帳<br>'+
+            '　→ 只接受「獎金」或「投資配息」注入<br>'+
+            '　→ 旅遊 vs 變美會互相排擠'+
+          '</div>'+
+        '</div>'+
+
+      '</div>'+
+    '</div>'+
+
+    // 🚫 「不一定要花」清單
+    '<div style="background:linear-gradient(135deg,#fff5f5,#fff);border-radius:14px;padding:24px;margin-bottom:16px;border:2px solid #DC2626;">'+
+      '<div style="font-family:\'Noto Serif TC\',serif;font-size:16px;font-weight:700;color:#DC2626;margin-bottom:14px;letter-spacing:0.1em;">🚫 「不一定要花」清單 — 嚴格控管</div>'+
+      '<div class="tm" style="font-size:12px;margin-bottom:14px;">在你有巨大被動收入前，這些是「想要」而非「需要」</div>'+
+      '<div style="display:grid;gap:10px;">'+
+        [
+          {n:'1',t:'換車費用',w:'新車一落地折 20%，中產階級最毒的財務毒藥。有能力靠「資產利息」買車前，絕對不換'},
+          {n:'2',t:'換新手機',w:'手機能通話、能上網學習，就不要「因為出新一代而換」'},
+          {n:'3',t:'旅遊、招待朋友',w:'很多人旅遊是為了「打卡炫耀」。真要出遊，台灣有很多不花大錢的親近自然行程'},
+          {n:'4',t:'愛漂亮費用',w:'昂貴醫美、高頻率沙龍、流行服飾 → 最該第一波縮減的非必要支出'},
+        ].map(x=>'<div style="background:#fff;border-left:4px solid #DC2626;border-radius:8px;padding:12px 14px;">'+
+          '<div style="font-size:13.5px;color:var(--brown);font-weight:700;">'+x.n+'. '+x.t+'</div>'+
+          '<div style="font-size:12px;color:var(--mut);margin-top:4px;line-height:1.7;">'+x.w+'</div>'+
+        '</div>').join('')+
+      '</div>'+
+    '</div>'+
+
+    // ⚠️ 「隱形地雷」清單
+    '<div style="background:linear-gradient(135deg,var(--yel),#fff);border-radius:14px;padding:24px;margin-bottom:16px;border:2px solid var(--gold);">'+
+      '<div style="font-family:\'Noto Serif TC\',serif;font-size:16px;font-weight:700;color:var(--goldDk);margin-bottom:14px;letter-spacing:0.1em;">⚠️ 「隱形地雷」清單 — 看似正常卻會吸乾錢</div>'+
+      '<div class="tm" style="font-size:12px;margin-bottom:14px;">沒設上限的話，錢會被默默吸乾</div>'+
+      '<div style="display:grid;gap:10px;">'+
+        [
+          {n:'1',t:'進修學習成長課程',w:'大前提：下個月能幫你多賺錢嗎？心靈成長/興趣課 = 娛樂，要嚴格限制預算'},
+          {n:'2',t:'零食、外食、手搖',w:'買新鮮食材回家煮是必須。頻繁叫外送、喝手搖飲、下午茶 = 每筆 200-300 元，直接吃光現金流'},
+          {n:'3',t:'APP 訂閱費',w:'Netflix/Disney+/影音/修圖/遊戲課金。單看一個月 150 元沒事，一年累積上萬。超過 3 個月沒點 = 立刻取消'},
+        ].map(x=>'<div style="background:#fff;border-left:4px solid var(--gold);border-radius:8px;padding:12px 14px;">'+
+          '<div style="font-size:13.5px;color:var(--brown);font-weight:700;">'+x.n+'. '+x.t+'</div>'+
+          '<div style="font-size:12px;color:var(--mut);margin-top:4px;line-height:1.7;">'+x.w+'</div>'+
+        '</div>').join('')+
       '</div>'+
     '</div>'+
 
     // 10X 淨值目標
     '<div style="background:#fff;border-radius:14px;padding:22px;margin-bottom:16px;box-shadow:0 4px 16px rgba(194,116,122,0.08);border-top:4px solid var(--gold);">'+
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">'+
-        '<span style="font-family:\'Noto Serif TC\',serif;font-size:16px;font-weight:700;color:var(--brown);letter-spacing:0.1em;">🚀 你的 10X 淨值目標</span>'+
+        '<span style="font-family:\'Noto Serif TC\',serif;font-size:16px;font-weight:700;color:var(--brown);letter-spacing:0.1em;">🚀 10X 淨值目標</span>'+
         '<button onclick="editWealth10xGoal()" style="background:var(--gold);color:#fff;border:none;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">✏️ 設定</button>'+
       '</div>'+
       '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;text-align:center;">'+
@@ -3588,73 +3678,6 @@ function pgWealth10X(){
       '<div class="tm" style="font-size:11px;margin-top:6px;text-align:center;">'+progress10X+'% 達成</div>'+
     '</div>'+
 
-    // 三帳戶詳細法則
-    '<div style="background:#fff;border-radius:14px;padding:22px;box-shadow:0 4px 16px rgba(194,116,122,0.08);">'+
-      '<div style="font-family:\'Noto Serif TC\',serif;font-size:16px;font-weight:700;color:var(--brown);margin-bottom:16px;letter-spacing:0.1em;">💎 三帳戶運作法則</div>'+
-      '<div style="display:grid;gap:14px;">'+
-
-        '<div style="background:linear-gradient(135deg,#fce7e7,#fff);border-left:5px solid #C2747A;border-radius:12px;padding:18px;">'+
-          '<div style="font-size:12px;color:#C2747A;letter-spacing:0.2em;font-weight:700;">ACCOUNT 1 · 40%</div>'+
-          '<div style="font-family:\'Noto Serif TC\',serif;font-size:18px;font-weight:700;color:var(--brown);margin-top:4px;">① 花費帳戶（日常）</div>'+
-          '<div style="font-size:13px;color:var(--brown);line-height:1.8;margin-top:10px;">'+
-            '只能付「不付會死」的開銷：<br>'+
-            '✓ 房租 / 房貸<br>'+
-            '✓ 三人伙食 / 水電 / 瓦斯<br>'+
-            '✓ 交通油錢 / 保養<br>'+
-            '✓ 保險費 / 手機費<br><br>'+
-            '<b style="color:var(--red);">🚫 絕對不能用來付：</b><br>'+
-            '買車 / 衣服 / 旅遊 / 奢侈品 / 課程 / 設備'+
-          '</div>'+
-          '<div style="background:#fff;padding:10px 14px;border-radius:8px;margin-top:10px;font-size:12px;color:#C2747A;font-weight:700;">💡 奢侈品/旅遊/買車 → 從這 40% 省下來，不碰②和③</div>'+
-        '</div>'+
-
-        '<div style="background:linear-gradient(135deg,#e0f2eb,#fff);border-left:5px solid #7DB89A;border-radius:12px;padding:18px;">'+
-          '<div style="font-size:12px;color:#5B9E7A;letter-spacing:0.2em;font-weight:700;">ACCOUNT 2 · 40%</div>'+
-          '<div style="font-family:\'Noto Serif TC\',serif;font-size:18px;font-weight:700;color:var(--brown);margin-top:4px;">② 儲蓄帳戶（增值大目標）</div>'+
-          '<div style="font-size:13px;color:var(--brown);line-height:1.8;margin-top:10px;">'+
-            '<b>先後順序兩階段：</b><br>'+
-            '<b style="color:#5B9E7A;">階段 A - 緊急預備金</b>（存滿才進階段 B）<br>'+
-            '目標：3~6 個月生活費<br>'+
-            '放：高流動性存款 / 定存<br><br>'+
-            '<b style="color:#5B9E7A;">階段 B - 增值大目標</b><br>'+
-            '✓ 買房頭期款<br>'+
-            '✓ 開店創業基金<br>'+
-            '✓ 不動產 / 會增值的資產<br><br>'+
-            '<b style="color:var(--red);">🚫 絕對不能動用這筆錢去：</b><br>'+
-            '買車 / 旅遊 / 奢侈品 / 衣服'+
-          '</div>'+
-          '<div style="background:#fff;padding:10px 14px;border-radius:8px;margin-top:10px;font-size:12px;color:#5B9E7A;font-weight:700;">💡 這 40% 只買「會增值」的東西，一次都不碰其他</div>'+
-        '</div>'+
-
-        '<div style="background:linear-gradient(135deg,#faf3e3,#fff);border-left:5px solid #C4A46B;border-radius:12px;padding:18px;">'+
-          '<div style="font-size:12px;color:#8C6B3A;letter-spacing:0.2em;font-weight:700;">ACCOUNT 3 · 20%</div>'+
-          '<div style="font-family:\'Noto Serif TC\',serif;font-size:18px;font-weight:700;color:var(--brown);margin-top:4px;">③ 投資帳戶（永遠只進不出）</div>'+
-          '<div style="font-size:13px;color:var(--brown);line-height:1.8;margin-top:10px;">'+
-            '<b>每月雷打不動：</b> 20% 自動導流<br><br>'+
-            '✓ 股市 ETF（如 00891、0050、0056）<br>'+
-            '✓ 長期基金<br>'+
-            '✓ 高股息股票<br><br>'+
-            '<b style="color:#8C6B3A;">核心原則：永遠只進不出</b><br>'+
-            '利用複利滾動，20 年後成為退休資產<br><br>'+
-            '<b style="color:var(--grn);">🎁 等③開始產生被動收入（股息/配息），才可用那些「派生的錢」買奢侈品/旅遊</b>'+
-          '</div>'+
-          '<div style="background:#fff;padding:10px 14px;border-radius:8px;margin-top:10px;font-size:12px;color:#8C6B3A;font-weight:700;">💡 這筆錢「屬於未來的妳」，不是現在的妳</div>'+
-        '</div>'+
-
-      '</div>'+
-    '</div>'+
-
-    // 本月行動
-    '<div style="background:linear-gradient(135deg,var(--roseL),#fff);border-radius:14px;padding:22px;margin-top:16px;border:2px solid var(--rose);">'+
-      '<div style="font-family:\'Noto Serif TC\',serif;font-size:15px;font-weight:700;color:var(--roseDk);margin-bottom:12px;">✅ 本月行動清單</div>'+
-      '<div style="display:grid;gap:8px;font-size:13px;line-height:1.7;color:var(--brown);">'+
-        '<div>□ 收入入帳後 24 小時內 → ③投資帳戶先轉 <b>$'+fmt(targetInvest)+'</b>（絕對第一個做）</div>'+
-        '<div>□ 再轉 <b>$'+fmt(targetSave)+'</b> 到②儲蓄帳戶（緊急金未滿 → 進緊急金；已滿 → 進買房頭期）</div>'+
-        '<div>□ 剩下 <b>$'+fmt(targetSpend)+'</b> 進①花費帳戶（含房租、伙食、交通、水電、保險）</div>'+
-        '<div>□ 想買車/旅遊？→ 從①裡省下來，不碰②③</div>'+
-        '<div>□ 月底對帳：三帳戶都達標了嗎？</div>'+
-      '</div>'+
-    '</div>'+
   '</div>';
 }
 
@@ -9397,6 +9420,158 @@ function pgLedger(){
       </div>`}
     </div>
 
+    <!-- 🧮 預算計算器（依帳本的「預算模式」顯示不同計算工具） -->
+    ${(()=>{
+      const budgetMode=(S.data.ledgerBudgetMode||{})[l.id]||'';
+      if(!budgetMode)return`<div style="background:linear-gradient(135deg,var(--yel),#fff);border:2px dashed var(--gold);border-radius:14px;padding:18px 22px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:200px;">
+            <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--goldDk);">🧮 幫這個池子選預算模式</div>
+            <div class="tm" style="font-size:12px;margin-top:4px;line-height:1.6;">系統可以幫你自動算出「每月該存多少」</div>
+          </div>
+          <button onclick="setLedgerBudgetMode('${l.id}')" style="background:var(--gold);color:#fff;border:none;padding:8px 16px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">👆 設定預算模式</button>
+        </div>
+      </div>`;
+
+      // 🔧 設備汰換池
+      if(budgetMode==='equipment'){
+        const items=(S.data.equipmentItems||{})[l.id]||[];
+        const totalCost=items.reduce((s,it)=>s+toN(it.amount),0);
+        const monthlyNeed=items.reduce((s,it)=>s+(toN(it.amount)/((toN(it.years)||5)*12)),0);
+        const balance=getLedgerAll(l.id).reduce((s,e)=>s+toN(e.amount),0);
+        return`<div style="background:#fff;border-radius:14px;padding:20px 22px;margin-bottom:16px;box-shadow:0 4px 16px rgba(194,116,122,0.08);border-top:4px solid #0EA5E9;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+            <div>
+              <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:#0369A1;">🔧 設備汰換自動計算器</span>
+              <div class="tm" style="font-size:11.5px;margin-top:2px;">預估金額 ÷ 使用年數 ÷ 12 = 每月該存</div>
+            </div>
+            <button onclick="setLedgerBudgetMode('${l.id}')" style="background:none;border:1px solid var(--bdr);color:var(--mut);padding:5px 12px;border-radius:8px;font-size:11px;cursor:pointer;">切換模式</button>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;">
+            <div style="background:#DBEAFE;padding:12px;border-radius:10px;text-align:center;">
+              <div class="tm" style="font-size:11px;">預估總成本</div>
+              <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:#0369A1;margin-top:3px;">$${fmt(totalCost)}</div>
+            </div>
+            <div style="background:#DBEAFE;padding:12px;border-radius:10px;text-align:center;">
+              <div class="tm" style="font-size:11px;">每月該存</div>
+              <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:#0369A1;margin-top:3px;">$${fmt(Math.round(monthlyNeed))}</div>
+            </div>
+            <div style="background:${balance>=totalCost*0.5?'var(--grnl)':'var(--yel)'};padding:12px;border-radius:10px;text-align:center;">
+              <div class="tm" style="font-size:11px;">目前餘額</div>
+              <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:${balance>=totalCost*0.5?'var(--grn)':'var(--goldDk)'};margin-top:3px;">$${fmt(balance)}</div>
+            </div>
+          </div>
+
+          <div style="margin-bottom:10px;">
+            <span style="font-size:13px;color:var(--brown);font-weight:700;">📋 預估清單（${items.length} 項）</span>
+            <button onclick="addEquipmentItem('${l.id}')" style="float:right;background:#0EA5E9;color:#fff;border:none;padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">＋ 加項目</button>
+          </div>
+          ${items.length===0?`<div style="padding:20px;text-align:center;color:var(--mut);background:var(--bg2);border-radius:10px;font-size:12px;line-height:1.7;">
+            還沒有項目<br>建議加：手機、電腦、角膜塑形片、冷氣、冰箱、洗衣機、熱水器、換車頭期
+          </div>`:items.map(it=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--bg2);border-radius:8px;margin-bottom:6px;gap:8px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:140px;">
+              <div style="font-size:13px;color:var(--brown);font-weight:600;">${it.name}</div>
+              <div class="tm" style="font-size:10.5px;margin-top:2px;">$${fmt(toN(it.amount))} ÷ ${it.years||5} 年 ÷ 12 = <b style="color:#0369A1;">$${fmt(Math.round(toN(it.amount)/((toN(it.years)||5)*12)))}/月</b></div>
+            </div>
+            <div style="display:flex;gap:4px;">
+              <button onclick="editEquipmentItem('${l.id}','${it.id}')" style="background:none;border:1px solid var(--bdr);color:var(--mut);padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;">✏️</button>
+              <button onclick="delEquipmentItem('${l.id}','${it.id}')" style="background:none;border:1px solid var(--bdr);color:var(--red);padding:4px 8px;border-radius:6px;font-size:12px;cursor:pointer;">×</button>
+            </div>
+          </div>`).join('')}
+        </div>`;
+      }
+
+      // 🧧 紅包池（年度結算）
+      if(budgetMode==='yearly'){
+        const items=(S.data.redEnvelopeItems||{})[l.id]||[];
+        const yearTotal=items.reduce((s,it)=>s+toN(it.amount),0);
+        const monthlyNeed=Math.round(yearTotal/12);
+        const balance=getLedgerAll(l.id).reduce((s,e)=>s+toN(e.amount),0);
+        return`<div style="background:#fff;border-radius:14px;padding:20px 22px;margin-bottom:16px;box-shadow:0 4px 16px rgba(194,116,122,0.08);border-top:4px solid #DC2626;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+            <div>
+              <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:#DC2626;">🧧 紅包池年度結算</span>
+              <div class="tm" style="font-size:11.5px;margin-top:2px;">年度總額 ÷ 12 = 每月該存</div>
+            </div>
+            <button onclick="setLedgerBudgetMode('${l.id}')" style="background:none;border:1px solid var(--bdr);color:var(--mut);padding:5px 12px;border-radius:8px;font-size:11px;cursor:pointer;">切換模式</button>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;">
+            <div style="background:#FEE2E2;padding:12px;border-radius:10px;text-align:center;">
+              <div class="tm" style="font-size:11px;">全年紅包總額</div>
+              <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:#DC2626;margin-top:3px;">$${fmt(yearTotal)}</div>
+            </div>
+            <div style="background:#FEE2E2;padding:12px;border-radius:10px;text-align:center;">
+              <div class="tm" style="font-size:11px;">每月該存</div>
+              <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:#DC2626;margin-top:3px;">$${fmt(monthlyNeed)}</div>
+            </div>
+            <div style="background:${balance>=yearTotal*0.3?'var(--grnl)':'var(--yel)'};padding:12px;border-radius:10px;text-align:center;">
+              <div class="tm" style="font-size:11px;">目前餘額</div>
+              <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:${balance>=yearTotal*0.3?'var(--grn)':'var(--goldDk)'};margin-top:3px;">$${fmt(balance)}</div>
+            </div>
+          </div>
+
+          <div style="margin-bottom:10px;">
+            <span style="font-size:13px;color:var(--brown);font-weight:700;">🎁 年度事件清單（${items.length} 項）</span>
+            <button onclick="addRedEnvItem('${l.id}')" style="float:right;background:#DC2626;color:#fff;border:none;padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">＋ 加事件</button>
+          </div>
+          ${items.length===0?`<div style="padding:20px;text-align:center;color:var(--mut);background:var(--bg2);border-radius:10px;font-size:12px;line-height:1.7;">
+            還沒有事件<br>建議加：過年紅包、三節禮金、長輩生日、父母節聚餐、紅白包交際費
+          </div>`:items.map(it=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--bg2);border-radius:8px;margin-bottom:6px;gap:8px;">
+            <div style="flex:1;">
+              <div style="font-size:13px;color:var(--brown);font-weight:600;">${it.name}</div>
+            </div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:#DC2626;">$${fmt(toN(it.amount))}</div>
+            <div style="display:flex;gap:4px;">
+              <button onclick="editRedEnvItem('${l.id}','${it.id}')" style="background:none;border:1px solid var(--bdr);color:var(--mut);padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;">✏️</button>
+              <button onclick="delRedEnvItem('${l.id}','${it.id}')" style="background:none;border:1px solid var(--bdr);color:var(--red);padding:4px 8px;border-radius:6px;font-size:12px;cursor:pointer;">×</button>
+            </div>
+          </div>`).join('')}
+        </div>`;
+      }
+
+      // 📅 每月固定（monthly）
+      if(budgetMode==='monthly'){
+        const budget=toN((S.data.ledgerBudgets||{})[l.id])||0;
+        const balance=getLedgerAll(l.id).reduce((s,e)=>s+toN(e.amount),0);
+        return`<div style="background:linear-gradient(135deg,#f0fdf4,#fff);border-radius:14px;padding:18px 22px;margin-bottom:16px;border-top:4px solid var(--grn);">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:200px;">
+              <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--grn);">📅 每月固定預算模式</div>
+              <div class="tm" style="font-size:11.5px;margin-top:2px;">每月要存 $${fmt(budget)}</div>
+            </div>
+            <button onclick="setLedgerBudgetMode('${l.id}')" style="background:none;border:1px solid var(--bdr);color:var(--mut);padding:5px 12px;border-radius:8px;font-size:11px;cursor:pointer;">切換模式</button>
+          </div>
+        </div>`;
+      }
+
+      // 🎁 事件型（event）— 旅遊變美池
+      if(budgetMode==='event'){
+        const balance=getLedgerAll(l.id).reduce((s,e)=>s+toN(e.amount),0);
+        return`<div style="background:linear-gradient(135deg,#faf5ff,#fff);border-radius:14px;padding:20px 22px;margin-bottom:16px;border-top:4px solid #A855F7;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+            <div>
+              <span style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:#7E22CE;">✨ 事件型水庫</span>
+              <div class="tm" style="font-size:11px;margin-top:2px;">只接受「獎金」或「投資配息」注入</div>
+            </div>
+            <button onclick="setLedgerBudgetMode('${l.id}')" style="background:none;border:1px solid var(--bdr);color:var(--mut);padding:5px 12px;border-radius:8px;font-size:11px;cursor:pointer;">切換模式</button>
+          </div>
+          <div style="background:#F3E8FF;padding:12px 16px;border-radius:10px;font-size:12.5px;color:#7E22CE;line-height:1.8;">
+            🚫 <b>Cardone 鐵律：</b>不要設固定轉帳<br>
+            ✓ 創業分紅/業績獎金進來時手動撥款<br>
+            ✓ 投資 ETF 配息、股息進來時手動撥款<br>
+            💡 「有多少水，才能開多少船」
+          </div>
+          <div style="text-align:center;margin-top:12px;padding:10px;background:#fff;border-radius:10px;">
+            <div class="tm" style="font-size:11px;">目前餘額</div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:24px;font-weight:700;color:#7E22CE;margin-top:4px;">$${fmt(balance)}</div>
+          </div>
+        </div>`;
+      }
+      return'';
+    })()}
+
     <!-- 💭 決策筆記（這個帳本範圍內的大型決策） -->
     ${(()=>{
       const decisions=(S.data.decisions||[]).filter(d=>d.lid===l.id);
@@ -12830,6 +13005,120 @@ window.toggleSafetyCheck=async(key,checked)=>{
   if(checked)sc[key]=true;
   else delete sc[key];
   await saveMain({safetyChecks:sc});
+  render();
+};
+
+// 📘 設定帳本的「預算模式」
+window.setLedgerBudgetMode=async(lid)=>{
+  const bm={...(S.data.ledgerBudgetMode||{})};
+  const cur=bm[lid]||'';
+  const opts=[
+    {v:'monthly',lbl:'📅 每月固定（水電/通訊，每月幾乎一樣）'},
+    {v:'equipment',lbl:'🔧 設備汰換（手機/家電/換車頭期 → 自動計算）'},
+    {v:'yearly',lbl:'🧧 年度結算（紅包/三節 → 年度總額 ÷ 12）'},
+    {v:'event',lbl:'✨ 事件型水庫（旅遊變美 → 只收獎金/配息）'},
+    {v:'',lbl:'（取消設定）'},
+  ];
+  const msg='這個帳本用哪種預算模式？\n\n'+opts.map((o,i)=>`${i+1}. ${o.lbl}${o.v===cur?' ✓ 目前':''}`).join('\n')+'\n\n請輸入 1-5：';
+  const ch=prompt(msg);
+  if(!ch)return;
+  const idx=parseInt(ch)-1;
+  if(idx<0||idx>=opts.length){alert('請輸入 1-5');return;}
+  const nv=opts[idx].v;
+  if(nv)bm[lid]=nv;
+  else delete bm[lid];
+  await saveMain({ledgerBudgetMode:bm});
+  toast('✅ 已設定預算模式');
+  render();
+};
+
+// 🔧 設備汰換池 - 加項目
+window.addEquipmentItem=async(lid)=>{
+  const name=prompt('設備名稱？\n（例：手機、冷氣、電腦、換車頭期）');
+  if(!name||!name.trim())return;
+  const amountStr=prompt(`${name} 預估總金額？（例：35000）`);
+  if(!amountStr)return;
+  const amount=toN(amountStr);
+  if(amount<=0){alert('請輸入正數');return;}
+  const yearsStr=prompt(`${name} 預計幾年汰換一次？\n（手機 3、電腦 5、家電 8、換車 10）`,'5');
+  if(!yearsStr)return;
+  const years=toN(yearsStr)||5;
+  const items={...(S.data.equipmentItems||{})};
+  const list=[...(items[lid]||[])];
+  list.push({id:'eq_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),name:name.trim(),amount,years});
+  items[lid]=list;
+  await saveMain({equipmentItems:items});
+  toast(`✅ 已加「${name}」每月 $${fmt(Math.round(amount/(years*12)))}`);
+  render();
+};
+
+window.editEquipmentItem=async(lid,itemId)=>{
+  const items={...(S.data.equipmentItems||{})};
+  const list=[...(items[lid]||[])];
+  const idx=list.findIndex(x=>x.id===itemId);
+  if(idx<0)return;
+  const it=list[idx];
+  const name=prompt('設備名稱：',it.name);if(name===null)return;
+  const amtStr=prompt('預估金額：',it.amount);if(amtStr===null)return;
+  const yrsStr=prompt('汰換年數：',it.years);if(yrsStr===null)return;
+  list[idx]={...it,name:name.trim()||it.name,amount:toN(amtStr),years:toN(yrsStr)||5};
+  items[lid]=list;
+  await saveMain({equipmentItems:items});
+  toast('✅ 已更新');
+  render();
+};
+
+window.delEquipmentItem=async(lid,itemId)=>{
+  const items={...(S.data.equipmentItems||{})};
+  const list=(items[lid]||[]).find(x=>x.id===itemId);
+  if(!list)return;
+  if(!confirm(`確定刪除「${list.name}」？`))return;
+  items[lid]=(items[lid]||[]).filter(x=>x.id!==itemId);
+  await saveMain({equipmentItems:items});
+  toast('已刪除');
+  render();
+};
+
+// 🧧 紅包池 - 加事件
+window.addRedEnvItem=async(lid)=>{
+  const name=prompt('事件名稱？\n（例：過年紅包、三節禮金、長輩生日、父母節）');
+  if(!name||!name.trim())return;
+  const amountStr=prompt(`${name} 年度總金額？（例：過年 30000）`);
+  if(!amountStr)return;
+  const amount=toN(amountStr);
+  if(amount<=0){alert('請輸入正數');return;}
+  const items={...(S.data.redEnvelopeItems||{})};
+  const list=[...(items[lid]||[])];
+  list.push({id:'re_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),name:name.trim(),amount});
+  items[lid]=list;
+  await saveMain({redEnvelopeItems:items});
+  toast(`✅ 已加「${name}」$${fmt(amount)}`);
+  render();
+};
+
+window.editRedEnvItem=async(lid,itemId)=>{
+  const items={...(S.data.redEnvelopeItems||{})};
+  const list=[...(items[lid]||[])];
+  const idx=list.findIndex(x=>x.id===itemId);
+  if(idx<0)return;
+  const it=list[idx];
+  const name=prompt('事件名稱：',it.name);if(name===null)return;
+  const amtStr=prompt('年度金額：',it.amount);if(amtStr===null)return;
+  list[idx]={...it,name:name.trim()||it.name,amount:toN(amtStr)};
+  items[lid]=list;
+  await saveMain({redEnvelopeItems:items});
+  toast('✅ 已更新');
+  render();
+};
+
+window.delRedEnvItem=async(lid,itemId)=>{
+  const items={...(S.data.redEnvelopeItems||{})};
+  const list=(items[lid]||[]).find(x=>x.id===itemId);
+  if(!list)return;
+  if(!confirm(`確定刪除「${list.name}」？`))return;
+  items[lid]=(items[lid]||[]).filter(x=>x.id!==itemId);
+  await saveMain({redEnvelopeItems:items});
+  toast('已刪除');
   render();
 };
 
