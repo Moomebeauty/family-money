@@ -971,7 +971,7 @@ const PAGES=[
   {id:'quickInc', ico:'💵',lbl:'記一筆收入',group:'main'},
   {id:'quickExp', ico:'💸',lbl:'記一筆支出',group:'main'},
   {id:'expDash',  ico:'📊',lbl:'支出總覽',group:'main'},
-  {id:'guardian', ico:'🛡️',lbl:'守財工具箱',group:'main'},
+  {id:'guardian', ico:'🛡️',lbl:'守財工具箱',group:'hidden'},
   {id:'insurance',ico:'📋',lbl:'家庭保險簿',group:'main'},
   {id:'settings', ico:'⚙️',lbl:'進階功能',group:'main'},
   {id:'simple',   ico:'🏠',lbl:'我的錢',group:'hidden'},
@@ -1893,12 +1893,11 @@ function pgOverviewNew(){
     sugSaveTotal+=sugSave[mm];
   });
 
-  // 每月貸款總額（從 fixedItems 中的「貸款」類）
+  // 每月貸款總額（= 貸款頁面的全部項目合計，保持一致）
   const fixedItems=S.data.fixedItems||[];
-  const loanKeywords=/貸|房租|分期/;
-  const loanItems=fixedItems.filter(f=>loanKeywords.test(f.name||'')||loanKeywords.test(f.category||''));
+  const loanItems=fixedItems; // 貸款頁顯示的所有項目都算
   const loanTotal=loanItems.reduce((s,f)=>s+toN(f.amount),0);
-  const allFixedTotal=fixedItems.reduce((s,f)=>s+toN(f.amount),0);
+  const allFixedTotal=loanTotal;
 
   // 📊 收入浮動 → 用三種基礎算債務比例
   // 1. 本月收入 2. 近 3 月平均 3. 近 12 月最低（Cardone 保守）
@@ -2289,6 +2288,29 @@ function pgOverviewNew(){
           <span style="font-size:12.5px;color:var(--brown);font-weight:600;">= 扣預算池後剩餘</span>
           <span style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:${r2>=0?'#A855F7':'var(--red)'};">$${fmt(r2)}</span>
         </div>
+
+        <!-- 💦 預算儲水池概念說明（三小方塊） -->
+        <div style="padding:14px;background:linear-gradient(135deg,#F0F9FF,#fff);border-radius:12px;border:1.5px dashed #0EA5E9;margin:4px 0;">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+            <div style="font-size:12px;font-weight:700;color:#0369A1;letter-spacing:0.1em;">💦 預算儲水池 · 第 3 支付順位</div>
+            <button onclick="setP('ledgerHome')" style="background:#0EA5E9;color:#fff;border:none;padding:4px 12px;border-radius:999px;font-size:11px;font-weight:600;cursor:pointer;">管理 9 個池 →</button>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;">
+            <div style="background:#fff;border-radius:10px;padding:10px 12px;border:1px solid #BAE6FD;">
+              <div style="font-size:11px;color:#0369A1;font-weight:700;margin-bottom:4px;">🎯 概念</div>
+              <div style="font-size:11.5px;color:var(--brown);line-height:1.6;">應付「<b>遲早要付、且金額大約可預估</b>」的固定或變動開銷</div>
+            </div>
+            <div style="background:#fff;border-radius:10px;padding:10px 12px;border:1px solid #BAE6FD;">
+              <div style="font-size:11px;color:#0369A1;font-weight:700;margin-bottom:4px;">📏 原則</div>
+              <div style="font-size:11.5px;color:var(--brown);line-height:1.6;">只放「<b>未來 12 個月內剛好夠用</b>」的錢（不多也不少）</div>
+            </div>
+            <div style="background:#fff;border-radius:10px;padding:10px 12px;border:1px solid #BAE6FD;">
+              <div style="font-size:11px;color:#0369A1;font-weight:700;margin-bottom:4px;">🧮 推薦模式</div>
+              <div style="font-size:11.5px;color:var(--brown);line-height:1.6;">每個池子進去設「<b>預算模式</b>」→ 系統自動算每月該存多少</div>
+            </div>
+          </div>
+        </div>
+
         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;color:var(--mut);">
           <span style="font-size:12.5px;">－ 旅遊變美池本月注入</span>
           <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:600;color:#A855F7;">-$${fmt(eventMonthIn)}</span>
@@ -10364,12 +10386,6 @@ function pgLedger(){
       </div>`;
     })()}
 
-
-    <!-- 底部：設目標、刪除帳本、新增帳本 -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:20px;">
-      <button onclick="editLedgerTarget('${l.id}','${(l.name||'').replace(/'/g,"\\'")}')" style="padding:10px;background:var(--bg2);color:var(--brown);border:1px solid var(--bdr);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">🎯 設定目標（目前 ${target>0?'$'+fmt(target):'未設'}）</button>
-      <button onclick="setP('ledgerHome')" style="padding:10px;background:var(--bg2);color:var(--brown);border:1px solid var(--bdr);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">📒 回總覽</button>
-    </div>
 
   </div>`;
 }
