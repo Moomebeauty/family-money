@@ -305,7 +305,7 @@ input.yinp{background:var(--yel);border-color:var(--yelb);font-weight:700;}
 </style>
 </head>
 <body>
-<div class="load-scr" id="LS"><div class="spin"></div><div>連接 Firebase 中…</div></div>
+<div class="load-scr" id="LS"><div class="spin"></div><div>載入中…請稍候</div><div style="font-size:11px;color:#999;margin-top:6px;">資料較多時第一次會慢一點</div></div>
 <div id="APP" style="display:none;"></div>
 
 <script type="module">
@@ -1086,6 +1086,8 @@ let S={
     redEnvelopeItems:{},  // {lid: [{id,name,amount}]}
     // 💎 投資/儲蓄紀錄（可寫銀行/標的）
     savingRecords:[],  // [{id,date,type:'invest'|'save',member,amount,bank,target,note}]
+    // 🚨 緊急預備金紀錄（放了多少 + 存在哪）
+    emgRecords:[],  // [{id,date,member,amount,bank,note}]
     // 📅 累積起算日
     cumulativeStartDate:'',  // 預設年初
     // 💰 40/40/20 分配比例（可自訂）
@@ -1100,6 +1102,14 @@ const getBanks=()=>S.data.banks&&S.data.banks.length?S.data.banks:[...DEF_BANKS]
 // ── FIREBASE ─────────────────────────────────────────────────
 function startSync(){
   setSyncing('syncing');
+  // ⚡ 載入速度優化：立刻讓介面出來（loading screen 隱藏）
+  // Firebase 資料陸續到達時會自動更新畫面
+  setTimeout(()=>{
+    const ls=document.getElementById('LS');
+    if(ls)ls.style.display='none';
+    const app=document.getElementById('APP');
+    if(app&&app.style.display!=='block'){app.style.display='block';if(S.auth)render();}
+  },300);
   const mainRef=doc(db,'families',FID);
   onSnapshot(mainRef,snap=>{
     if(snap.exists()){
@@ -1172,6 +1182,7 @@ function startSync(){
       S.data.equipmentItems=d.equipmentItems||{};
       S.data.redEnvelopeItems=d.redEnvelopeItems||{};
       S.data.savingRecords=d.savingRecords||[];
+      S.data.emgRecords=d.emgRecords||[];
       S.data.cumulativeStartDate=d.cumulativeStartDate||`${new Date().getFullYear()}-01-01`;
       S.data.investNotes=d.investNotes||{};
     }
@@ -1241,9 +1252,16 @@ function getLedger(lid,mo){return(S.data.ledgerEntries||[]).filter(e=>e.lid===li
 function getLedgerAll(lid){return(S.data.ledgerEntries||[]).filter(e=>e.lid===lid);}
 
 // ── RENDER ────────────────────────────────────────────────────
+// ⚡ 載入速度優化：render 防抖（避免 Firebase 多個 onSnapshot 同時觸發造成卡頓）
+let _renderTimer=null;
 function render(){
+  if(_renderTimer)clearTimeout(_renderTimer);
+  _renderTimer=setTimeout(_doRender,30);
+}
+function _doRender(){
   if(!S.auth){renderLogin();return;}
-  document.getElementById('LS').style.display='none';
+  const ls=document.getElementById('LS');
+  if(ls)ls.style.display='none';
   const app=document.getElementById('APP');
   app.style.display='block';
   document.body.setAttribute('data-pg',S.page||'home');
@@ -1263,7 +1281,7 @@ function render(){
 }
 
 function renderLogin(){
-  document.getElementById('LS').style.display='none';
+  (document.getElementById('LS')||{style:{}}).style.display='none';
   const app=document.getElementById('APP');
   app.style.display='block';
   app.innerHTML=`<div class="login-wrap"><div class="login-box">
@@ -1814,14 +1832,37 @@ function pgOverviewNew(){
   const cumInvest=cumSR.filter(r=>r.type==='invest').reduce((s,r)=>s+toN(r.amount),0);
   const cumSave=cumSR.filter(r=>r.type==='save').reduce((s,r)=>s+toN(r.amount),0);
 
-  // 緊急預備金（從 ledgerPurpose 的 saveEmergency 類）
+  // 緊急預備金（從 emgRecords + ledgerPurpose 的 saveEmergency 類）
   const purpose=S.data.ledgerPurpose||{};
-  const emgBal=(getAllLedgers()||[]).filter(l=>purpose[l.id]==='saveEmergency').reduce((s,l)=>{
+  const emgLedgerBal=(getAllLedgers()||[]).filter(l=>purpose[l.id]==='saveEmergency').reduce((s,l)=>{
     return s+(S.data.ledgerEntries||[]).filter(e=>e.lid===l.id).reduce((ss,e)=>ss+toN(e.amount),0);
   },0);
+  const emgRecList=S.data.emgRecords||[];
+  const emgRecTotal=emgRecList.reduce((s,r)=>s+toN(r.amount),0);
+  const emgBal=emgLedgerBal+emgRecTotal;
+  // 緊急預備金 - 按銀行分組
+  const emgByBank={};
+  emgRecList.forEach(r=>{
+    const b=r.bank||'未標示銀行';
+    emgByBank[b]=(emgByBank[b]||0)+toN(r.amount);
+  });
+  // 緊急預備金 - 按家人分組
+  const emgByMem={};
+  members.forEach(mm=>{emgByMem[mm]=emgRecList.filter(r=>r.member===mm).reduce((s,r)=>s+toN(r.amount),0);});
   const avgExp=(S.data.expenses||[]).filter(e=>e.year===curYear&&!e.fromLedger&&!e.excludeFromBudget).reduce((s,e)=>s+toN(e.amount),0)/curMonth||0;
   const emgMonths=avgExp>0?(emgBal/avgExp):0;
   const emgTargetMonths=S.data.emergencyFundMonths||6;
+
+  // 📐 自動建議金額（根據本月收入 × 分配比例）
+  const ratios=S.data.allocationRatios||{spend:40,save:40,invest:20};
+  const sugInvest={}, sugSave={};
+  let sugInvestTotal=0, sugSaveTotal=0;
+  members.forEach(mm=>{
+    sugInvest[mm]=Math.round(memInc[mm]*ratios.invest/100);
+    sugSave[mm]=Math.round(memInc[mm]*ratios.save/100);
+    sugInvestTotal+=sugInvest[mm];
+    sugSaveTotal+=sugSave[mm];
+  });
 
   // 每月貸款總額（從 fixedItems 中的「貸款」類）
   const fixedItems=S.data.fixedItems||[];
@@ -1906,9 +1947,22 @@ function pgOverviewNew(){
           <span class="tm" style="font-size:11px;letter-spacing:0.2em;color:var(--goldDk);font-weight:700;">💎 本月投資額</span>
           <button onclick="openM('addSavingRecord','invest')" style="background:var(--gold);color:#fff;border:none;padding:5px 12px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;">＋ 記錄投資</button>
         </div>
-        <div style="font-family:'Noto Serif TC',serif;font-size:30px;font-weight:700;color:var(--goldDk);line-height:1;">$${fmt(monthInvest)}</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
-          ${members.map(m=>`<div style="padding:4px 10px;background:${memCols[m]}22;border-radius:999px;font-size:11px;color:${memCols[m]};font-weight:600;">${m} $${fmt(memInvest[m])}</div>`).join('')}
+        <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">
+          <div style="font-family:'Noto Serif TC',serif;font-size:30px;font-weight:700;color:var(--goldDk);line-height:1;">$${fmt(monthInvest)}</div>
+          <div style="font-size:11px;color:var(--mut);">／ 建議 <b style="color:var(--gold);">$${fmt(sugInvestTotal)}</b></div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;">
+          ${members.map(m=>{
+            const act=memInvest[m],sug=sugInvest[m];
+            const met=sug>0&&act>=sug;
+            return `<div style="padding:6px 10px;background:${memCols[m]}18;border:1px solid ${memCols[m]}44;border-radius:10px;font-size:11px;color:${memCols[m]};font-weight:600;line-height:1.4;">
+              <div>${m}　<b style="font-size:12px;">$${fmt(act)}</b>${met?' ✓':''}</div>
+              ${sug>0?`<div style="font-size:10px;color:var(--mut);font-weight:500;">📐 建議 $${fmt(sug)}</div>`:''}
+            </div>`;
+          }).join('')}
+        </div>
+        <div style="margin-top:10px;padding:8px 12px;background:#FFF8E7;border-radius:8px;font-size:10.5px;color:var(--brown);line-height:1.5;">
+          💡 建議 = 各人收入 × <b>${ratios.invest}%</b>（可到「進階 > 分配比例」調整）
         </div>
         <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--bdr);">
           <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -1925,9 +1979,22 @@ function pgOverviewNew(){
           <span class="tm" style="font-size:11px;letter-spacing:0.2em;color:#0369A1;font-weight:700;">🏦 本月儲蓄額</span>
           <button onclick="openM('addSavingRecord','save')" style="background:#0EA5E9;color:#fff;border:none;padding:5px 12px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;">＋ 記錄儲蓄</button>
         </div>
-        <div style="font-family:'Noto Serif TC',serif;font-size:30px;font-weight:700;color:#0369A1;line-height:1;">$${fmt(monthSave)}</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
-          ${members.map(m=>`<div style="padding:4px 10px;background:${memCols[m]}22;border-radius:999px;font-size:11px;color:${memCols[m]};font-weight:600;">${m} $${fmt(memSave[m])}</div>`).join('')}
+        <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">
+          <div style="font-family:'Noto Serif TC',serif;font-size:30px;font-weight:700;color:#0369A1;line-height:1;">$${fmt(monthSave)}</div>
+          <div style="font-size:11px;color:var(--mut);">／ 建議 <b style="color:#0EA5E9;">$${fmt(sugSaveTotal)}</b></div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;">
+          ${members.map(m=>{
+            const act=memSave[m],sug=sugSave[m];
+            const met=sug>0&&act>=sug;
+            return `<div style="padding:6px 10px;background:${memCols[m]}18;border:1px solid ${memCols[m]}44;border-radius:10px;font-size:11px;color:${memCols[m]};font-weight:600;line-height:1.4;">
+              <div>${m}　<b style="font-size:12px;">$${fmt(act)}</b>${met?' ✓':''}</div>
+              ${sug>0?`<div style="font-size:10px;color:var(--mut);font-weight:500;">📐 建議 $${fmt(sug)}</div>`:''}
+            </div>`;
+          }).join('')}
+        </div>
+        <div style="margin-top:10px;padding:8px 12px;background:#EEF9FF;border-radius:8px;font-size:10.5px;color:var(--brown);line-height:1.5;">
+          💡 建議 = 各人收入 × <b>${ratios.save}%</b>（可到「進階 > 分配比例」調整）
         </div>
         <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--bdr);">
           <div class="tm" style="font-size:10.5px;">📈 累積儲蓄額（${cumStart} 起）</div>
@@ -1962,17 +2029,71 @@ function pgOverviewNew(){
 
     <!-- ━━━ 🚨 緊急預備金 ━━━ -->
     <div style="background:${emgMonths>=emgTargetMonths?'linear-gradient(135deg,#fff,var(--grnl))':'linear-gradient(135deg,#fff,var(--yel))'};border-radius:16px;padding:20px 24px;margin-bottom:14px;border:2px solid ${emgMonths>=emgTargetMonths?'var(--grn)':'var(--yelb)'};">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
-        <div>
-          <div class="tm" style="font-size:11px;letter-spacing:0.2em;color:var(--brown);font-weight:700;">🚨 緊急預備金</div>
-          <div style="font-family:'Noto Serif TC',serif;font-size:30px;font-weight:700;color:${emgMonths>=emgTargetMonths?'var(--grn)':'var(--goldDk)'};margin-top:4px;">目前已達標 ${emgMonths.toFixed(1)} 個月</div>
-          <div style="font-size:11.5px;color:var(--mut);margin-top:2px;">目標 ${emgTargetMonths} 個月生活費　·　餘額 $${fmt(emgBal)}</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:14px;">
+        <div style="flex:1;min-width:200px;">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div class="tm" style="font-size:11px;letter-spacing:0.2em;color:var(--brown);font-weight:700;">🚨 緊急預備金</div>
+            <button onclick="openM('addEmgRecord','')" style="background:var(--brown);color:#fff;border:none;padding:4px 11px;border-radius:999px;font-size:11px;font-weight:600;cursor:pointer;">＋ 記錄一筆</button>
+            <button onclick="editEmgTarget()" style="background:none;border:1px solid var(--bdr);color:var(--mut);padding:4px 10px;border-radius:999px;font-size:10.5px;cursor:pointer;">🎯 目標 ${emgTargetMonths} 個月 ✏️</button>
+          </div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:30px;font-weight:700;color:${emgMonths>=emgTargetMonths?'var(--grn)':'var(--goldDk)'};margin-top:8px;">已存 $${fmt(emgBal)}</div>
+          <div style="font-size:11.5px;color:var(--mut);margin-top:2px;">目前可撐 <b style="color:var(--brown);">${emgMonths.toFixed(1)} 個月</b>　·　距離目標還差 $${fmt(Math.max(0,avgExp*emgTargetMonths-emgBal))}</div>
         </div>
         <div style="text-align:center;padding:12px 20px;background:#fff;border-radius:12px;border:1.5px solid ${emgMonths>=emgTargetMonths?'var(--grn)':'var(--yelb)'};">
           <div style="font-size:12px;color:var(--mut);">達成率</div>
           <div style="font-family:'Noto Serif TC',serif;font-size:28px;font-weight:700;color:${emgMonths>=emgTargetMonths?'var(--grn)':'var(--goldDk)'};line-height:1;">${Math.min(100,Math.round(emgMonths/emgTargetMonths*100))}%</div>
         </div>
       </div>
+
+      <!-- 📍 存在哪 + 誰的 -->
+      ${emgRecList.length>0||emgLedgerBal>0?`
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:8px;">
+        ${Object.keys(emgByBank).length>0?`<div style="background:#fff;border-radius:10px;padding:10px 12px;border:1px dashed var(--bdr);">
+          <div class="tm" style="font-size:10px;color:var(--brown);font-weight:700;margin-bottom:6px;">📍 存在哪些銀行</div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            ${Object.entries(emgByBank).sort((a,b)=>b[1]-a[1]).map(([bank,amt])=>`<div style="display:flex;justify-content:space-between;align-items:center;font-size:11.5px;">
+              <span style="color:var(--brown);">🏦 ${bank}</span>
+              <b style="color:var(--brown);">$${fmt(amt)}</b>
+            </div>`).join('')}
+          </div>
+        </div>`:''}
+        ${Object.values(emgByMem).some(v=>v>0)?`<div style="background:#fff;border-radius:10px;padding:10px 12px;border:1px dashed var(--bdr);">
+          <div class="tm" style="font-size:10px;color:var(--brown);font-weight:700;margin-bottom:6px;">🧑‍🤝‍🧑 誰的名下</div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            ${members.filter(mm=>emgByMem[mm]>0).map(mm=>`<div style="display:flex;justify-content:space-between;align-items:center;font-size:11.5px;">
+              <span style="color:${memCols[mm]};font-weight:600;">${mm}</span>
+              <b style="color:${memCols[mm]};">$${fmt(emgByMem[mm])}</b>
+            </div>`).join('')}
+          </div>
+        </div>`:''}
+        ${emgLedgerBal>0?`<div style="background:#fff;border-radius:10px;padding:10px 12px;border:1px dashed var(--bdr);">
+          <div class="tm" style="font-size:10px;color:var(--brown);font-weight:700;margin-bottom:6px;">📘 預算儲水池</div>
+          <div style="font-size:11.5px;color:var(--brown);">緊急金類帳本 $${fmt(emgLedgerBal)}</div>
+        </div>`:''}
+      </div>`:`
+      <div style="padding:12px 14px;background:#fff;border-radius:10px;border:1px dashed var(--bdr);text-align:center;color:var(--mut);font-size:12px;">
+        還沒記錄任何緊急預備金 → 點上面「＋ 記錄一筆」開始追蹤：放了多少、存在哪家銀行
+      </div>`}
+
+      ${emgRecList.length>0?`<details style="margin-top:12px;background:#fff;border-radius:10px;overflow:hidden;">
+        <summary style="cursor:pointer;padding:10px 14px;font-size:12px;color:var(--brown);font-weight:600;list-style:none;">📋 全部紀錄（${emgRecList.length} 筆） ▼</summary>
+        <div style="padding:0 14px 12px;max-height:220px;overflow-y:auto;">
+          ${[...emgRecList].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px dashed var(--bdr);gap:8px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:140px;">
+              <div style="font-size:12px;color:var(--brown);font-weight:600;">
+                ${r.member?`<span style="background:${memCols[r.member]||'#999'}22;color:${memCols[r.member]||'#999'};padding:1px 6px;border-radius:4px;font-size:10px;margin-right:4px;">${r.member}</span>`:''}
+                🏦 ${r.bank||'未標示'}
+              </div>
+              <div class="tm" style="font-size:10.5px;margin-top:2px;">${r.date}${r.note?` · ${r.note}`:''}</div>
+            </div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--brown);">$${fmt(toN(r.amount))}</div>
+            <div style="display:flex;gap:4px;">
+              <button onclick="editEmgRecord('${r.id}')" style="background:none;border:1px solid var(--bdr);color:var(--mut);padding:3px 8px;border-radius:6px;font-size:11px;cursor:pointer;">✏️</button>
+              <button onclick="delEmgRecord('${r.id}')" style="background:none;border:1px solid var(--bdr);color:var(--red);padding:3px 7px;border-radius:6px;font-size:12px;cursor:pointer;">×</button>
+            </div>
+          </div>`).join('')}
+        </div>
+      </details>`:''}
     </div>
 
     <!-- 分隔線 -->
@@ -11221,6 +11342,49 @@ function modal(){
     </div>`;
   }
 
+  // 🚨 新增/編輯緊急預備金紀錄
+  if(m.t==='addEmgRecord'||m.t==='editEmgRecord'){
+    const isEdit=m.t==='editEmgRecord';
+    const rec=isEdit?(S.data.emgRecords||[]).find(r=>r.id===m.x)||{}:{};
+    const members=S.data.familyMembers||['又權','于蜜','楷宸'];
+    const memCols={'又權':'#3B82F6','于蜜':'#EC4899','楷宸':'#A855F7'};
+    const curMem=rec.member||'';
+    // 收集已用過的銀行名
+    const usedBanks=[...new Set((S.data.emgRecords||[]).map(r=>r.bank).filter(Boolean))];
+    c=`<div class="mttl">${isEdit?'✏️ 編輯緊急預備金':'🚨 ＋ 記錄緊急預備金'}</div>
+
+    <div style="margin-bottom:14px;padding:10px 14px;background:#FFF8E7;border-radius:10px;font-size:12px;color:var(--brown);line-height:1.6;">
+      💡 這是用來追蹤「失業/生病時能撐多久」的錢<br>
+      記錄<b>放了多少 + 存在哪家銀行</b>就好，不是當作儲蓄紀錄
+    </div>
+
+    <div style="margin-bottom:14px;">
+      <label style="display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">🧑‍🤝‍🧑 誰的名下？</label>
+      <div style="display:grid;grid-template-columns:repeat(${members.length},1fr);gap:8px;">
+        ${members.map(mm=>`<label style="cursor:pointer;padding:10px;background:${curMem===mm?memCols[mm]:'#fff'};color:${curMem===mm?'#fff':'var(--brown)'};border:2px solid ${curMem===mm?memCols[mm]:'var(--bdr)'};border-radius:10px;text-align:center;font-size:13px;font-weight:700;">
+          <input type="radio" name="er-member" value="${mm}" ${curMem===mm?'checked':''} style="display:none;">
+          ${mm}
+        </label>`).join('')}
+      </div>
+    </div>
+
+    <div class="fg fg2">
+      <div class="fgrp"><label>📅 日期</label><input type="date" id="er-date" value="${rec.date||today()}"></div>
+      <div class="fgrp"><label>💰 金額</label><input type="number" id="er-amt" value="${rec.amount||''}" placeholder="0" class="amt-input" style="font-size:17px;font-weight:700;color:var(--brown);"></div>
+      <div class="fgrp" style="grid-column:1/-1">
+        <label>🏦 存在哪？（銀行帳戶名稱）</label>
+        <input type="text" id="er-bank" value="${(rec.bank||'').replace(/"/g,'&quot;')}" placeholder="如：玉山銀行活存、郵局定存、中信數位帳戶" list="er-bank-list">
+        ${usedBanks.length>0?`<datalist id="er-bank-list">${usedBanks.map(b=>`<option value="${b}">`).join('')}</datalist>`:''}
+      </div>
+      <div class="fgrp" style="grid-column:1/-1"><label>📝 備註</label><input type="text" id="er-note" value="${(rec.note||'').replace(/"/g,'&quot;')}" placeholder="如：年終獎金撥入、每月定期撥入"></div>
+    </div>
+
+    <div class="mbtns">
+      <button class="btn btn-s" onclick="closeMod()">取消</button>
+      <button class="btn btn-p" onclick="saveEmgRecord('${isEdit?rec.id:''}')" style="background:var(--brown);">${isEdit?'✓ 儲存變更':'＋ 新增'}</button>
+    </div>`;
+  }
+
   // 🎯 收入分配提示（Cardone 40/40/20 經典版）
   if(m.t==='incomeAllocation'){
     const amount=toN(m.amount);
@@ -13301,6 +13465,53 @@ window.delSavingRecord=async(id)=>{
   const list=(S.data.savingRecords||[]).filter(r=>r.id!==id);
   await saveMain({savingRecords:list});
   toast('已刪除');
+  render();
+};
+
+// 🚨 緊急預備金紀錄
+window.saveEmgRecord=async(editId)=>{
+  const date=g('er-date');
+  const amount=toN(g('er-amt'));
+  const member=(document.querySelector('input[name="er-member"]:checked')||{}).value||'';
+  const bank=g('er-bank')||'';
+  const note=g('er-note')||'';
+  if(!date||amount<=0){alert('請填日期和正數金額');return;}
+  if(!member){alert('請選擇是誰的名下');return;}
+  if(!bank){alert('請填銀行帳戶名稱（這是追蹤「存在哪」的關鍵）');return;}
+  const list=[...(S.data.emgRecords||[])];
+  if(editId){
+    const idx=list.findIndex(r=>r.id===editId);
+    if(idx>=0){list[idx]={...list[idx],date,amount,member,bank,note};}
+  }else{
+    list.push({id:'er_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),date,amount,member,bank,note});
+  }
+  await saveMain({emgRecords:list});
+  toast(`✅ ${editId?'已更新':'已記錄'} 緊急預備金 $${fmt(amount)} 存於 ${bank}`);
+  closeMod();
+};
+
+window.editEmgRecord=(id)=>{
+  S.modal={t:'editEmgRecord',x:id};
+  render();
+};
+
+window.delEmgRecord=async(id)=>{
+  if(!confirm('確定刪除這筆緊急預備金紀錄？'))return;
+  const list=(S.data.emgRecords||[]).filter(r=>r.id!==id);
+  await saveMain({emgRecords:list});
+  toast('已刪除');
+  render();
+};
+
+// 🎯 編輯緊急預備金目標月數
+window.editEmgTarget=async()=>{
+  const cur=S.data.emergencyFundMonths||6;
+  const v=prompt('緊急預備金目標 = 幾個月生活費？\n\n常見設定：\n· 3 個月（有雙薪、工作穩定）\n· 6 個月（最常見 ✓ 建議）\n· 12 個月（接案/一人收入支撐全家）',cur);
+  if(!v)return;
+  const n=parseInt(v);
+  if(!n||n<1||n>24){alert('請輸入 1-24 之間的數字');return;}
+  await saveMain({emergencyFundMonths:n});
+  toast(`✅ 緊急預備金目標改為 ${n} 個月`);
   render();
 };
 
@@ -16033,7 +16244,7 @@ window.exportCSV=()=>{
 (async()=>{
   if(sessionStorage.getItem('hfa')==='1')S.auth=true;
   startSync();
-  if(!S.auth){document.getElementById('LS').style.display='none';document.getElementById('APP').style.display='block';renderLogin();}
+  if(!S.auth){(document.getElementById('LS')||{style:{}}).style.display='none';document.getElementById('APP').style.display='block';renderLogin();}
 })();
 </script>
 </body>
