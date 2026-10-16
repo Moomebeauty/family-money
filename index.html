@@ -1927,27 +1927,37 @@ function pgOverviewNew(){
   const equipItems=S.data.equipmentItems||{};
   const redItems=S.data.redEnvelopeItems||{};
   const ldBudgets=S.data.ledgerBudgets||{};
-  const poolDetails=[]; // [{id,name,amount,mode,hint}]
+  const poolDetails=[]; // [{id,name,amount,mode,hint}] — 已設定
+  const poolPending=[]; // [{id,name,reason}] — 未設定或無金額
   (getAllLedgers()||[]).forEach(l=>{
     const bm=ledgerBudgetMode[l.id];
-    if(!bm||bm==='event')return;
+    // event 類（旅遊變美）在這裡不計入月自動分流
+    if(bm==='event'){return;}
+    if(!bm){
+      poolPending.push({id:l.id,name:l.name,reason:'還沒設定預算模式'});
+      return;
+    }
     let amt=0,hint='';
     if(bm==='monthly'){
       amt=toN(ldBudgets[l.id])||0;
       hint='📅 每月固定';
+      if(amt<=0){poolPending.push({id:l.id,name:l.name,reason:'模式已設「每月固定」，但還沒填金額'});return;}
     }else if(bm==='equipment'){
       const items=equipItems[l.id]||[];
       amt=items.reduce((s,it)=>s+toN(it.amount)/((toN(it.years)||5)*12),0);
       hint=`🔧 設備攤提（${items.length} 項）`;
+      if(amt<=0){poolPending.push({id:l.id,name:l.name,reason:'模式已設「設備攤提」，但還沒填設備清單'});return;}
     }else if(bm==='yearly'){
       const items=redItems[l.id]||[];
       const yt=items.reduce((s,it)=>s+toN(it.amount),0);
       amt=yt/12;
       hint=`🧧 年度 $${fmt(yt)} ÷ 12`;
+      if(amt<=0){poolPending.push({id:l.id,name:l.name,reason:'模式已設「年度結算」，但還沒填年度清單'});return;}
     }
-    if(amt>0)poolDetails.push({id:l.id,name:l.name,amount:Math.round(amt),mode:bm,hint});
+    poolDetails.push({id:l.id,name:l.name,amount:Math.round(amt),mode:bm,hint});
   });
   const budgetPoolTotal=poolDetails.reduce((s,p)=>s+p.amount,0);
+  const totalPoolCount=(getAllLedgers()||[]).filter(l=>ledgerBudgetMode[l.id]!=='event').length;
 
   // 旅遊變美池（event 類，本月已存入的金額）
   const eventPools=(getAllLedgers()||[]).filter(l=>ledgerBudgetMode[l.id]==='event');
@@ -2264,13 +2274,14 @@ function pgOverviewNew(){
           <span style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:${r1>=0?'#0EA5E9':'var(--red)'};">$${fmt(r1)}</span>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;color:var(--mut);">
-          <span style="font-size:12.5px;">－ 預算儲水池自動分流 ${poolDetails.length>0?`<button onclick="document.getElementById('pool-detail').open=!document.getElementById('pool-detail').open" style="background:none;border:none;color:#0EA5E9;font-size:11px;cursor:pointer;text-decoration:underline;">看構成 ▼</button>`:'<span style="font-size:11px;color:var(--mut);">（還沒設定）</span>'}</span>
+          <span style="font-size:12.5px;">－ 預算儲水池自動分流 <button onclick="(()=>{const d=document.getElementById('pool-detail');if(d)d.open=!d.open;})()" style="background:none;border:none;color:#0EA5E9;font-size:11px;cursor:pointer;text-decoration:underline;">看構成（${poolDetails.length}/${totalPoolCount} 池已設定）▼</button></span>
           <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:600;color:#0EA5E9;">-$${fmt(budgetPoolTotal)}</span>
         </div>
-        ${poolDetails.length>0?`<details id="pool-detail" style="padding:0 14px;">
+        <details id="pool-detail" style="padding:0 14px;" ${poolPending.length>0?'open':''}>
           <summary style="display:none;"></summary>
-          <div style="background:#F0F9FF;border-radius:8px;padding:10px 12px;margin-bottom:4px;">
-            <div style="font-size:11px;color:var(--brown);font-weight:700;margin-bottom:6px;">💦 預算儲水池構成（${poolDetails.length} 個池）</div>
+          <!-- ✅ 已設定的池 -->
+          ${poolDetails.length>0?`<div style="background:#F0F9FF;border-radius:8px;padding:10px 12px;margin-bottom:6px;">
+            <div style="font-size:11px;color:var(--grn);font-weight:700;margin-bottom:6px;">✅ 已設定（${poolDetails.length} 個池）</div>
             ${poolDetails.map(p=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px dashed rgba(14,165,233,0.2);font-size:12px;">
               <span style="color:var(--brown);">${p.name} <span style="color:var(--mut);font-size:10.5px;">· ${p.hint}</span></span>
               <b style="color:#0369A1;font-family:'Noto Serif TC',serif;">$${fmt(p.amount)}</b>
@@ -2279,11 +2290,29 @@ function pgOverviewNew(){
               <span style="color:var(--brown);">合計</span>
               <b style="color:#0369A1;font-family:'Noto Serif TC',serif;">$${fmt(budgetPoolTotal)}</b>
             </div>
-            <div style="margin-top:6px;font-size:10.5px;color:var(--mut);">
-              💡 水電/交通/飲食 → 每月固定　｜　家庭設備 → 設備金額÷使用年數÷12　｜　紅包/工會 → 年度總額÷12
+          </div>`:''}
+
+          <!-- ⚠️ 待設定的池 -->
+          ${poolPending.length>0?`<div style="background:#FFF8E7;border:1.5px dashed var(--yelb);border-radius:8px;padding:10px 12px;margin-bottom:4px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <div style="font-size:11px;color:var(--goldDk);font-weight:700;">⚠️ 待設定（${poolPending.length} 個池 → 設定後會自動扣除）</div>
             </div>
+            ${poolPending.map(p=>{
+              const idx=(getAllLedgers()||[]).findIndex(x=>x.id===p.id);
+              return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px dashed rgba(196,164,107,0.2);font-size:11.5px;gap:8px;flex-wrap:wrap;">
+                <div style="flex:1;min-width:0;">
+                  <div style="color:var(--brown);font-weight:600;">${p.name}</div>
+                  <div style="color:var(--mut);font-size:10px;">${p.reason}</div>
+                </div>
+                <button onclick="selLedger(${idx})" style="background:var(--goldDk);color:#fff;border:none;padding:3px 10px;border-radius:999px;font-size:10.5px;font-weight:600;cursor:pointer;white-space:nowrap;">去設定 →</button>
+              </div>`;
+            }).join('')}
+          </div>`:''}
+
+          <div style="margin-top:6px;font-size:10.5px;color:var(--mut);padding:0 2px;">
+            💡 水電/交通/飲食 → 每月固定　｜　家庭設備 → 設備金額÷使用年數÷12　｜　紅包/工會 → 年度總額÷12　｜　旅遊變美 → 事件型（不自動扣）
           </div>
-        </details>`:''}
+        </details>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#FDF4FF;border-radius:8px;border-left:3px solid #A855F7;">
           <span style="font-size:12.5px;color:var(--brown);font-weight:600;">= 扣預算池後剩餘</span>
           <span style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:${r2>=0?'#A855F7':'var(--red)'};">$${fmt(r2)}</span>
@@ -10054,22 +10083,6 @@ function pgLedger(){
         <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:${balance>=0?'var(--goldDk)':'var(--red)'};margin-top:4px;">$${fmt(balance)}</div>
       </div>
     </div>
-
-    <!-- 🔔 年繳到期提醒（如果有對應此帳本的年繳項目 & 下個月要繳）-->
-    ${(()=>{
-      const amortItems=S.data.amortizedItems||[];
-      const nextMonth=S.month===12?1:S.month+1;
-      const linkedItems=amortItems.filter(a=>{if(a.linkedLedger!==l.id)return false;const ms=a.dueMonths&&a.dueMonths.length?a.dueMonths:(a.dueMonth?[a.dueMonth]:[]);return ms.includes(nextMonth);});
-      if(linkedItems.length===0)return'';
-      return linkedItems.map(a=>{
-        const annual=toN(a.annualAmount);
-        return`<div style="background:var(--yel);border-left:4px solid var(--yelb);border-radius:10px;padding:12px 16px;margin-bottom:12px;">
-          <div style="font-size:13px;color:var(--brown);font-weight:600;line-height:1.6;">
-            ⚠️ <b>下個月（${nextMonth} 月）要繳「${a.name}」</b> · 需 <b style="color:var(--red);">$${fmt(annual)}</b>
-          </div>
-        </div>`;
-      }).join('');
-    })()}
 
     <!-- 💡 智能攤提建議 -->
     ${avgOut>0?`<div style="background:linear-gradient(135deg,var(--bluL),#fff);border-radius:14px;padding:16px 20px;border-left:4px solid var(--blu);margin-bottom:16px;">
