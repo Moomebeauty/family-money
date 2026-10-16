@@ -967,20 +967,21 @@ const CARD_SCENARIOS=[
 
 const PAGES=[
   // 極簡版主要頁面
-  {id:'simple',   ico:'🏠',lbl:'我的錢',group:'main'},
+  {id:'overview', ico:'📊',lbl:'總覽',group:'main'},
   {id:'quickInc', ico:'💵',lbl:'記一筆收入',group:'main'},
   {id:'quickExp', ico:'💸',lbl:'記一筆支出',group:'main'},
   {id:'expDash',  ico:'📊',lbl:'支出總覽',group:'main'},
-  {id:'ledgerHome',ico:'📒',lbl:'預算儲水池',group:'main'},
   {id:'guardian', ico:'🛡️',lbl:'守財工具箱',group:'main'},
   {id:'insurance',ico:'📋',lbl:'家庭保險簿',group:'main'},
   {id:'settings', ico:'⚙️',lbl:'進階功能',group:'main'},
+  {id:'simple',   ico:'🏠',lbl:'我的錢',group:'hidden'},
+  {id:'ledgerHome',ico:'📒',lbl:'預算儲水池',group:'hidden'},
   {id:'catManage', ico:'🏷️',lbl:'類別管理',group:'hidden'},
   {id:'catMigrate',ico:'🔄',lbl:'舊分類遷移',group:'hidden'},
   {id:'wealth10x',ico:'🎯',lbl:'10X 財富心法',group:'hidden'},
   {id:'safetyNet',ico:'🛡️',lbl:'家庭安全網',group:'hidden'},
   // 舊「固定支出」跟「年繳攤提」改為隱藏（保留路由與資料）
-  {id:'fixedNew', ico:'📌',lbl:'固定支出',group:'hidden'},
+  {id:'fixedNew', ico:'📌',lbl:'每月貸款總額',group:'hidden'},
   {id:'amortNew', ico:'🏺',lbl:'年繳攤提',group:'hidden'},
   // 以下全部隱藏（保留資料 & 功能，未來還能用）
   {id:'home',     ico:'📊',lbl:'總覽',group:'hidden'},
@@ -1019,7 +1020,7 @@ const MOB=['home','incomes','savings2','expenses2','settings'];
 
 // ── STATE ───────────────────────────────────────────────────
 let S={
-  auth:false,user:'又權',page:'simple',month:new Date().getMonth()+1,
+  auth:false,user:'又權',page:'overview',month:new Date().getMonth()+1,
   subTab:0,sync:'idle',modal:null,ledgerIdx:0,
   importStaging:[],importMethod:null,ocrProgress:0,
   data:{
@@ -1083,6 +1084,10 @@ let S={
     equipmentItems:{},  // {lid: [{id,name,amount,years}]}
     // 🧧 紅包池的年度事件清單
     redEnvelopeItems:{},  // {lid: [{id,name,amount}]}
+    // 💎 投資/儲蓄紀錄（可寫銀行/標的）
+    savingRecords:[],  // [{id,date,type:'invest'|'save',member,amount,bank,target,note}]
+    // 📅 累積起算日
+    cumulativeStartDate:'',  // 預設年初
     // 💰 40/40/20 分配比例（可自訂）
     allocationRatios:{spend:40,save:40,invest:20},
     // 🚨 緊急預備金目標月數（預設 6）
@@ -1166,6 +1171,8 @@ function startSync(){
       S.data.ledgerBudgetMode=d.ledgerBudgetMode||{};
       S.data.equipmentItems=d.equipmentItems||{};
       S.data.redEnvelopeItems=d.redEnvelopeItems||{};
+      S.data.savingRecords=d.savingRecords||[];
+      S.data.cumulativeStartDate=d.cumulativeStartDate||`${new Date().getFullYear()}-01-01`;
       S.data.investNotes=d.investNotes||{};
     }
     setSyncing('synced');
@@ -1341,6 +1348,7 @@ function moSel(){return`<div class="mo-scroll">${MOS.map((m,i)=>`<div class="mo-
 function page(){
   switch(S.page){
     // 🍑 極簡版新頁面
+    case'overview': return pgOverviewNew();
     case'simple':   return pgSimple();
     case'quickInc': return pgQuickIncome();
     case'quickExp': return pgQuickExpense();
@@ -1774,6 +1782,272 @@ function calcCashWater(){
 // ═══════════════════════════════════════════════════════════
 
 // 🏠 我的錢（首頁 — 一頁看完錢的流向）
+// 📊 新「總覽」頁（12 月切換 + 收入 + 投資儲蓄 + 緊急金 + 貸款 + 階層扣除）
+function pgOverviewNew(){
+  const curYear=yr();
+  const curMonth=S.month;
+  const members=S.data.familyMembers||['又權','于蜜','楷宸'];
+  const memCols={'又權':'#3B82F6','于蜜':'#EC4899','楷宸':'#A855F7'};
+  const cumStart=S.data.cumulativeStartDate||`${curYear}-01-01`;
+
+  // 本月收入
+  const monthIncs=(S.data.incomes||[]).filter(i=>i.year===curYear&&i.month===curMonth);
+  const monthInc=monthIncs.reduce((s,i)=>s+toN(i.amount),0);
+  const memInc={};
+  members.forEach(m=>{memInc[m]=monthIncs.filter(i=>i.member===m).reduce((s,i)=>s+toN(i.amount),0);});
+
+  // 本月投資/儲蓄額（從 savingRecords）
+  const monthSR=(S.data.savingRecords||[]).filter(r=>{
+    const d=new Date(r.date);
+    return d.getFullYear()===curYear&&d.getMonth()+1===curMonth;
+  });
+  const monthInvest=monthSR.filter(r=>r.type==='invest').reduce((s,r)=>s+toN(r.amount),0);
+  const monthSave=monthSR.filter(r=>r.type==='save').reduce((s,r)=>s+toN(r.amount),0);
+  const memInvest={};const memSave={};
+  members.forEach(m=>{
+    memInvest[m]=monthSR.filter(r=>r.type==='invest'&&r.member===m).reduce((s,r)=>s+toN(r.amount),0);
+    memSave[m]=monthSR.filter(r=>r.type==='save'&&r.member===m).reduce((s,r)=>s+toN(r.amount),0);
+  });
+
+  // 累積投資/儲蓄（從 cumStart 到現在）
+  const cumSR=(S.data.savingRecords||[]).filter(r=>r.date>=cumStart);
+  const cumInvest=cumSR.filter(r=>r.type==='invest').reduce((s,r)=>s+toN(r.amount),0);
+  const cumSave=cumSR.filter(r=>r.type==='save').reduce((s,r)=>s+toN(r.amount),0);
+
+  // 緊急預備金（從 ledgerPurpose 的 saveEmergency 類）
+  const purpose=S.data.ledgerPurpose||{};
+  const emgBal=(getAllLedgers()||[]).filter(l=>purpose[l.id]==='saveEmergency').reduce((s,l)=>{
+    return s+(S.data.ledgerEntries||[]).filter(e=>e.lid===l.id).reduce((ss,e)=>ss+toN(e.amount),0);
+  },0);
+  const avgExp=(S.data.expenses||[]).filter(e=>e.year===curYear&&!e.fromLedger&&!e.excludeFromBudget).reduce((s,e)=>s+toN(e.amount),0)/curMonth||0;
+  const emgMonths=avgExp>0?(emgBal/avgExp):0;
+  const emgTargetMonths=S.data.emergencyFundMonths||6;
+
+  // 每月貸款總額（從 fixedItems 中的「貸款」類）
+  const fixedItems=S.data.fixedItems||[];
+  const loanKeywords=/貸|房租|分期/;
+  const loanItems=fixedItems.filter(f=>loanKeywords.test(f.name||'')||loanKeywords.test(f.category||''));
+  const loanTotal=loanItems.reduce((s,f)=>s+toN(f.amount),0);
+  const allFixedTotal=fixedItems.reduce((s,f)=>s+toN(f.amount),0);
+  const debtRatio=monthInc>0?Math.round((loanTotal/monthInc)*100):0;
+  const debtStatus=debtRatio<30?{col:'var(--grn)',bg:'var(--grnl)',txt:'✅ 安全'}:debtRatio<50?{col:'var(--goldDk)',bg:'var(--yel)',txt:'🟡 中度注意'}:{col:'var(--red)',bg:'var(--redl)',txt:'🔴 危險'};
+
+  // 預算儲水池每月分流（從 budgetMode 計算）
+  const ledgerBudgetMode=S.data.ledgerBudgetMode||{};
+  const equipItems=S.data.equipmentItems||{};
+  const redItems=S.data.redEnvelopeItems||{};
+  const ldBudgets=S.data.ledgerBudgets||{};
+  let budgetPoolTotal=0;
+  (getAllLedgers()||[]).forEach(l=>{
+    const bm=ledgerBudgetMode[l.id];
+    if(bm==='monthly')budgetPoolTotal+=toN(ldBudgets[l.id])||0;
+    else if(bm==='equipment'){
+      (equipItems[l.id]||[]).forEach(it=>{budgetPoolTotal+=toN(it.amount)/((toN(it.years)||5)*12);});
+    }else if(bm==='yearly'){
+      const yt=(redItems[l.id]||[]).reduce((s,it)=>s+toN(it.amount),0);
+      budgetPoolTotal+=yt/12;
+    }
+  });
+  budgetPoolTotal=Math.round(budgetPoolTotal);
+
+  // 旅遊變美池（event 類，本月已存入的金額）
+  const eventPools=(getAllLedgers()||[]).filter(l=>ledgerBudgetMode[l.id]==='event');
+  const eventMonthIn=eventPools.reduce((s,l)=>{
+    return s+(S.data.ledgerEntries||[]).filter(e=>e.lid===l.id&&e.year===curYear&&e.month===curMonth&&toN(e.amount)>0).reduce((ss,e)=>ss+toN(e.amount),0);
+  },0);
+
+  // 階層扣除
+  const r1=monthInc-loanTotal; // 扣貸款後
+  const r2=r1-budgetPoolTotal; // 扣預算池
+  const r3=r2-eventMonthIn; // 扣旅遊變美
+
+  // 月份按鈕
+  const mBtns=Array.from({length:12},(_,i)=>i+1).map(m=>{
+    const act=m===curMonth;
+    return `<button onclick="setMonth(${m})" style="padding:8px 16px;background:${act?'var(--roseDk)':'#fff'};color:${act?'#fff':'var(--brown)'};border:1.5px solid ${act?'var(--roseDk)':'var(--bdr)'};border-radius:999px;font-size:13px;font-weight:${act?'700':'500'};cursor:pointer;font-family:inherit;">${m} 月</button>`;
+  }).join('');
+
+  return`
+  <div style="max-width:1200px;margin:0 auto;">
+    <!-- 大標題 -->
+    <div style="text-align:center;padding:20px 0 14px;">
+      <div style="font-family:'Noto Serif TC',serif;font-size:28px;font-weight:700;color:var(--brown);letter-spacing:0.2em;">📊 總覽</div>
+      <div class="tm" style="font-size:12px;margin-top:4px;letter-spacing:0.2em;">${curYear} 年 · 收入 → 分配 → 剩餘</div>
+    </div>
+
+    <!-- 1-12 月切換 -->
+    <div style="display:flex;gap:6px;justify-content:center;margin-bottom:20px;flex-wrap:wrap;padding:0 8px;">
+      ${mBtns}
+    </div>
+
+    <!-- ━━━ 💵 本月收入 ━━━ -->
+    <div style="background:linear-gradient(135deg,#fff,var(--grnl));border-radius:18px;padding:24px 26px;margin-bottom:14px;box-shadow:0 6px 20px rgba(125,184,154,0.15);border:2px solid var(--grn);">
+      <div class="tm" style="font-size:11px;letter-spacing:0.25em;color:var(--grn);font-weight:700;margin-bottom:6px;">💵 ${curMonth} 月 · 全家收入</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:14px;">
+        <div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:40px;font-weight:700;color:var(--grn);line-height:1;">$${fmt(monthInc)}</div>
+          <div style="font-size:11px;color:var(--mut);margin-top:4px;">👨‍👩‍👧 全家合計</div>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          ${members.map(m=>`<div style="text-align:center;padding:8px 14px;background:#fff;border:1px solid ${memCols[m]};border-radius:10px;">
+            <div style="font-size:10px;color:${memCols[m]};font-weight:600;">${m}</div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:${memCols[m]};margin-top:2px;">$${fmt(memInc[m])}</div>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>
+
+    <!-- ━━━ 💎 投資 + 🏦 儲蓄 兩欄並排 ━━━ -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:14px;margin-bottom:14px;">
+
+      <!-- 投資 -->
+      <div style="background:#fff;border-radius:16px;padding:20px;box-shadow:0 4px 16px rgba(194,116,122,0.08);border-top:4px solid var(--gold);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <span class="tm" style="font-size:11px;letter-spacing:0.2em;color:var(--goldDk);font-weight:700;">💎 本月投資額</span>
+          <button onclick="openM('addSavingRecord','invest')" style="background:var(--gold);color:#fff;border:none;padding:5px 12px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;">＋ 記錄投資</button>
+        </div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:30px;font-weight:700;color:var(--goldDk);line-height:1;">$${fmt(monthInvest)}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+          ${members.map(m=>`<div style="padding:4px 10px;background:${memCols[m]}22;border-radius:999px;font-size:11px;color:${memCols[m]};font-weight:600;">${m} $${fmt(memInvest[m])}</div>`).join('')}
+        </div>
+        <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--bdr);">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div class="tm" style="font-size:10.5px;">📈 累積投資額</div>
+            <button onclick="editCumStart()" style="background:none;border:none;color:var(--mut);font-size:10.5px;cursor:pointer;">起算 ${cumStart} ✏️</button>
+          </div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--gold);margin-top:4px;">$${fmt(cumInvest)}</div>
+        </div>
+      </div>
+
+      <!-- 儲蓄 -->
+      <div style="background:#fff;border-radius:16px;padding:20px;box-shadow:0 4px 16px rgba(194,116,122,0.08);border-top:4px solid #0EA5E9;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <span class="tm" style="font-size:11px;letter-spacing:0.2em;color:#0369A1;font-weight:700;">🏦 本月儲蓄額</span>
+          <button onclick="openM('addSavingRecord','save')" style="background:#0EA5E9;color:#fff;border:none;padding:5px 12px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;">＋ 記錄儲蓄</button>
+        </div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:30px;font-weight:700;color:#0369A1;line-height:1;">$${fmt(monthSave)}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+          ${members.map(m=>`<div style="padding:4px 10px;background:${memCols[m]}22;border-radius:999px;font-size:11px;color:${memCols[m]};font-weight:600;">${m} $${fmt(memSave[m])}</div>`).join('')}
+        </div>
+        <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--bdr);">
+          <div class="tm" style="font-size:10.5px;">📈 累積儲蓄額（${cumStart} 起）</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:#0EA5E9;margin-top:4px;">$${fmt(cumSave)}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 投資/儲蓄明細（近 10 筆） -->
+    ${(S.data.savingRecords||[]).length>0?`<details style="background:#fff;border-radius:14px;padding:0;margin-bottom:14px;box-shadow:0 4px 16px rgba(194,116,122,0.08);overflow:hidden;">
+      <summary style="cursor:pointer;padding:14px 20px;list-style:none;font-size:13px;font-weight:700;color:var(--brown);display:flex;justify-content:space-between;align-items:center;">
+        <span>📋 投資/儲蓄紀錄（${(S.data.savingRecords||[]).length} 筆） ▼</span>
+      </summary>
+      <div style="padding:0 20px 16px;max-height:260px;overflow-y:auto;">
+        ${[...(S.data.savingRecords||[])].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,20).map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px dashed var(--bdr);gap:8px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:160px;">
+            <div style="font-size:12.5px;color:var(--brown);font-weight:600;">
+              <span style="background:${r.type==='invest'?'var(--gold)':'#0EA5E9'};color:#fff;padding:1px 6px;border-radius:4px;font-size:10px;margin-right:4px;">${r.type==='invest'?'💎 投資':'🏦 儲蓄'}</span>
+              ${r.member?`<span style="background:${memCols[r.member]||'#999'}22;color:${memCols[r.member]||'#999'};padding:1px 6px;border-radius:4px;font-size:10px;">${r.member}</span>`:''}
+              ${r.bank||r.target||''}
+            </div>
+            <div class="tm" style="font-size:10.5px;margin-top:2px;">${r.date}${r.note?` · ${r.note}`:''}</div>
+          </div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:${r.type==='invest'?'var(--gold)':'#0EA5E9'};">$${fmt(toN(r.amount))}</div>
+          <div style="display:flex;gap:4px;">
+            <button onclick="editSavingRecord('${r.id}')" style="background:none;border:1px solid var(--bdr);color:var(--mut);padding:3px 8px;border-radius:6px;font-size:11px;cursor:pointer;">✏️</button>
+            <button onclick="delSavingRecord('${r.id}')" style="background:none;border:1px solid var(--bdr);color:var(--red);padding:3px 7px;border-radius:6px;font-size:12px;cursor:pointer;">×</button>
+          </div>
+        </div>`).join('')}
+      </div>
+    </details>`:''}
+
+    <!-- ━━━ 🚨 緊急預備金 ━━━ -->
+    <div style="background:${emgMonths>=emgTargetMonths?'linear-gradient(135deg,#fff,var(--grnl))':'linear-gradient(135deg,#fff,var(--yel))'};border-radius:16px;padding:20px 24px;margin-bottom:14px;border:2px solid ${emgMonths>=emgTargetMonths?'var(--grn)':'var(--yelb)'};">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+        <div>
+          <div class="tm" style="font-size:11px;letter-spacing:0.2em;color:var(--brown);font-weight:700;">🚨 緊急預備金</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:30px;font-weight:700;color:${emgMonths>=emgTargetMonths?'var(--grn)':'var(--goldDk)'};margin-top:4px;">目前已達標 ${emgMonths.toFixed(1)} 個月</div>
+          <div style="font-size:11.5px;color:var(--mut);margin-top:2px;">目標 ${emgTargetMonths} 個月生活費　·　餘額 $${fmt(emgBal)}</div>
+        </div>
+        <div style="text-align:center;padding:12px 20px;background:#fff;border-radius:12px;border:1.5px solid ${emgMonths>=emgTargetMonths?'var(--grn)':'var(--yelb)'};">
+          <div style="font-size:12px;color:var(--mut);">達成率</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:28px;font-weight:700;color:${emgMonths>=emgTargetMonths?'var(--grn)':'var(--goldDk)'};line-height:1;">${Math.min(100,Math.round(emgMonths/emgTargetMonths*100))}%</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 分隔線 -->
+    <div style="text-align:center;padding:20px 0 10px;">
+      <div style="display:inline-block;padding:8px 20px;background:var(--brown);color:#fff;border-radius:999px;font-size:12px;letter-spacing:0.15em;font-weight:700;">↓↓↓ 收入進來 · 做分配 ↓↓↓</div>
+    </div>
+
+    <!-- ━━━ 🏠 每月貸款總額 ━━━ -->
+    <div style="background:#fff;border-radius:16px;padding:20px 24px;margin-bottom:14px;box-shadow:0 4px 16px rgba(194,116,122,0.08);border-top:4px solid #9E5A60;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:12px;">
+        <div>
+          <div class="tm" style="font-size:11px;letter-spacing:0.2em;color:#9E5A60;font-weight:700;">🏠 每月貸款總額</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:30px;font-weight:700;color:#9E5A60;margin-top:4px;">$${fmt(loanTotal)}</div>
+          <div class="tm" style="font-size:11px;margin-top:2px;">${loanItems.length} 項貸款 · 進階功能 > 貸款總額管理</div>
+        </div>
+        <button onclick="setP('fixedNew')" style="background:#9E5A60;color:#fff;border:none;padding:8px 16px;border-radius:10px;font-size:12px;font-weight:600;cursor:pointer;">管理 →</button>
+      </div>
+      <div style="padding:14px 16px;background:${debtStatus.bg};border-radius:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+        <div>
+          <div style="font-size:11.5px;color:var(--brown);font-weight:600;">📊 月負債比率</div>
+          <div class="tm" style="font-size:10.5px;margin-top:2px;line-height:1.6;">每月總還款 ÷ 月收入<br>安全線：&lt;30% ✅ 　中度：30-40% 🟡 　含房貸最高 50%</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-family:'Noto Serif TC',serif;font-size:34px;font-weight:700;color:${debtStatus.col};line-height:1;">${debtRatio}%</div>
+          <div style="font-size:11px;color:${debtStatus.col};margin-top:2px;font-weight:700;">${debtStatus.txt}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ━━━ 🧮 階層扣除計算器 ━━━ -->
+    <div style="background:#fff;border-radius:16px;padding:22px 26px;margin-bottom:14px;box-shadow:0 4px 16px rgba(194,116,122,0.08);border-top:4px solid var(--rose);">
+      <div class="tm" style="font-size:11px;letter-spacing:0.2em;color:var(--roseDk);font-weight:700;margin-bottom:14px;">🧮 階層扣除 · 剩多少能花</div>
+
+      <div style="display:grid;gap:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:var(--grnl);border-radius:10px;">
+          <span style="font-size:13px;color:var(--brown);font-weight:700;">💵 本月全家收入</span>
+          <span style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:var(--grn);">$${fmt(monthInc)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;color:var(--mut);">
+          <span style="font-size:12.5px;">－ 每月貸款總額</span>
+          <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:600;color:#9E5A60;">-$${fmt(loanTotal)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#F0F9FF;border-radius:8px;border-left:3px solid #0EA5E9;">
+          <span style="font-size:12.5px;color:var(--brown);font-weight:600;">= 扣貸款後剩餘</span>
+          <span style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:${r1>=0?'#0EA5E9':'var(--red)'};">$${fmt(r1)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;color:var(--mut);">
+          <span style="font-size:12.5px;">－ 預算儲水池自動分流</span>
+          <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:600;color:#0EA5E9;">-$${fmt(budgetPoolTotal)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#FDF4FF;border-radius:8px;border-left:3px solid #A855F7;">
+          <span style="font-size:12.5px;color:var(--brown);font-weight:600;">= 扣預算池後剩餘</span>
+          <span style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:${r2>=0?'#A855F7':'var(--red)'};">$${fmt(r2)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;color:var(--mut);">
+          <span style="font-size:12.5px;">－ 旅遊變美池本月注入</span>
+          <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:600;color:#A855F7;">-$${fmt(eventMonthIn)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 18px;background:${r3>=0?'linear-gradient(135deg,var(--roseL),#fff)':'var(--redl)'};border-radius:12px;border:2px solid ${r3>=0?'var(--rose)':'var(--red)'};">
+          <div>
+            <div style="font-size:11px;color:var(--roseDk);font-weight:600;letter-spacing:0.1em;">💰 剩下的才能花</div>
+            <div style="font-size:14px;color:var(--brown);font-weight:700;margin-top:2px;">日常可花費（吃喝/雜支）</div>
+          </div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:28px;font-weight:700;color:${r3>=0?'var(--roseDk)':'var(--red)'};">$${fmt(r3)}</div>
+        </div>
+        ${r3<0?`<div style="background:var(--redl);border:1.5px solid var(--red);border-radius:10px;padding:12px 14px;color:var(--red);font-size:12.5px;line-height:1.7;">
+          🚨 <b>警訊！</b>剩下的錢不夠支應日常，表示：<br>
+          1️⃣ 短期：旅遊變美池斷水 + 預算池/紅包池砍半<br>
+          2️⃣ 長期：這是「收入問題」而非「支出問題」→ 想辦法把收入做大
+        </div>`:''}
+      </div>
+    </div>
+  </div>`;
+}
+
 function pgSimple(){
   const M=computeMonthly();
   const fixedItems=S.data.fixedItems||[];
@@ -1935,7 +2209,7 @@ function pgSimple(){
       ${Object.keys(byExpCat).length>5?`<div class="tm" style="text-align:center;font-size:11.5px;margin-top:8px;">…還有 ${Object.keys(byExpCat).length-5} 個類別</div>`:''}
     </div>
 
-    <!-- 📌 每月固定支出 -->
+    <!-- 📌 每月貸款總額 -->
     <div style="background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 4px 16px rgba(194,116,122,0.10);margin-bottom:16px;border-top:4px solid var(--gold);">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
         <span style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--brown);letter-spacing:0.1em;">📌 每月固定要花</span>
@@ -1957,7 +2231,7 @@ function pgSimple(){
         ${fixedItems.length>5?`<div class="tm" style="text-align:center;font-size:11.5px;margin-top:8px;">…還有 ${fixedItems.length-5} 個</div>`:''}
         <!-- 合計 -->
         <div style="margin-top:12px;padding:14px 18px;background:var(--goldL);border-radius:12px;display:flex;justify-content:space-between;align-items:baseline;">
-          <span style="font-size:14px;font-weight:700;color:var(--brown);">每月固定支出合計</span>
+          <span style="font-size:14px;font-weight:700;color:var(--brown);">每月貸款總額合計</span>
           <span style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--gold);">$${fmt(fixedTotal)}</span>
         </div>
       `}
@@ -2434,7 +2708,7 @@ function pgFixedNew(){
     <!-- 大標題 -->
     <div style="text-align:center;padding:20px 0 16px;">
       <div style="font-size:48px;">📌</div>
-      <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--gold);letter-spacing:0.15em;margin-top:4px;">每月固定支出</div>
+      <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--gold);letter-spacing:0.15em;margin-top:4px;">每月貸款總額</div>
       <div class="tm" style="font-size:12.5px;margin-top:4px;">房貸、保險、訂閱等每月一定花的錢</div>
     </div>
 
@@ -2445,7 +2719,7 @@ function pgFixedNew(){
 
     <!-- 大字合計 + 繳費狀態 -->
     <div style="background:linear-gradient(135deg,var(--goldL),#fff);border-radius:22px;padding:24px 28px;box-shadow:0 8px 24px rgba(196,164,107,0.15);border:2px solid var(--gold);margin-bottom:16px;text-align:center;">
-      <div style="font-size:13px;letter-spacing:0.2em;color:var(--goldDk);font-weight:600;">${S.month} 月固定支出合計</div>
+      <div style="font-size:13px;letter-spacing:0.2em;color:var(--goldDk);font-weight:600;">${S.month} 貸款總額合計</div>
       <div style="font-family:'Noto Serif TC',serif;font-size:44px;font-weight:700;color:var(--goldDk);margin-top:4px;">$${fmt(total)}</div>
       <div class="tm" style="font-size:12px;margin-top:6px;">${fixedItems.length} 個項目 · 一年約 $${fmt(total*12)}</div>
       ${fixedItems.length>0?`<div style="margin-top:12px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
@@ -3581,7 +3855,7 @@ function pgWealth10X(){
           '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'+
             '<span style="font-family:\'Noto Serif TC\',serif;font-size:36px;font-weight:700;color:#C2747A;line-height:1;">2</span>'+
             '<div><div style="font-size:11px;letter-spacing:0.2em;color:#9E5A60;font-weight:700;">SECOND PAY</div>'+
-            '<div style="font-family:\'Noto Serif TC\',serif;font-size:18px;font-weight:700;color:var(--brown);">🏠 每月固定支出池</div></div>'+
+            '<div style="font-family:\'Noto Serif TC\',serif;font-size:18px;font-weight:700;color:var(--brown);">🏠 每月貸款總額池</div></div>'+
           '</div>'+
           '<div style="font-size:13.5px;color:var(--brown);line-height:1.8;background:#fff;padding:12px 14px;border-radius:8px;">'+
             '<b style="color:#9E5A60;">固定要繳的大錢</b><br>'+
@@ -4211,7 +4485,7 @@ function pgGuardian(){
   </div>`;
 }
 
-function pgOverviewNew(){
+function pgOverviewLegacy(){
   const M=computeMonthly();
   const stocks=calcStocksValue();
   const savings=calcMonthlySavings();
@@ -4307,7 +4581,7 @@ function pgOverviewNew(){
       <div style="text-align:center;padding:18px;background:${water.color}22;border:2px solid ${water.color};border-radius:var(--r-sm);">
         <div style="font-family:'Noto Serif TC',serif;font-size:32px;font-weight:700;color:${water.color};">${water.months.toFixed(1)} <span style="font-size:16px;">個月</span></div>
         <div style="font-size:14px;color:${water.color};margin-top:6px;font-weight:600;">${water.label}</div>
-        <div class="tm" style="font-size:12px;margin-top:8px;">現金 $${fmt(water.liquidAssets)}　÷　月固定支出 $${fmt(water.fixedTotal)}</div>
+        <div class="tm" style="font-size:12px;margin-top:8px;">現金 $${fmt(water.liquidAssets)}　÷　貸款總額 $${fmt(water.fixedTotal)}</div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;">
         <div style="padding:10px;text-align:center;background:var(--redl);border-radius:8px;border:1px solid var(--red);">
@@ -6253,7 +6527,7 @@ function pgMonthlyEntry(){
       <div class="tw" style="margin-top:14px;"><table>
         <thead><tr><th>支出類型</th><th>記在哪</th><th>備註</th></tr></thead>
         <tbody>
-          <tr><td><b>房貸／車貸／房租／分期</b></td><td><span class="bdg" style="background:var(--red);color:#fff;">📌 月固定支出</span></td><td class="tm">銀行直接扣款，金額固定</td></tr>
+          <tr><td><b>房貸／車貸／房租／分期</b></td><td><span class="bdg" style="background:var(--red);color:#fff;">📌 貸款總額</span></td><td class="tm">銀行直接扣款，金額固定</td></tr>
           <tr><td><b>水電瓦斯／通訊／交通</b></td><td><span class="bdg" style="background:var(--blu);color:#fff;">📒 預算儲水池</span></td><td class="tm">每月變動，先存入帳本再扣</td></tr>
           <tr><td><b>保險／稅金／紅包／年費</b></td><td><span class="bdg" style="background:var(--gold);color:#fff;">📒 預算儲水池（年度）</span></td><td class="tm">每月攤提先存，到期扣款</td></tr>
           <tr><td><b>現金消費（餐廳、便利商店等）</b></td><td><span class="bdg" style="background:var(--acc);color:#fff;">🧾 支出記帳</span></td><td class="tm">日常變動支出</td></tr>
@@ -6335,10 +6609,10 @@ function pgMonthlyEntry(){
     </div>
   </div>
 
-  <!-- Step 3：月固定支出 -->
+  <!-- Step 3：貸款總額 -->
   <div class="card" style="${stepDone.fixed?'border-left:4px solid var(--grn);':'border-left:4px solid var(--bdr);'}">
     <div class="card-hd">
-      <span class="card-ttl">${stepDone.fixed?'✅':'3️⃣'} 步驟 3：每月固定支出（房貸、車貸、分期）</span>
+      <span class="card-ttl">${stepDone.fixed?'✅':'3️⃣'} 步驟 3：每月貸款總額（房貸、車貸、分期）</span>
       <button class="btn btn-s btn-sm" onclick="setP('fixed')">前往編輯 →</button>
     </div>
     <div class="card-bd">
@@ -6346,7 +6620,7 @@ function pgMonthlyEntry(){
         💡 <b>口語說明：</b>就是每個月「一定要繳」的固定金額，例如房貸、車貸、房租、分期付款。<br>
         📐 <b>計算邏輯：</b>這些是「跑不掉」的支出，扣完才能算出真正能花的錢。
       </div>
-      ${(S.data.fixedItems||[]).length===0?`<div class="empty"><p>尚未設定任何月固定支出</p><button class="btn btn-p btn-sm" style="margin-top:10px;" onclick="setP('fixed')">立即新增</button></div>`:`
+      ${(S.data.fixedItems||[]).length===0?`<div class="empty"><p>尚未設定任何貸款總額</p><button class="btn btn-p btn-sm" style="margin-top:10px;" onclick="setP('fixed')">立即新增</button></div>`:`
       <div class="sg sg4" style="margin-bottom:14px;">
         ${(S.data.fixedItems||[]).map(f=>`<div class="sc red"><div class="sl">${f.name}</div><div class="sv red sm">$${fmt(f.amount)}</div></div>`).join('')}
       </div>
@@ -6625,7 +6899,7 @@ function pgHealth(){
           <div style="font-family:'Noto Serif TC',serif;font-size:48px;font-weight:700;color:${M.monthsCovered>=6?'var(--grn)':M.monthsCovered>=3?'var(--yelb)':'var(--red)'};line-height:1;">${M.monthsCovered}<span style="font-size:24px;"> 月</span></div>
           <div style="margin-top:10px;font-size:14px;color:var(--txt);line-height:1.7;">
             <b>數字意義：</b>${M.monthsCovered>=6?'萬一失業或大病，可以撐半年以上，安心。':M.monthsCovered>=3?'撐 3 個月還行，建議再多存 3 個月。':'若失業或大病，1 個月就會陷入困境。'}<br>
-            <b>建議目標：</b>≥ 6 個月固定支出
+            <b>建議目標：</b>≥ 6 個貸款總額
           </div>
         </div>
         <!-- 財務自由度 -->
@@ -6725,7 +6999,7 @@ function pgSettings(){
     <button onclick="setP('fixed')" style="padding:24px;border:1.5px solid var(--bdr);border-radius:var(--r-sm);background:var(--card);cursor:pointer;text-align:left;transition:all .25s;display:flex;gap:18px;align-items:center;">
       <div style="font-size:42px;flex-shrink:0;">📌</div>
       <div style="flex:1;">
-        <div style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:var(--brown);letter-spacing:0.08em;">月固定支出</div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:var(--brown);letter-spacing:0.08em;">貸款總額</div>
         <div class="tm" style="margin-top:4px;">${(S.data.fixedItems||[]).length} 項　／　房貸、車貸、分期</div>
       </div>
       <div style="font-size:24px;color:var(--acc);">→</div>
@@ -7972,7 +8246,7 @@ function pgOverview(){
           🥂 <b style="font-size:16px;color:var(--brown);">本月可花的錢計算</b><br>
           家庭收入 <b style="color:var(--grn);font-size:17px;">$${fmt(tInc)}</b><br>
           <span style="color:var(--pur);">① － 強制儲蓄</span> <b style="color:var(--pur);font-size:17px;">$${fmt(mandatorySaving)}</b>（${savingPct}% of 收入）<br>
-          <span style="color:var(--red);">② － 月固定支出</span> <b style="color:var(--red);font-size:17px;">$${fmt(fixedTotal)}</b><br>
+          <span style="color:var(--red);">② － 貸款總額</span> <b style="color:var(--red);font-size:17px;">$${fmt(fixedTotal)}</b><br>
           <span style="color:var(--blu);">③ － 月變動預備金</span> <b style="color:var(--blu);font-size:17px;">$${fmt(monthLedgerOV)}</b>（水電／交通／生活費）<br>
           <span style="color:var(--gold);">④ － 年費攤提</span> <b style="color:var(--gold);font-size:17px;">$${fmt(yearLedgerOV)}</b>（保險／稅金／紅包）<br>
           ─────────────<br>
@@ -8086,7 +8360,7 @@ function pgOverview(){
       </div>
     </div>
     <div class="card">
-      <div class="card-hd"><span class="card-ttl">📌 本月固定支出</span><button class="btn btn-s btn-sm" onclick="setP('fixed')">管理</button></div>
+      <div class="card-hd"><span class="card-ttl">📌 本貸款總額</span><button class="btn btn-s btn-sm" onclick="setP('fixed')">管理</button></div>
       <div class="tw"><table>
         <thead><tr><th>項目</th><th>金額</th></tr></thead>
         <tbody>${(S.data.fixedItems||[]).slice(0,5).map(f=>`<tr><td><b>${f.name}</b></td><td class="an">$${fmt(f.amount)}</td></tr>`).join('')}
@@ -8673,7 +8947,7 @@ function pgFixed(){
   const items=S.data.fixedItems||[];
   const total=items.reduce((s,f)=>s+toN(f.amount),0);
   return`
-  <div class="pg-ttl">📌 月固定支出管理</div>
+  <div class="pg-ttl">📌 貸款總額管理</div>
   <div class="pg-sub">每月一定要繳的支出（房貸、車貸、房租、分期）</div>
 
   <div class="notice tip" style="margin-bottom:14px;">
@@ -8684,7 +8958,7 @@ function pgFixed(){
   </div>
 
   <div class="sg sg2">
-    <div class="sc red"><div class="sl">月固定支出合計</div><div class="sv red">$${fmt(total)}</div><div class="ss">每月自動計入</div></div>
+    <div class="sc red"><div class="sl">貸款總額合計</div><div class="sv red">$${fmt(total)}</div><div class="ss">每月自動計入</div></div>
     <div class="sc yel"><div class="sl">年度固定支出</div><div class="sv sm">$${fmt(total*12)}</div></div>
   </div>
   <div class="card">
@@ -8724,7 +8998,7 @@ function pgBudget(){
   const tInc=getInc(true).reduce((s,i)=>s+toN(i.amount),0);
   const savingPct=tInc>0?Math.round(mandatorySaving/tInc*100):0;
 
-  // 月固定支出
+  // 貸款總額
   const fixedTotal=(S.data.fixedItems||[]).reduce((s,f)=>s+toN(f.amount),0);
 
   // 計算月度＋年度流水帳預備金
@@ -8780,7 +9054,7 @@ function pgBudget(){
           🥂 <b style="font-size:16px;color:var(--brown);">本月可花的錢計算</b><br>
           家庭收入 <b style="color:var(--grn);font-size:18px;font-family:'Noto Serif TC',serif;">$${fmt(tInc)}</b><br>
           <span style="color:var(--pur);">① － 強制儲蓄</span> <b style="color:var(--pur);font-size:17px;font-family:'Noto Serif TC',serif;">$${fmt(mandatorySaving)}</b>（${savingPct}%）<br>
-          <span style="color:var(--red);">② － 月固定支出</span> <b style="color:var(--red);font-size:17px;font-family:'Noto Serif TC',serif;">$${fmt(fixedTotal)}</b>（房貸／車貸／房租等）<br>
+          <span style="color:var(--red);">② － 貸款總額</span> <b style="color:var(--red);font-size:17px;font-family:'Noto Serif TC',serif;">$${fmt(fixedTotal)}</b>（房貸／車貸／房租等）<br>
           <span style="color:var(--blu);">③ － 月變動預備金</span> <b style="color:var(--blu);font-size:17px;font-family:'Noto Serif TC',serif;">$${fmt(monthLedgerTotal)}</b>（水電／交通／生活費等流水帳）<br>
           <span style="color:var(--gold);">④ － 年費攤提</span> <b style="color:var(--gold);font-size:17px;font-family:'Noto Serif TC',serif;">$${fmt(yearLedgerTotal)}</b>（保險／稅金／紅包年費分 12 月）<br>
           ─────────────<br>
@@ -9575,71 +9849,6 @@ function pgLedger(){
       return'';
     })()}
 
-    <!-- 💭 決策筆記（這個帳本範圍內的大型決策） -->
-    ${(()=>{
-      const decisions=(S.data.decisions||[]).filter(d=>d.lid===l.id);
-      const active=decisions.filter(d=>d.status==='evaluating');
-      const decided=decisions.filter(d=>d.status!=='evaluating');
-      const statusLbl={evaluating:'🟡 評估中',buy:'✅ 決定買',skip:'❌ 決定不買',done:'🎉 已完成'};
-      const statusCol={evaluating:'var(--yelb)',buy:'var(--grn)',skip:'var(--mut)',done:'var(--gold)'};
-      return`<div style="background:#fff;border-radius:18px;padding:22px;box-shadow:0 4px 16px rgba(194,116,122,0.10);margin-bottom:16px;border-top:4px solid var(--pur);">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
-          <div>
-            <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);">💭 決策筆記</span>
-            <span class="tm" style="font-size:11px;margin-left:8px;">${decisions.length} 個決策（評估中 ${active.length}）</span>
-          </div>
-          <button onclick="openM('addDecision','${l.id}')" style="background:linear-gradient(135deg,var(--pur),#8E6BA4);color:#fff;border:none;padding:8px 16px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">＋ 新增決策</button>
-        </div>
-
-        <div style="background:var(--purl);padding:10px 14px;border-radius:8px;font-size:12px;color:var(--pur);margin-bottom:12px;line-height:1.7;">
-          💡 遇到大額支出猶豫時，先在這裡建一個決策、做功課、系統自動幫你檢查「這筆錢該不該花」
-        </div>
-
-        ${decisions.length===0?`<div style="text-align:center;padding:30px 20px;color:var(--mut);">
-          <div style="font-size:36px;">💭</div>
-          <div style="margin-top:8px;font-size:13px;">還沒有決策紀錄</div>
-          <div class="tm" style="font-size:11.5px;margin-top:6px;line-height:1.6;">
-            常見情境：<br>
-            🚗 交通帳本 → 換車、買機車、保養升級<br>
-            ✨ 沐蜜帳本 → 進修課程、紋繡設備<br>
-            🏠 家電帳本 → 電器汰換、家具採購
-          </div>
-        </div>`:`
-        <div style="display:grid;gap:10px;">
-          ${[...active,...decided].map(d=>{
-            const fc=d.financialCheck||{};
-            const passCount=Object.values(fc).filter(v=>v===true).length;
-            const totalCount=Object.keys(fc).length;
-            return`<div style="background:var(--bg2);border-radius:12px;padding:14px 16px;border-left:4px solid ${statusCol[d.status]||'var(--mut)'};">
-              <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
-                <div style="flex:1;min-width:200px;">
-                  <div style="font-size:15px;color:var(--brown);font-weight:700;">${d.title||'未命名'}</div>
-                  <div class="tm" style="font-size:11.5px;margin-top:3px;">
-                    <span style="background:${statusCol[d.status]||'var(--mut)'};color:#fff;padding:2px 8px;border-radius:4px;font-size:10.5px;font-weight:700;">${statusLbl[d.status]||d.status}</span>
-                    ${d.createdAt?` · 建立 ${d.createdAt}`:''}
-                    ${d.decidedAt?` · 決定 ${d.decidedAt}`:''}
-                  </div>
-                </div>
-                <div style="text-align:right;">
-                  <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--pur);">$${fmt(toN(d.amount))}</div>
-                  ${totalCount>0?`<div class="tm" style="font-size:10.5px;margin-top:2px;">財務檢查 ${passCount}/${totalCount}</div>`:''}
-                </div>
-              </div>
-              ${d.notes?`<div style="background:#fff;padding:8px 12px;border-radius:8px;font-size:12.5px;color:var(--brown);line-height:1.7;margin-top:6px;white-space:pre-wrap;">${d.notes}</div>`:''}
-              <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
-                <button onclick="editDecision('${d.id}')" style="background:#fff;border:1px solid var(--bdr);color:var(--brown);padding:5px 12px;border-radius:6px;font-size:11.5px;cursor:pointer;">✏️ 編輯</button>
-                ${d.status==='evaluating'?`
-                  <button onclick="markDecision('${d.id}','buy')" style="background:var(--grn);border:none;color:#fff;padding:5px 12px;border-radius:6px;font-size:11.5px;font-weight:600;cursor:pointer;">✅ 決定買</button>
-                  <button onclick="markDecision('${d.id}','skip')" style="background:#fff;border:1px solid var(--mut);color:var(--mut);padding:5px 12px;border-radius:6px;font-size:11.5px;cursor:pointer;">❌ 決定不買</button>
-                `:`<button onclick="markDecision('${d.id}','evaluating')" style="background:#fff;border:1px solid var(--yelb);color:var(--yelb);padding:5px 12px;border-radius:6px;font-size:11.5px;cursor:pointer;">⏸ 改回評估</button>`}
-                <button onclick="delDecision('${d.id}')" style="background:none;border:1px solid var(--bdr);color:var(--red);padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;">×</button>
-              </div>
-            </div>`;
-          }).join('')}
-        </div>`}
-      </div>`;
-    })()}
-
     <!-- 📊 分類歷年比較（12 個月完整表格） -->
     ${(()=>{
       const outEntries=allEntries.filter(e=>toN(e.amount)<0);
@@ -9913,7 +10122,7 @@ function pgSavings(){
       <div class="card-bd">
         <div class="sg sg3" style="margin-bottom:14px;">
           <div><div class="sl">目前累積</div><div class="sv ${M.monthsCovered>=6?'grn':M.monthsCovered>=3?'gold':'red'} sm">$${fmt(cur)}</div><div class="ss">可撐 ${M.monthsCovered} 個月</div></div>
-          <div><div class="sl">6 個月目標</div><div class="sv blu sm">$${fmt(target6)}</div><div class="ss">月固定支出 × 6</div></div>
+          <div><div class="sl">6 個月目標</div><div class="sv blu sm">$${fmt(target6)}</div><div class="ss">貸款總額 × 6</div></div>
           <div><div class="sl">還差</div><div class="sv ${need===0?'grn':'red'} sm">$${fmt(need)}</div><div class="ss">${monthsToGoal>0?`約 ${monthsToGoal} 個月後達標`:'已達標 🎉'}</div></div>
         </div>
         <div class="pb-lg"><div class="pf" style="width:${pct}%;background:${col};"></div></div>
@@ -10962,6 +11171,54 @@ function modal(){
       </div>
       <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="savePayFixed('${item.id}')" style="background:var(--grn);">✓ 確認已繳</button></div>`;
     }
+  }
+
+  // 💎 新增/編輯投資或儲蓄紀錄
+  if(m.t==='addSavingRecord'||m.t==='editSavingRecord'){
+    const isEdit=m.t==='editSavingRecord';
+    const rec=isEdit?(S.data.savingRecords||[]).find(r=>r.id===m.x)||{}:{};
+    const defType=isEdit?rec.type:(m.x||'invest');
+    const members=S.data.familyMembers||['又權','于蜜','楷宸'];
+    const memCols={'又權':'#3B82F6','于蜜':'#EC4899','楷宸':'#A855F7'};
+    const curMem=rec.member||'';
+    c=`<div class="mttl">${isEdit?'✏️ 編輯':'＋ 記錄'}${defType==='invest'?'💎 投資':'🏦 儲蓄'}</div>
+
+    <div style="margin-bottom:14px;">
+      <label style="display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">類型</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <label style="cursor:pointer;padding:12px;background:${defType==='invest'?'var(--gold)':'#fff'};color:${defType==='invest'?'#fff':'var(--brown)'};border:2px solid ${defType==='invest'?'var(--gold)':'var(--bdr)'};border-radius:10px;text-align:center;font-weight:700;font-size:13px;">
+          <input type="radio" name="sr-type" value="invest" ${defType==='invest'?'checked':''} style="display:none;">
+          💎 投資（ETF/股票/基金）
+        </label>
+        <label style="cursor:pointer;padding:12px;background:${defType==='save'?'#0EA5E9':'#fff'};color:${defType==='save'?'#fff':'var(--brown)'};border:2px solid ${defType==='save'?'#0EA5E9':'var(--bdr)'};border-radius:10px;text-align:center;font-weight:700;font-size:13px;">
+          <input type="radio" name="sr-type" value="save" ${defType==='save'?'checked':''} style="display:none;">
+          🏦 儲蓄（銀行帳戶）
+        </label>
+      </div>
+    </div>
+
+    <div style="margin-bottom:14px;">
+      <label style="display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">🧑‍🤝‍🧑 誰的？</label>
+      <div style="display:grid;grid-template-columns:repeat(${members.length},1fr);gap:8px;">
+        ${members.map(mm=>`<label style="cursor:pointer;padding:10px;background:${curMem===mm?memCols[mm]:'#fff'};color:${curMem===mm?'#fff':'var(--brown)'};border:2px solid ${curMem===mm?memCols[mm]:'var(--bdr)'};border-radius:10px;text-align:center;font-size:13px;font-weight:700;">
+          <input type="radio" name="sr-member" value="${mm}" ${curMem===mm?'checked':''} style="display:none;">
+          ${mm}
+        </label>`).join('')}
+      </div>
+    </div>
+
+    <div class="fg fg2">
+      <div class="fgrp"><label>📅 日期</label><input type="date" id="sr-date" value="${rec.date||today()}"></div>
+      <div class="fgrp"><label>💰 金額</label><input type="number" id="sr-amt" value="${rec.amount||''}" placeholder="0" class="amt-input" style="font-size:17px;font-weight:700;color:var(--goldDk);"></div>
+      <div class="fgrp"><label>🏦 銀行帳戶（儲蓄）</label><input type="text" id="sr-bank" value="${(rec.bank||'').replace(/"/g,'&quot;')}" placeholder="如：玉山活存、中信數位、富邦證券"></div>
+      <div class="fgrp"><label>📈 投資標的（投資）</label><input type="text" id="sr-target" value="${(rec.target||'').replace(/"/g,'&quot;')}" placeholder="如：00891、0050、0056"></div>
+      <div class="fgrp" style="grid-column:1/-1"><label>📝 備註</label><input type="text" id="sr-note" value="${(rec.note||'').replace(/"/g,'&quot;')}" placeholder="說明或備忘"></div>
+    </div>
+
+    <div class="mbtns">
+      <button class="btn btn-s" onclick="closeMod()">取消</button>
+      <button class="btn btn-p" onclick="saveSavingRecord('${isEdit?rec.id:''}')" style="background:var(--gold);">${isEdit?'✓ 儲存變更':'＋ 新增'}</button>
+    </div>`;
   }
 
   // 🎯 收入分配提示（Cardone 40/40/20 經典版）
@@ -13008,6 +13265,53 @@ window.toggleSafetyCheck=async(key,checked)=>{
   if(checked)sc[key]=true;
   else delete sc[key];
   await saveMain({safetyChecks:sc});
+  render();
+};
+
+// 💎 儲存投資/儲蓄紀錄
+window.saveSavingRecord=async(editId)=>{
+  const date=g('sr-date');
+  const amount=toN(g('sr-amt'));
+  const type=(document.querySelector('input[name="sr-type"]:checked')||{}).value||'invest';
+  const member=(document.querySelector('input[name="sr-member"]:checked')||{}).value||'';
+  const bank=g('sr-bank')||'';
+  const target=g('sr-target')||'';
+  const note=g('sr-note')||'';
+  if(!date||amount<=0){alert('請填日期和正數金額');return;}
+  if(!member){alert('請選擇是誰的');return;}
+  const list=[...(S.data.savingRecords||[])];
+  if(editId){
+    const idx=list.findIndex(r=>r.id===editId);
+    if(idx>=0){list[idx]={...list[idx],date,amount,type,member,bank,target,note};}
+  }else{
+    list.push({id:'sr_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),date,amount,type,member,bank,target,note});
+  }
+  await saveMain({savingRecords:list});
+  toast(`✅ ${editId?'已更新':'已記錄'} ${type==='invest'?'💎 投資':'🏦 儲蓄'} $${fmt(amount)}`);
+  closeMod();
+};
+
+window.editSavingRecord=(id)=>{
+  S.modal={t:'editSavingRecord',x:id};
+  render();
+};
+
+window.delSavingRecord=async(id)=>{
+  if(!confirm('確定刪除這筆紀錄？'))return;
+  const list=(S.data.savingRecords||[]).filter(r=>r.id!==id);
+  await saveMain({savingRecords:list});
+  toast('已刪除');
+  render();
+};
+
+// 📅 編輯累積起算日
+window.editCumStart=async()=>{
+  const cur=S.data.cumulativeStartDate||`${yr()}-01-01`;
+  const v=prompt('累積計算的「起算日」（格式：YYYY-MM-DD）\n\n例如：\n· 2026-01-01 → 從今年年初算\n· 2025-01-01 → 從去年算\n· 2024-06-15 → 自訂日期',cur);
+  if(!v)return;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(v)){alert('格式錯誤，請用 YYYY-MM-DD');return;}
+  await saveMain({cumulativeStartDate:v});
+  toast(`✅ 累積起算日改為 ${v}`);
   render();
 };
 
