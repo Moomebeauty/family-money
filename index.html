@@ -454,14 +454,14 @@ function parseTransactionText(text){
 // 流水帳帳本
 const LEDGERS=[
   {id:'food',    name:'🍜 飲食日常雜支', budget:8000, type:'month', cats:['存入','早餐','午餐','晚餐','飲料零食','便利商店','外送','日常用品','其他']},
-  {id:'traffic', name:'🚗 交通費流水帳', budget:10000, type:'month', cats:['存入','加油停車','稅金','汽車保養','機車保養','保險','其他交通']},
-  {id:'utility', name:'💡 水電通訊流水帳', budget:5000, type:'month', cats:['存入','電費','水費','天然氣','WIFI','Netflix','KKbox','Google','手機費','APP','校正','其他']},
+  {id:'traffic', name:'🚗 交通汽機車', budget:10000, type:'month', cats:['存入','加油停車','稅金','汽車保養','機車保養','保險','其他交通']},
+  {id:'utility', name:'💡 水電瓦斯通訊', budget:5000, type:'month', cats:['存入','電費','水費','天然氣','WIFI','Netflix','KKbox','Google','手機費','APP','校正','其他']},
   {id:'beauty',  name:'💄 美麗基金', budget:3000, type:'month', cats:['存入','美髮','美甲','SPA','保養品','彩妝','服飾','其他美容']},
-  {id:'home',    name:'🏠 住家設備修繕', budget:2000, type:'month', cats:['存入','家電修繕','家具','清潔用品','五金','水電維修','其他住家']},
+  {id:'home',    name:'🏠 家庭設備汰舊換新', budget:2000, type:'month', cats:['存入','家電修繕','家具','清潔用品','五金','水電維修','其他住家']},
   {id:'muji',    name:'🌸 沐蜜', budget:3000, type:'month', cats:['存入','沐蜜消費','其他']},
   {id:'travel',  name:'✈️ 旅遊基金', budget:5000, type:'month', cats:['存入','機票','住宿','交通','飲食','門票','伴手禮','其他旅遊']},
-  {id:'union',   name:'🏢 工會保費流水帳', budget:7000, type:'year', cats:['存入','工會費','保險','地價稅','房屋稅','其他']},
-  {id:'gift',    name:'🧧 紅包基金流水帳', budget:5000, type:'year', cats:['存入','又權爸爸','又權媽媽','于蜜媽媽','小朋友','又權阿姨','女兒','于蜜外婆','婉甄','璇璇','婚禮','其他']},
+  {id:'union',   name:'🏢 工會保險稅金', budget:7000, type:'year', cats:['存入','工會費','保險','地價稅','房屋稅','其他']},
+  {id:'gift',    name:'🧧 紅包基金', budget:5000, type:'year', cats:['存入','又權爸爸','又權媽媽','于蜜媽媽','小朋友','又權阿姨','女兒','于蜜外婆','婉甄','璇璇','婚禮','其他']},
 ];
 
 // 取得所有可用帳本（預設+自訂）
@@ -1086,6 +1086,8 @@ let S={
     redEnvelopeItems:{},  // {lid: [{id,name,amount}]}
     // 💎 投資/儲蓄紀錄（可寫銀行/標的）
     savingRecords:[],  // [{id,date,type:'invest'|'save',member,amount,bank,target,note}]
+    // 📝 每個預算儲水池的「用來記錄什麼」說明
+    ledgerDescriptions:{},  // {lid: '文字說明'}
     // 🚨 緊急預備金紀錄（放了多少 + 存在哪）
     emgRecords:[],  // [{id,date,member,amount,bank,note}]
     // 📅 累積起算日
@@ -1183,6 +1185,7 @@ function startSync(){
       S.data.redEnvelopeItems=d.redEnvelopeItems||{};
       S.data.savingRecords=d.savingRecords||[];
       S.data.emgRecords=d.emgRecords||[];
+      S.data.ledgerDescriptions=d.ledgerDescriptions||{};
       S.data.cumulativeStartDate=d.cumulativeStartDate||`${new Date().getFullYear()}-01-01`;
       S.data.investNotes=d.investNotes||{};
     }
@@ -2961,6 +2964,27 @@ function pgFixedNew(){
   const paidCount=fixedItems.filter(f=>(f.paidHistory||{})[monthKey]).length;
   const unpaidCount=fixedItems.length-paidCount;
 
+  // 💳 計算每項的「剩 X / Y 期」
+  const now=new Date();
+  const calcInstallment=(f)=>{
+    if(!f.installmentTotal||!f.installmentStart)return null;
+    const total=toN(f.installmentTotal);
+    const [sy,sm]=f.installmentStart.split('-').map(Number);
+    if(!sy||!sm)return null;
+    const monthsElapsed=(now.getFullYear()*12+now.getMonth()+1)-(sy*12+sm)+1;
+    const current=Math.max(0,Math.min(total,monthsElapsed));
+    const remaining=Math.max(0,total-current);
+    const pct=total>0?Math.round(current/total*100):0;
+    const done=remaining===0;
+    return{total,current,remaining,pct,done};
+  };
+  // 判斷還在進行中的分期
+  const ongoingInstallments=fixedItems.filter(f=>{
+    const info=calcInstallment(f);
+    return info&&!info.done;
+  });
+  const hasOngoing=ongoingInstallments.length>0;
+
   return`
   <div style="max-width:820px;margin:0 auto;">
 
@@ -2989,8 +3013,42 @@ function pgFixedNew(){
       </div>`:''}
     </div>
 
+    <!-- 🚨 分期止血警示（有進行中的分期才顯示） -->
+    ${hasOngoing?`<div style="background:linear-gradient(135deg,#2A0F0F,#4A1515);color:#fff;border:3px solid #FF4444;border-radius:18px;padding:18px 22px;margin-bottom:16px;box-shadow:0 4px 20px rgba(255,68,68,0.3);">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <span style="font-size:28px;animation:pulse 2s infinite;">🚨</span>
+        <div style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:#FFD700;letter-spacing:0.1em;">分期止血警示 · ${ongoingInstallments.length} 筆進行中</div>
+      </div>
+      <div style="font-size:13.5px;line-height:1.9;color:#fff;">
+        在這些分期<b style="color:#FFD700;">完全歸零、燈號熄滅</b>之前：<br>
+        <br>
+        <div style="padding:10px 14px;background:rgba(255,215,0,0.15);border-radius:10px;border-left:3px solid #FFD700;">
+          🔒 <b style="color:#FFD700;">【家庭設備汰舊換新池】口袋立刻進入冷凍狀態</b><br>
+          <span style="color:#FFB4B4;">全家絕對不准再增加任何一筆新的信用卡分期！</span>
+        </div>
+        <div style="margin-top:10px;font-size:12px;color:#FFCCCC;">
+          （換新家電、新 3C、新家具、分期旅遊 — 全部不行，無論促銷再便宜）
+        </div>
+      </div>
+
+      <!-- 進行中的分期一覽 -->
+      <div style="margin-top:12px;background:rgba(255,255,255,0.08);border-radius:10px;padding:10px 14px;">
+        <div style="font-size:11.5px;color:#FFD700;font-weight:700;margin-bottom:6px;">⚡ 進行中的分期（倒數歸零）</div>
+        ${ongoingInstallments.map(f=>{
+          const info=calcInstallment(f);
+          const monthsLeft=info.remaining;
+          const yearsLeft=(monthsLeft/12).toFixed(1);
+          return`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.1);font-size:12.5px;">
+            <span style="color:#fff;">${f.name}</span>
+            <span style="color:#FFD700;font-weight:700;">剩 ${info.remaining}/${info.total} 期 (${yearsLeft} 年)</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+    <style>@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.5;}}</style>`:''}
+
     <!-- 🚨 什麼是個人壞債 + 鋼鐵定律 -->
-    <details style="background:linear-gradient(135deg,#FFF4F4,#fff);border:2px solid var(--red);border-radius:18px;padding:0;margin-bottom:16px;box-shadow:0 4px 16px rgba(226,116,116,0.12);overflow:hidden;" open>
+    <details style="background:linear-gradient(135deg,#FFF4F4,#fff);border:2px solid var(--red);border-radius:18px;padding:0;margin-bottom:16px;box-shadow:0 4px 16px rgba(226,116,116,0.12);overflow:hidden;" ${hasOngoing?'':'open'}>
       <summary style="cursor:pointer;padding:16px 20px;list-style:none;font-weight:700;color:var(--red);font-size:15px;display:flex;justify-content:space-between;align-items:center;">
         <span>🚨 什麼是「個人壞債」？Cardone 鋼鐵定律 ▼</span>
       </summary>
@@ -3076,17 +3134,24 @@ function pgFixedNew(){
       </div>`:fixedItems.map(f=>{
         const paid=(f.paidHistory||{})[monthKey];
         const isPaid=!!paid;
+        const inst=calcInstallment(f);
         return`<div style="padding:14px 4px;border-bottom:1px dashed var(--bdr);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
           <div style="flex:1;min-width:200px;">
             <div style="font-size:15px;color:var(--brown);font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
               ${isPaid?`<span style="color:var(--grn);">✅</span>`:`<span style="color:var(--red);">⚠️</span>`}
               ${f.name||'-'}
               ${isPaid?`<span style="background:var(--grnL);color:var(--grn);font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px;">已繳</span>`:`<span style="background:var(--redL);color:var(--red);font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px;">未繳</span>`}
+              ${inst?(inst.done?`<span style="background:var(--grn);color:#fff;font-size:11px;font-weight:700;padding:2px 10px;border-radius:999px;">✅ 已繳清</span>`:`<span style="background:#FFF4F4;color:var(--red);font-size:11px;font-weight:700;padding:2px 10px;border-radius:999px;border:1px solid var(--red);">💳 剩 ${inst.remaining}/${inst.total} 期</span>`):''}
             </div>
             <div class="tm" style="font-size:11.5px;margin-top:2px;">${f.category||''}${f.payDay?` · 每月 ${f.payDay} 號扣款`:''}${isPaid?` · <b style="color:var(--grn);">${paid.paidDate}</b> · ${paid.paymentMethod==='cash'?'💵 現金':paid.paymentMethod==='transfer'?'🏦 轉帳':paid.paymentMethod==='credit'?`💳 ${paid.cardBank||'信用卡'}`:'—'}`:''}</div>
+            ${inst&&!inst.done?`<div style="margin-top:6px;height:6px;background:#FFE4E4;border-radius:3px;overflow:hidden;">
+              <div style="width:${inst.pct}%;height:100%;background:linear-gradient(90deg,var(--red),#FF6B6B);"></div>
+            </div>
+            <div style="font-size:10px;color:var(--mut);margin-top:2px;">進度 ${inst.pct}% · 已繳 ${inst.current} 期 · 預計再 ${(inst.remaining/12).toFixed(1)} 年歸零</div>`:''}
           </div>
           <div style="text-align:right;flex-shrink:0;">
             <div style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:var(--goldDk);">$${fmt(toN(f.amount))}</div>
+            ${inst?`<div style="font-size:10px;color:var(--mut);margin-top:2px;">總 $${fmt(toN(f.amount)*inst.total)}</div>`:''}
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0;">
             ${isPaid?`<button onclick="unpayFixed('${f.id}')" style="background:var(--bg2);border:1px solid var(--bdr);color:var(--mut);padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">取消繳費</button>`:`<button onclick="openM('payFixed','${f.id}')" style="background:linear-gradient(135deg,var(--grn),#5B9E7A);color:#fff;border:none;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">✓ 標記已繳</button>`}
@@ -9881,26 +9946,34 @@ function pgLedger(){
   <div style="max-width:820px;margin:0 auto;">
 
     <!-- 標題 -->
-    <div style="text-align:center;padding:16px 0;">
+    <div style="text-align:center;padding:16px 0 8px;">
       <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--brown);letter-spacing:0.15em;">${l.name}</div>
       <div class="tm" style="font-size:12px;margin-top:2px;">${yr()} 年 ${S.month} 月</div>
-      <div style="margin-top:8px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">
-        ${(()=>{
-          const owner=(S.data.ledgerOwners||{})[l.id]||'';
-          const ownerLbl={joint:'👨‍👩‍👧 共用公積金',youquan:'💙 又權個人',yumi:'💗 于蜜+楷宸'};
-          const ownerCol={joint:'var(--gold)',youquan:'#3B82F6',yumi:'#EC4899'};
-          const ownerBg={joint:'var(--yel)',youquan:'#DBEAFE',yumi:'#FCE7F3'};
-          return`<button onclick="setLedgerOwner('${l.id}')" style="background:${owner?ownerBg[owner]:'var(--bg2)'};color:${owner?ownerCol[owner]:'var(--mut)'};border:1.5px solid ${owner?ownerCol[owner]:'var(--bdr)'};padding:4px 14px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;">${owner?ownerLbl[owner]:'👆 設定所有人'}</button>`;
-        })()}
-        ${(()=>{
-          const purp=(S.data.ledgerPurpose||{})[l.id]||'';
-          const purpLbl={spend:'① 花費帳戶',saveEmergency:'②A 緊急金',saveGrowth:'②B 增值目標',invest:'③ 投資帳戶'};
-          const purpCol={spend:'#C2747A',saveEmergency:'#7DB89A',saveGrowth:'#0EA5E9',invest:'#C4A46B'};
-          const purpBg={spend:'#fce7e7',saveEmergency:'#e0f2eb',saveGrowth:'#DBEAFE',invest:'#faf3e3'};
-          return`<button onclick="setLedgerPurpose('${l.id}')" style="background:${purp?purpBg[purp]:'var(--bg2)'};color:${purp?purpCol[purp]:'var(--mut)'};border:1.5px solid ${purp?purpCol[purp]:'var(--bdr)'};padding:4px 14px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;">${purp?purpLbl[purp]:'👆 設定帳戶用途'}</button>`;
-        })()}
-      </div>
     </div>
+
+    <!-- 📝 記錄說明標籤（可編輯） -->
+    ${(()=>{
+      const defaultDesc={
+        utility:'電費、水費、天然瓦斯、WiFi、Netflix、KKbox、Google、手機費、APP 訂閱',
+        traffic:'加油、停車費、牌照稅、燃料稅、汽車保養、機車保養、強制險、車體險',
+        union:'工會費、商業保險、地價稅、房屋稅、健保補繳',
+        home:'家電（冰箱/冷氣/洗衣機）、家具、清潔用品、五金維修工具',
+        gift:'過年紅包、長輩紅包、婚喪喜慶、三節禮金、小朋友紅包',
+        travel:'機票、住宿、當地交通、旅途飲食、門票、伴手禮',
+        beauty:'美髮、美甲、SPA、保養品、彩妝、服飾、健身',
+        food:'早餐、午餐、晚餐、飲料零食、便利商店、外送、日常用品',
+        muji:'沐蜜美學工作室相關的個人開銷'
+      };
+      const descs=S.data.ledgerDescriptions||{};
+      const desc=descs[l.id]||defaultDesc[l.id]||'（還沒寫說明 → 點編輯填上）';
+      return`<div style="background:linear-gradient(135deg,#FFF8E7,#fff);border:1.5px dashed var(--gold);border-radius:12px;padding:12px 16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:11px;color:var(--goldDk);font-weight:700;letter-spacing:0.15em;margin-bottom:4px;">📝 這個池用來記錄</div>
+          <div style="font-size:13px;color:var(--brown);line-height:1.6;">${desc}</div>
+        </div>
+        <button onclick="editLedgerDesc('${l.id}')" style="background:var(--gold);color:#fff;border:none;padding:6px 12px;border-radius:999px;font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;">✏️ 編輯說明</button>
+      </div>`;
+    })()}
 
     <!-- 📅 年份切換（在月份上方，順序：先選年 → 再選月） -->
     ${(()=>{
@@ -11858,6 +11931,20 @@ function modal(){
       <div class="fgrp"><label>付款日（每月）</label><input type="number" id="m_day" value="${p.payDay||''}" placeholder="如：15" min="1" max="31"></div>
       <div class="fgrp" style="grid-column:1/-1"><label>備註</label><input type="text" id="m2" value="${(p.note||'').replace(/"/g,'&quot;')}" placeholder="說明或備忘（選填）"></div>
     </div>
+
+    <!-- 💳 分期資訊（可選填，房貸/車貸/信用卡分期） -->
+    <div style="margin-top:12px;padding:12px 14px;background:#FFF4F4;border:1.5px dashed var(--red);border-radius:12px;">
+      <div style="font-size:12.5px;font-weight:700;color:var(--red);margin-bottom:8px;">💳 分期資訊（房貸/車貸/信用卡分期才要填）</div>
+      <div class="fg fg2">
+        <div class="fgrp"><label>總共幾期</label><input type="number" id="m_total" value="${p.installmentTotal||''}" placeholder="如：60（60 期）" min="0"></div>
+        <div class="fgrp"><label>開始繳款月份</label><input type="month" id="m_start" value="${p.installmentStart||''}"></div>
+      </div>
+      <div style="font-size:11px;color:var(--mut);margin-top:6px;line-height:1.5;">
+        💡 填了之後系統會自動算「剩 X/Y 期」倒數<br>
+        · 房貸 20 年 → 填 240 期　｜　車貸 5 年 → 填 60 期　｜　信用卡 12 期 → 填 12
+      </div>
+    </div>
+
     <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="saveFixed(${isEdit?`'${m.editId}'`:''})">✓ ${isEdit?'儲存':'新增'}</button></div>`;
   }
 
@@ -13805,6 +13892,29 @@ window.saveAllocRatios=async()=>{
   closeMod();
 };
 
+// 📝 編輯預算儲水池的「記錄說明」
+window.editLedgerDesc=async(lid)=>{
+  const defaults={
+    utility:'電費、水費、天然瓦斯、WiFi、Netflix、KKbox、Google、手機費、APP 訂閱',
+    traffic:'加油、停車費、牌照稅、燃料稅、汽車保養、機車保養、強制險、車體險',
+    union:'工會費、商業保險、地價稅、房屋稅、健保補繳',
+    home:'家電（冰箱/冷氣/洗衣機）、家具、清潔用品、五金維修工具',
+    gift:'過年紅包、長輩紅包、婚喪喜慶、三節禮金、小朋友紅包',
+    travel:'機票、住宿、當地交通、旅途飲食、門票、伴手禮',
+    beauty:'美髮、美甲、SPA、保養品、彩妝、服飾、健身',
+    food:'早餐、午餐、晚餐、飲料零食、便利商店、外送、日常用品',
+    muji:'沐蜜美學工作室相關的個人開銷'
+  };
+  const descs={...(S.data.ledgerDescriptions||{})};
+  const cur=descs[lid]||defaults[lid]||'';
+  const v=prompt(`編輯這個池的「記錄說明」\n\n用來標示：這個池是記錄哪些花費的\n\n可以用「、」或換行分隔項目`,cur);
+  if(v===null)return;
+  descs[lid]=v;
+  await saveMain({ledgerDescriptions:descs});
+  toast('✅ 說明已更新');
+  render();
+};
+
 // 🎯 編輯緊急預備金目標月數
 window.editEmgTarget=async()=>{
   const cur=S.data.emergencyFundMonths||6;
@@ -14627,16 +14737,18 @@ window.saveFixed=async(editId)=>{
   const subCategoryName=sc?sc.name:'';
   const payDay=n('m_day')||null;
   const note=g('m2')||'';
+  const installmentTotal=n('m_total')||null;
+  const installmentStart=g('m_start')||null;
   const list=[...(S.data.fixedItems||[])];
   if(editId){
     const idx=list.findIndex(f=>f.id===editId);
     if(idx>=0){
-      list[idx]={...list[idx],name,amount,category,categoryId,subCategoryId,subCategoryName,payDay,note};
+      list[idx]={...list[idx],name,amount,category,categoryId,subCategoryId,subCategoryName,payDay,note,installmentTotal,installmentStart};
       await saveMain({fixedItems:list});
       toast(`✅ 已更新「${name}」`);
     }
   }else{
-    list.push({id:uid(),name,amount,category,categoryId,subCategoryId,subCategoryName,payDay,note});
+    list.push({id:uid(),name,amount,category,categoryId,subCategoryId,subCategoryName,payDay,note,installmentTotal,installmentStart});
     await saveMain({fixedItems:list});
     toast('✅ 固定支出已新增');
   }
