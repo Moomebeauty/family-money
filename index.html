@@ -679,7 +679,7 @@ const DEF_FIXED=[
 // ──── 🏆 家庭財富升級系統定義 ─────────────────────────────
 // ═══════════════════════════════════════════════════════════
 const LEVELS=[
-  {lv:1,ico:'🌱',name:'新手村',title:'剛踏上理財之路',color:'#A5C9A1',cond:'開始記帳',unlock:'記帳功能、預備金帳本',story:'每段旅程都從一小步開始。歡迎來到財富之旅。'},
+  {lv:1,ico:'🌱',name:'新手村',title:'剛踏上理財之路',color:'#A5C9A1',cond:'開始記帳',unlock:'記帳功能、預算儲水池',story:'每段旅程都從一小步開始。歡迎來到財富之旅。'},
   {lv:2,ico:'🌿',name:'學徒',title:'學會記錄每一筆',color:'#8FB58B',cond:'緊急預備金 ≥ 1 個月支出',unlock:'目標 GPS、夢想清單',story:'你開始看見錢的流向，第一道安全網正在編織。'},
   {lv:3,ico:'🌳',name:'探索者',title:'抗風險基礎已建立',color:'#7DA478',cond:'緊急預備金 ≥ 3 個月支出',unlock:'進階分析、現金流圖表',story:'三個月的緩衝，讓你睡得更安穩。'},
   {lv:4,ico:'⛰️',name:'山徑',title:'準備好登高',color:'#B8896B',cond:'緊急預備金 ≥ 6 個月支出',unlock:'投資追蹤器、複利試算器、分批加碼提醒',story:'你贏得了「開始投資」的資格。複利的雪球即將滾動。'},
@@ -971,7 +971,7 @@ const PAGES=[
   {id:'quickInc', ico:'💵',lbl:'記一筆收入',group:'main'},
   {id:'quickExp', ico:'💸',lbl:'記一筆支出',group:'main'},
   {id:'expDash',  ico:'📊',lbl:'支出總覽',group:'main'},
-  {id:'ledgerHome',ico:'📒',lbl:'預備金帳本',group:'main'},
+  {id:'ledgerHome',ico:'📒',lbl:'預算儲水池',group:'main'},
   {id:'guardian', ico:'🛡️',lbl:'守財工具箱',group:'main'},
   {id:'insurance',ico:'📋',lbl:'家庭保險簿',group:'main'},
   {id:'settings', ico:'⚙️',lbl:'進階功能',group:'main'},
@@ -986,7 +986,7 @@ const PAGES=[
   {id:'home',     ico:'📊',lbl:'總覽',group:'hidden'},
   {id:'incomes',  ico:'💵',lbl:'收入記帳',group:'hidden'},
   {id:'expenses2',ico:'💸',lbl:'每月支出',group:'hidden'},
-  {id:'ledger',   ico:'📒',lbl:'預備金帳本',group:'hidden'},
+  {id:'ledger',   ico:'📒',lbl:'預算儲水池',group:'hidden'},
   {id:'trends',   ico:'📈',lbl:'趨勢分析',group:'hidden'},
   {id:'coach',    ico:'👨‍🏫',lbl:'財務教練',group:'hidden'},
   {id:'savings2', ico:'🏦',lbl:'每月存款',group:'hidden'},
@@ -1054,14 +1054,14 @@ let S={
     advisorChats:[],      // 情緒踩剎車自我提問 [{id,date,title,amount,q1,q2,q3,q4,q5,verdict,_at}]
     // 🏺 年繳攤提項目（每月存一點準備繳）
     amortizedItems:[],    // [{id,name,category,annualAmount,monthlyAmortize,dueMonth,paidThisYear,paidDate,note}]
-    // 📒 預備金帳本目標金額（by ledger id）
+    // 📒 預算儲水池目標金額（by ledger id）
     ledgerTargets:{},     // {ledger_id: target_amount}
     // 💳 常用信用卡銀行清單（讓下拉快選）
     cardBanks:['中信','玉山','國泰','聯邦','富邦','台新','星展','其他'],
     // 🛡️ 家庭保險簿
     insurancePolicies:[],  // [{id,member,category,company,name,policyNo,expireDate,agent,agentPhone,photo,fields:{},otherNotes,addedDate}]
     familyMembers:['又權','于蜜','楷宸'],  // 家庭成員清單
-    // 📒 預備金帳本自訂分類（by ledger id）
+    // 📒 預算儲水池自訂分類（by ledger id）
     customLedgerCats:{},  // {ledger_id: ['分類A','分類B',...]}
     // 🏷️ 主類別詞庫（連動所有支出/年繳/帳本）
     masterCategories:null,  // 首次載入時填入 DEF_MASTER_CATS
@@ -1284,7 +1284,7 @@ function topBar(){
   </div>
 </div>`;}
 function sidebar(){
-  // 取得所有預備金帳本（動態列出）
+  // 取得所有預算儲水池（動態列出）
   const allLedgers=(typeof getAllLedgers==='function')?getAllLedgers():(S.data.ledgers||[]);
   // 依帳本名稱找 emoji（沒有就用 📁）
   const ledgerIco=(name)=>{
@@ -1317,7 +1317,7 @@ ${PAGES.filter(p=>p.group==='main').map(p=>`<div class="sb-item${S.page===p.id?'
 
 ${allLedgers.length>0?`
 <!-- 分隔線 + 帳本 section -->
-<div class="sb-sec-lbl" style="border-top:1px solid rgba(255,255,255,0.1);padding-top:14px;margin-top:8px;">📒 我的儲蓄帳本</div>
+<div class="sb-sec-lbl" style="border-top:1px solid rgba(255,255,255,0.1);padding-top:14px;margin-top:8px;">📒 預算儲水池</div>
 ${allLedgers.map((l,idx)=>{
   const isActive=S.page==='ledger'&&S.ledgerIdx===idx;
   const ico=ledgerIco(l.name||'');
@@ -1403,7 +1403,7 @@ function page(){
 function computeMonthly(){
   const inc=getInc(true),exp=getExp(true);
   const tInc=inc.reduce((s,i)=>s+toN(i.amount),0);
-  // 排除「來自預備金」的支出（已在預備金帳本扣除過了，避免重複）
+  // 排除「來自預備金」的支出（已在預算儲水池扣除過了，避免重複）
   const realExp=exp.filter(e=>!e.fromLedger&&!e.excludeFromBudget);
   const tExp=realExp.reduce((s,e)=>s+toN(e.amount),0);
   const fixedTotal=(S.data.fixedItems||[]).reduce((s,f)=>s+toN(f.amount),0);
@@ -2514,7 +2514,7 @@ function pgFixedNew(){
 
 // 🛡️ 守財工具箱（3 個功能：冷靜期 + 頭期專款 + 情緒踩剎車）
 // 📊 支出總覽 — 一頁看完預算/實花/付款方式/攤提
-// 📒 預備金帳本總覽（卡片式一目了然）
+// 📒 預算儲水池總覽（卡片式一目了然）
 function pgLedgerHome(){
   const ALL_LEDGERS=getAllLedgers();
   const ldTargets=S.data.ledgerTargets||{}; // 每個帳本的目標金額
@@ -2538,18 +2538,21 @@ function pgLedgerHome(){
     <!-- 標題 -->
     <div style="text-align:center;padding:20px 0 16px;">
       <div style="font-size:48px;">📒</div>
-      <div style="font-family:'Noto Serif TC',serif;font-size:24px;font-weight:700;color:var(--brown);letter-spacing:0.2em;margin-top:4px;">預備金帳本</div>
-      <div class="tm" style="font-size:12.5px;margin-top:4px;">目標型儲蓄一目了然（女兒基金、旅遊、進修等專款專用）</div>
+      <div style="font-family:'Noto Serif TC',serif;font-size:24px;font-weight:700;color:var(--brown);letter-spacing:0.2em;margin-top:4px;">預算儲水池</div>
+      <div class="tm" style="font-size:12.5px;margin-top:4px;">應付「遲早要付、金額可預估」的開銷　·　未來 12 個月剛好夠用</div>
     </div>
 
-    <!-- 💡 使用建議 -->
-    <div style="background:linear-gradient(135deg,var(--purl),#fff);border-radius:14px;padding:14px 18px;margin-bottom:16px;border-left:4px solid var(--pur);">
-      <div style="font-size:12.5px;color:var(--pur);font-weight:700;margin-bottom:4px;">💡 預備金 vs 其他花費</div>
-      <div style="font-size:11.5px;color:var(--brown);line-height:1.7;">
-        · <b>預備金帳本</b> = 有<b>特定目標</b>的存錢桶（女兒教育、旅遊、進修）<br>
-        · <b>日常花費</b>（吃喝、加油、購物）→ 用「💸 記一筆支出」<br>
-        · <b>每月固定</b>（房貸、保險）→ 用「📊 支出總覽 → 固定支出」<br>
-        · <b>年繳大筆</b>（汽保、房稅）→ 用「📊 支出總覽 → 年繳攤提」
+    <!-- 💡 預算儲水池核心概念 -->
+    <div style="background:linear-gradient(135deg,#DBEAFE,#fff);border-radius:14px;padding:16px 20px;margin-bottom:16px;border-left:5px solid #0EA5E9;">
+      <div style="font-family:'Noto Serif TC',serif;font-size:14px;color:#0369A1;font-weight:700;margin-bottom:8px;">💧 預算儲水池 · 第 3 支付順位</div>
+      <div style="font-size:12px;color:var(--brown);line-height:1.9;">
+        🎯 <b>概念</b>：應付「遲早要付、且金額大約可預估」的固定或變動開銷<br>
+        📏 <b>原則</b>：只需要放「未來 12 個月內剛好夠用」的錢<br>
+        🧮 <b>推薦模式</b>：每個池子進去設定「預算模式」→ 系統自動算每月該存多少<br>
+        <br>
+        <b>5 個建議子池：</b><br>
+        · 💡 水電瓦斯通訊池 · 🚗 交通專屬池 · 🛡️ 工會保險稅金池<br>
+        · 🔧 家庭設備汰舊換新池 · 🧧 紅包池
       </div>
     </div>
 
@@ -2773,7 +2776,7 @@ function pgExpDash(){
     };
   }).filter(x=>x);
 
-  // 3️⃣ 預備金帳本支出（ledgerEntries 負數）
+  // 3️⃣ 預算儲水池支出（ledgerEntries 負數）
   const ledgerExps=(S.data.ledgerEntries||[]).filter(e=>{
     return e.month===S.month&&e.year===yr()&&toN(e.amount)<0;
   }).map(e=>{
@@ -2952,7 +2955,7 @@ function pgExpDash(){
         <div style="background:#fff;border-radius:10px;padding:12px 14px;border-left:4px solid var(--rose);">
           <div style="font-size:12.5px;color:var(--roseDk);font-weight:700;">📒 從基金花的</div>
           <div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:var(--roseDk);margin-top:4px;">$${fmt(ledgerTotal)}</div>
-          <div class="tm" style="font-size:10.5px;margin-top:2px;">預備金帳本支出</div>
+          <div class="tm" style="font-size:10.5px;margin-top:2px;">預算儲水池支出</div>
         </div>
       </div>
     </div>
@@ -4542,7 +4545,7 @@ function pgExpensesNew(){
   const byCat={};
   expForShow.forEach(e=>{const c=e.category||e.cat||'其他';byCat[c]=(byCat[c]||0)+toN(e.amount);});
 
-  // 預備金帳本（攤提）
+  // 預算儲水池（攤提）
   const ALL_LEDGERS=getAllLedgers();
 
   return`
@@ -4632,8 +4635,8 @@ function pgExpensesNew(){
           <div style="font-size:12px;color:var(--mut);">${ccExp.length} 筆${ccFromLedger>0?`　／　⛓️ ${ccFromLedger} 筆已連動預備金`:''}</div>
         </div>
         ${ccFromLedger>0?`<div class="notice tip" style="font-size:12.5px;margin-bottom:12px;background:var(--purl);">
-          💡 標記 ⛓️ 的記錄已連動到預備金帳本，避免重複計算到「變動支出」。<br>
-          它們的實際扣款發生在預備金帳本內，不算在「本月總支出」裡。
+          💡 標記 ⛓️ 的記錄已連動到預算儲水池，避免重複計算到「變動支出」。<br>
+          它們的實際扣款發生在預算儲水池內，不算在「本月總支出」裡。
         </div>`:''}
         <div style="margin-bottom:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;">
           ${Object.entries(byBank).sort((a,b)=>b[1]-a[1]).map(([b,v])=>`<div style="padding:8px 12px;background:var(--bg2);border-radius:8px;text-align:center;">
@@ -4695,10 +4698,10 @@ function pgExpensesNew(){
     </div>
   </div>
 
-  <!-- 預備金帳本（攤提） -->
+  <!-- 預算儲水池（攤提） -->
   <div class="card">
     <div class="card-hd">
-      <span class="card-ttl">📒 預備金帳本（每月攤提準備）</span>
+      <span class="card-ttl">📒 預算儲水池（每月攤提準備）</span>
       <button class="btn btn-s btn-sm" onclick="setP('ledger')">→ 詳細頁</button>
     </div>
     <div class="card-bd">
@@ -4707,7 +4710,7 @@ function pgExpensesNew(){
         每月先「攤提」存進去，真的要花時就有錢，不會臨時掏錢手忙腳亂。<br>
         <b>👇 點下方任一帳本的「＋ 記一筆」可以直接記到那本</b>
       </div>
-      ${ALL_LEDGERS.length===0?'<div class="empty" style="padding:20px;">還沒設定預備金帳本</div>':`
+      ${ALL_LEDGERS.length===0?'<div class="empty" style="padding:20px;">還沒設定預算儲水池</div>':`
       <div style="display:grid;grid-template-columns:1fr;gap:8px;">
         ${ALL_LEDGERS.map((l,idx)=>{
           const entries=getLedgerAll(l.id);
@@ -6189,7 +6192,7 @@ function pgHome(){
     <div class="card-bd">
       <div class="sg sg4">
         <button onclick="setP('cc')" style="padding:18px;border:1.5px solid var(--bdr);border-radius:var(--r-sm);background:var(--card);cursor:pointer;text-align:center;transition:all .25s;"><div style="font-size:32px;margin-bottom:6px;">💳</div><div style="font-weight:700;color:var(--brown);">信用卡</div></button>
-        <button onclick="setP('ledger')" style="padding:18px;border:1.5px solid var(--bdr);border-radius:var(--r-sm);background:var(--card);cursor:pointer;text-align:center;transition:all .25s;"><div style="font-size:32px;margin-bottom:6px;">📒</div><div style="font-weight:700;color:var(--brown);">預備金帳本</div></button>
+        <button onclick="setP('ledger')" style="padding:18px;border:1.5px solid var(--bdr);border-radius:var(--r-sm);background:var(--card);cursor:pointer;text-align:center;transition:all .25s;"><div style="font-size:32px;margin-bottom:6px;">📒</div><div style="font-weight:700;color:var(--brown);">預算儲水池</div></button>
         <button onclick="setP('budget')" style="padding:18px;border:1.5px solid var(--bdr);border-radius:var(--r-sm);background:var(--card);cursor:pointer;text-align:center;transition:all .25s;"><div style="font-size:32px;margin-bottom:6px;">📋</div><div style="font-weight:700;color:var(--brown);">預算</div></button>
         <button onclick="setP('networth')" style="padding:18px;border:1.5px solid var(--bdr);border-radius:var(--r-sm);background:var(--card);cursor:pointer;text-align:center;transition:all .25s;"><div style="font-size:32px;margin-bottom:6px;">💎</div><div style="font-weight:700;color:var(--brown);">資產負債</div></button>
       </div>
@@ -6240,10 +6243,10 @@ function pgMonthlyEntry(){
         ❌ 錯誤：再記一筆 $20,000 支出 → 重複！<br><br>
 
         <b style="color:var(--gold);">3. 預備金存入 ≠ 支出</b><br>
-        舉例：5/5 從薪水撥 $5,833 進「保險預備金帳本」<br>
-        ✅ 正確：在預備金帳本記「存入 +5833」（這是「分流」不是支出）<br>
+        舉例：5/5 從薪水撥 $5,833 進「保險預算儲水池」<br>
+        ✅ 正確：在預算儲水池記「存入 +5833」（這是「分流」不是支出）<br>
         ❌ 錯誤：當成支出記 → 重複！<br><br>
-        ✅ 真正支出在 5 月扣保險時：在預備金帳本記「-6000」<br><br>
+        ✅ 真正支出在 5 月扣保險時：在預算儲水池記「-6000」<br><br>
 
         <b style="color:var(--pur);font-size:16px;">📐 各類支出應該記在哪？</b>
       </div>
@@ -6251,8 +6254,8 @@ function pgMonthlyEntry(){
         <thead><tr><th>支出類型</th><th>記在哪</th><th>備註</th></tr></thead>
         <tbody>
           <tr><td><b>房貸／車貸／房租／分期</b></td><td><span class="bdg" style="background:var(--red);color:#fff;">📌 月固定支出</span></td><td class="tm">銀行直接扣款，金額固定</td></tr>
-          <tr><td><b>水電瓦斯／通訊／交通</b></td><td><span class="bdg" style="background:var(--blu);color:#fff;">📒 預備金帳本</span></td><td class="tm">每月變動，先存入帳本再扣</td></tr>
-          <tr><td><b>保險／稅金／紅包／年費</b></td><td><span class="bdg" style="background:var(--gold);color:#fff;">📒 預備金帳本（年度）</span></td><td class="tm">每月攤提先存，到期扣款</td></tr>
+          <tr><td><b>水電瓦斯／通訊／交通</b></td><td><span class="bdg" style="background:var(--blu);color:#fff;">📒 預算儲水池</span></td><td class="tm">每月變動，先存入帳本再扣</td></tr>
+          <tr><td><b>保險／稅金／紅包／年費</b></td><td><span class="bdg" style="background:var(--gold);color:#fff;">📒 預算儲水池（年度）</span></td><td class="tm">每月攤提先存，到期扣款</td></tr>
           <tr><td><b>現金消費（餐廳、便利商店等）</b></td><td><span class="bdg" style="background:var(--acc);color:#fff;">🧾 支出記帳</span></td><td class="tm">日常變動支出</td></tr>
           <tr><td><b>信用卡刷卡消費</b></td><td><span class="bdg" style="background:var(--pur);color:#fff;">💳 信用卡明細</span></td><td class="tm">不要再記到支出記帳！</td></tr>
           <tr><td><b>信用卡帳單繳費</b></td><td><span class="bdg" style="background:var(--mut);color:#fff;">❌ 不要記</b></td><td class="tm">這只是把之前刷卡的錢實際付掉</td></tr>
@@ -6674,7 +6677,7 @@ function pgSettings(){
   const catCount=getMasterCats().length;
   return`
   <div class="pg-ttl">⚙️ 設定</div>
-  <div class="pg-sub">家庭資料、保單、固定支出、信用卡、預備金帳本等進階設定</div>
+  <div class="pg-sub">家庭資料、保單、固定支出、信用卡、預算儲水池等進階設定</div>
 
   <div class="sg sg2">
     <button onclick="setP('safetyNet')" style="padding:24px;border:2px solid #7DB89A;border-radius:var(--r-sm);background:linear-gradient(135deg,#1a3328,#2d5540);cursor:pointer;text-align:left;transition:all .25s;display:flex;gap:18px;align-items:center;color:#fff;">
@@ -6731,7 +6734,7 @@ function pgSettings(){
     <button onclick="setP('ledger')" style="padding:24px;border:1.5px solid var(--bdr);border-radius:var(--r-sm);background:var(--card);cursor:pointer;text-align:left;transition:all .25s;display:flex;gap:18px;align-items:center;">
       <div style="font-size:42px;flex-shrink:0;">📒</div>
       <div style="flex:1;">
-        <div style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:var(--brown);letter-spacing:0.08em;">預備金帳本</div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:17px;font-weight:700;color:var(--brown);letter-spacing:0.08em;">預算儲水池</div>
         <div class="tm" style="margin-top:4px;">${getAllLedgers().length} 本　／　水電、交通、保險、紅包</div>
       </div>
       <div style="font-size:24px;color:var(--acc);">→</div>
@@ -7620,7 +7623,7 @@ function pgAllocate(){
         </div>
         <div style="padding:14px 18px;background:var(--bg2);border-radius:10px;border-left:4px solid var(--acc);">
           <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--acc);">🎁 3. 短期目標　${cfg.percentages?.shortTerm||15}%</div>
-          <div class="tm" style="font-size:12.5px;margin-top:6px;line-height:1.7;">📍 旅遊基金、孝親基金、家庭添購、孩子教育<br>📍 系統內用「預備金帳本」分流管理<br>📍 想花這些錢時 → 從這帳戶出 → 不會有罪惡感</div>
+          <div class="tm" style="font-size:12.5px;margin-top:6px;line-height:1.7;">📍 旅遊基金、孝親基金、家庭添購、孩子教育<br>📍 系統內用「預算儲水池」分流管理<br>📍 想花這些錢時 → 從這帳戶出 → 不會有罪惡感</div>
         </div>
         <div style="padding:14px 18px;background:var(--bg2);border-radius:10px;border-left:4px solid var(--gold);">
           <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--gold);">🏡 4. 買房頭期款　${cfg.percentages?.house||10}%</div>
@@ -8676,7 +8679,7 @@ function pgFixed(){
   <div class="notice tip" style="margin-bottom:14px;">
     ⚠️ <b>避免重複記支出！</b>請仔細閱讀以下原則：<br>
     ✅ <b>放這裡：</b>「每月一定金額」且「直接從銀行扣款」的（房貸、車貸、房租、分期）<br>
-    ❌ <b>不要放這裡：</b>水電費（金額會變、應放預備金帳本）、保險費（年費、應放預備金帳本）<br>
+    ❌ <b>不要放這裡：</b>水電費（金額會變、應放預算儲水池）、保險費（年費、應放預算儲水池）<br>
     ❌ <b>不要放這裡：</b>信用卡帳單繳費（這只是「之前刷卡的實際扣款」，不是新支出）
   </div>
 
@@ -9182,7 +9185,7 @@ function pgCC(){
           <span style="font-weight:700;color:var(--red);">已選 <span id="cc-bulk-count">0</span> 筆</span>
           <button class="btn btn-d btn-sm" onclick="delSelectedCC()" style="background:var(--red);color:#fff;">🗑 刪除已選</button>
           <button class="btn btn-s btn-sm" onclick="clearCCSelection()">取消選取</button>
-          <span class="tm" style="margin-left:auto;font-size:12px;">⚠️ 若被選的有「⛓️ 預備金」記錄，會一併同步刪除預備金帳本對應記錄</span>
+          <span class="tm" style="margin-left:auto;font-size:12px;">⚠️ 若被選的有「⛓️ 預備金」記錄，會一併同步刪除預算儲水池對應記錄</span>
         </div>
         <div class="tw"><table>
           <thead><tr>
@@ -10373,7 +10376,7 @@ function modal(){
     <div class="fg fg2">
       <div class="fgrp"><label>日期 ${(()=>{const t=new Date();return S.month!==t.getMonth()+1||yr()!==t.getFullYear()?`<span style="color:var(--gold);font-size:11px;font-weight:600;">（已自動設為${S.month}月）</span>`:'';})()}</label><input type="date" id="m0" value="${smartDateForMonth(S.month,yr())}"></div>
       <div class="fgrp"><label>金額（元）</label><input type="number" id="m1" placeholder="0"></div>
-      <div class="fgrp" style="grid-column:1/-1;"><label>📒 同步到預備金帳本（選用）<span style="color:var(--mut);font-size:11px;font-weight:500;">　選了會自動扣預備金 & 類別變細項</span></label>
+      <div class="fgrp" style="grid-column:1/-1;"><label>📒 同步到預算儲水池（選用）<span style="color:var(--mut);font-size:11px;font-weight:500;">　選了會自動扣預備金 & 類別變細項</span></label>
         <select id="m_le" onchange="updateAddExpCats(this.value)" style="border:1.5px solid var(--bdr);">
           <option value="">不同步（純信用卡明細）</option>
           ${ALL_LED.map(l=>`<option value="${l.id}">${l.name}</option>`).join('')}
@@ -11018,7 +11021,7 @@ function modal(){
           💡 建議存入：${p.ledgers.map(l=>l.name).join('、')}
         </div>`:`<div style="margin-top:8px;padding:8px 10px;background:var(--redl);border-radius:6px;font-size:11.5px;color:var(--red);">
           ⚠️ 還沒有「${p.ttl}」類帳本<br>
-          請去預備金帳本首頁 → 點每個帳本 → 設定「帳戶用途」
+          請去預算儲水池首頁 → 點每個帳本 → 設定「帳戶用途」
         </div>`}
       </div>`).join('')}
     </div>
@@ -11228,7 +11231,7 @@ function modal(){
     </div>`;
   }
 
-  // ─── 📋 預備金帳本批次輸入 modal ───
+  // ─── 📋 預算儲水池批次輸入 modal ───
   if(m.t==='batchLE'){const ALL=getAllLedgers();const l=ALL[S.ledgerIdx]||ALL[0];const banks=getBanks();const ledgerType=getLedgerType(l.id);
     if(!S.importStaging||S.importStaging.length===0||S.importStaging[0]?._kind!=='LE'){
       S.importStaging=Array.from({length:5},(_,i)=>({
@@ -11459,7 +11462,7 @@ function modal(){
   }
 
   // ─── ➕ 新增自訂帳本 modal ───
-  if(m.t==='addLedger'){const ICONS=['📒','💰','📚','🚗','🎓','💊','🎁','💎','🏖️','🐈','🐶','🍼','💼','⚽','🎮'];c=`<div class="mttl">➕ 新增預備金帳本</div>
+  if(m.t==='addLedger'){const ICONS=['📒','💰','📚','🚗','🎓','💊','🎁','💎','🏖️','🐈','🐶','🍼','💼','⚽','🎮'];c=`<div class="mttl">➕ 新增預算儲水池</div>
     <div class="notice info" style="font-size:13.5px;margin-bottom:14px;">
       💡 用於記錄未來會有的大筆支出，例如「學費預備」「車輛保養」「股票股利」「孩子大學基金」等。
     </div>
@@ -12056,7 +12059,7 @@ function modal(){
       </div>
     </div>
     <div class="notice info" style="font-size:13.5px;margin-bottom:10px;">
-      💡 <b>使用步驟：</b>1) 輸入每筆 → 2) 自動猜類別 → 3) <b>每筆可單獨指定預備金帳本</b> → 4) 確認儲存<br>
+      💡 <b>使用步驟：</b>1) 輸入每筆 → 2) 自動猜類別 → 3) <b>每筆可單獨指定預算儲水池</b> → 4) 確認儲存<br>
       📌 <b>退款</b>請按金額欄左邊「+/−」按鈕切換為負數（綠色 = 退款）<br>
       📌 <b>單筆指定預備金</b>：每行最右邊有預備金欄位下拉，可一筆飲食、一筆美麗，混搭自由
     </div>
@@ -12837,7 +12840,7 @@ window.openLedgerEntry=(idx)=>{
   S.modal={t:'addLE'};
   render();
 };
-// 📅 預備金帳本：切換檢視年份
+// 📅 預算儲水池：切換檢視年份
 window.setLedgerYear=(y)=>{
   S.ledgerViewYear=y;
   render();
@@ -13531,7 +13534,7 @@ window.editFixed=(id)=>{
   render();
 };
 
-// 📒 預備金帳本：設定目標金額
+// 📒 預算儲水池：設定目標金額
 window.editLedgerTarget=async(lid,lname)=>{
   const cur=toN((S.data.ledgerTargets||{})[lid])||0;
   const v=prompt(`為「${lname}」設定目標金額？\n\n例如：\n· 女兒教育基金 → 200000\n· 家庭旅遊基金 → 50000\n· 緊急預備金 → 180000（6 個月生活費）\n· 進修基金 → 30000\n\n目前目標：$${fmt(cur)}\n（輸入 0 = 取消目標）`,cur);
@@ -13545,7 +13548,7 @@ window.editLedgerTarget=async(lid,lname)=>{
   render();
 };
 
-// 📒 預備金帳本：快速存入一筆
+// 📒 預算儲水池：快速存入一筆
 window.quickLedgerDeposit=async(lid,lname)=>{
   const amt=prompt(`為「${lname}」存入多少錢？\n\n（會記錄在 ${S.ledgerViewYear||yr()} 年 ${S.month} 月）`,'');
   if(amt===null)return;
@@ -13571,7 +13574,7 @@ window.quickLedgerDeposit=async(lid,lname)=>{
   render();
 };
 
-// 📒 預備金帳本：快速花出一筆
+// 📒 預算儲水池：快速花出一筆
 window.quickLedgerSpend=async(lid,lname)=>{
   const amt=prompt(`從「${lname}」花掉多少錢？\n\n（會記錄在 ${S.ledgerViewYear||yr()} 年 ${S.month} 月）`,'');
   if(amt===null)return;
@@ -14734,7 +14737,7 @@ window.updateStageSubCat=(i,subId)=>{
   S.importStaging[i].subCategoryId=subId;
   S.importStaging[i].subCategoryName=sc?sc.name:'';
 };
-// 📒 批次輸入：選了預備金帳本後 → 只切換視覺（類別已統一用主類別，不變動）
+// 📒 批次輸入：選了預算儲水池後 → 只切換視覺（類別已統一用主類別，不變動）
 window.updateLedgerAndCats=(i,lid)=>{
   if(!S.importStaging[i])return;
   S.importStaging[i].ledgerId=lid;
@@ -15050,7 +15053,7 @@ window.saveAccount=async(id)=>{
 };
 
 window.delAccount=async(id)=>{
-  if(!confirm('確認刪除此帳戶？\n（不會影響到對應的預備金帳本或記錄）'))return;
+  if(!confirm('確認刪除此帳戶？\n（不會影響到對應的預算儲水池或記錄）'))return;
   await saveMain({accounts:(S.data.accounts||[]).filter(a=>a.id!==id)});
   toast('已刪除');
 };
@@ -15301,7 +15304,7 @@ window.clearCCSelection=()=>{
 window.delSelectedCC=async()=>{
   const checked=document.querySelectorAll('.cc-select:checked');
   if(checked.length===0){alert('請先勾選要刪除的明細');return;}
-  if(!confirm(`⚠️ 確定刪除 ${checked.length} 筆刷卡明細？\n（若有連動到預備金帳本，也會一併刪除）\n\n此動作無法復原。`))return;
+  if(!confirm(`⚠️ 確定刪除 ${checked.length} 筆刷卡明細？\n（若有連動到預算儲水池，也會一併刪除）\n\n此動作無法復原。`))return;
 
   setSyncing('syncing');
   let deleted=0,linkedDeleted=0;
@@ -15336,14 +15339,14 @@ window.delThisMonthCC=async()=>{
     return false;
   });
   if(targets.length===0){alert(`${y} 年 ${mo} 月沒有任何信用卡明細`);return;}
-  if(!confirm(`⚠️ 確定要刪除 ${y} 年 ${mo} 月的全部 ${targets.length} 筆信用卡明細？\n\n📌 此動作會：\n• 刪除所有 ${mo} 月的信用卡刷卡記錄\n• 如果有同步到預備金帳本，會一併把對應的預備金支出刪除\n\n⚠️ 無法復原，請確認！`))return;
+  if(!confirm(`⚠️ 確定要刪除 ${y} 年 ${mo} 月的全部 ${targets.length} 筆信用卡明細？\n\n📌 此動作會：\n• 刪除所有 ${mo} 月的信用卡刷卡記錄\n• 如果有同步到預算儲水池，會一併把對應的預備金支出刪除\n\n⚠️ 無法復原，請確認！`))return;
   if(!confirm(`再次確認：真的要刪除 ${targets.length} 筆嗎？`))return;
 
   setSyncing('syncing');
   try{
     let deleted=0,linkedDeleted=0;
     for(const t of targets){
-      // 連動刪除預備金帳本對應記錄
+      // 連動刪除預算儲水池對應記錄
       if(t.linkId){
         const linked=(S.data.ledgerEntries||[]).filter(le=>le.linkId===t.linkId);
         for(const l of linked){await delSub('ledgerEntries',l.id);linkedDeleted++;}
@@ -15408,7 +15411,7 @@ window.confirmBatchLE=async(ledgerId)=>{
       const ledgerAmount=-amount;
       const linkId=it.cardBank?'lnk_'+Date.now()+'_'+cnt:null;
 
-      // 1. 寫入預備金帳本
+      // 1. 寫入預算儲水池
       await addDoc(collection(db,'families',FID,'ledgerEntries'),{
         lid:ledgerId,
         date:it.date||today(),
@@ -15512,7 +15515,7 @@ window.confirmImport=async()=>{
       }
       await addDoc(collection(db,'families',FID,'expenses'),newExp);
 
-      // 同步到該筆指定的預備金帳本
+      // 同步到該筆指定的預算儲水池
       if(itLedger){
         await addDoc(collection(db,'families',FID,'ledgerEntries'),{
           lid:itLedger.id,
