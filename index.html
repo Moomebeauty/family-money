@@ -3174,15 +3174,21 @@ function pgQuickExpense(){
       <!-- 頻率（一次性/每月/年繳提醒） -->
       <div style="margin-bottom:20px;">
         <label style="display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">性質</label>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
-          <label style="cursor:pointer;padding:10px 6px;background:#fff;border:2px solid var(--bdr);border-radius:10px;text-align:center;font-size:12.5px;font-weight:600;color:var(--brown);">
-            <input type="radio" name="qe-freq" value="once" checked style="margin-right:4px;">一次性
+        <div class="qe-freq-grp" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;">
+          <label onclick="selFreq('once')" data-freq="once" class="qe-freq-chip active" style="cursor:pointer;padding:12px 6px;background:linear-gradient(135deg,var(--rose),var(--roseDk));color:#fff;border:2px solid var(--roseDk);border-radius:10px;text-align:center;font-size:13px;font-weight:700;transition:all 0.15s;line-height:1.4;">
+            <input type="radio" name="qe-freq" value="once" checked style="display:none;">
+            <div style="font-size:20px;line-height:1;">📝</div>
+            <div style="margin-top:3px;">一次性</div>
           </label>
-          <label style="cursor:pointer;padding:10px 6px;background:#fff;border:2px solid var(--bdr);border-radius:10px;text-align:center;font-size:12.5px;font-weight:600;color:var(--brown);">
-            <input type="radio" name="qe-freq" value="monthly" style="margin-right:4px;">每月固定
+          <label onclick="selFreq('monthly')" data-freq="monthly" class="qe-freq-chip" style="cursor:pointer;padding:12px 6px;background:#fff;color:var(--brown);border:2px solid var(--bdr);border-radius:10px;text-align:center;font-size:13px;font-weight:700;transition:all 0.15s;line-height:1.4;">
+            <input type="radio" name="qe-freq" value="monthly" style="display:none;">
+            <div style="font-size:20px;line-height:1;">📅</div>
+            <div style="margin-top:3px;">每月固定</div>
           </label>
-          <label style="cursor:pointer;padding:10px 6px;background:#fff;border:2px solid var(--bdr);border-radius:10px;text-align:center;font-size:12.5px;font-weight:600;color:var(--brown);">
-            <input type="radio" name="qe-freq" value="amortized" style="margin-right:4px;">年繳大筆
+          <label onclick="selFreq('amortized')" data-freq="amortized" class="qe-freq-chip" style="cursor:pointer;padding:12px 6px;background:#fff;color:var(--brown);border:2px solid var(--bdr);border-radius:10px;text-align:center;font-size:13px;font-weight:700;transition:all 0.15s;line-height:1.4;">
+            <input type="radio" name="qe-freq" value="amortized" style="display:none;">
+            <div style="font-size:20px;line-height:1;">🏺</div>
+            <div style="margin-top:3px;">年繳大筆</div>
           </label>
         </div>
         <div class="tm" style="font-size:11px;margin-top:6px;line-height:1.5;">💡 <b>每月固定</b>會轉存到「固定支出」　<b>年繳大筆</b>會轉存到「年繳攤提」</div>
@@ -14833,6 +14839,27 @@ window.selPay=(method)=>{
   // 顯示 / 隱藏信用卡選單
   const cardWrap=document.getElementById('qe-card-wrap');
   if(cardWrap)cardWrap.style.display=method==='credit'?'block':'none';
+};
+
+// 📌 選「性質」(一次性/每月固定/年繳大筆)
+window.selFreq=(freq)=>{
+  document.querySelectorAll('input[name="qe-freq"]').forEach(r=>{r.checked=(r.value===freq);});
+  document.querySelectorAll('.qe-freq-chip').forEach(lbl=>{
+    const isActive=lbl.getAttribute('data-freq')===freq;
+    if(isActive){
+      lbl.style.background='linear-gradient(135deg,var(--rose),var(--roseDk))';
+      lbl.style.color='#fff';
+      lbl.style.borderColor='var(--roseDk)';
+      lbl.style.transform='translateY(-1px)';
+      lbl.style.boxShadow='0 4px 12px rgba(194,116,122,0.3)';
+    }else{
+      lbl.style.background='#fff';
+      lbl.style.color='var(--brown)';
+      lbl.style.borderColor='var(--bdr)';
+      lbl.style.transform='translateY(0)';
+      lbl.style.boxShadow='none';
+    }
+  });
 };
 
 // 🛡️ 守財工具箱 — 6 個 actions
