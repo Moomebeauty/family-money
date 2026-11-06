@@ -3146,6 +3146,27 @@ function pgQuickExpense(){
         </select>
       </div>
 
+      <!-- 📸 收據照片（給大額採購用：Costco / 一次買很多） -->
+      <div style="margin-bottom:14px;">
+        <label style="display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">📸 收據照片（選填）</label>
+        <div style="font-size:11px;color:var(--mut);margin-bottom:8px;line-height:1.5;">💡 大額採購（Costco/全聯）建議附收據，之後要查明細一目了然</div>
+        <!-- 拍照/選檔按鈕 -->
+        <div id="qe-receipt-wrap" style="display:flex;gap:8px;">
+          <label for="qe-receipt-input" style="flex:1;cursor:pointer;padding:12px;background:#fff;border:2px dashed var(--gold);border-radius:10px;text-align:center;font-size:13px;font-weight:600;color:var(--goldDk);display:flex;align-items:center;justify-content:center;gap:6px;">
+            📸 拍照 / 選擇照片
+          </label>
+          <input type="file" id="qe-receipt-input" accept="image/*" capture="environment" style="display:none;" onchange="handleReceiptSelect(event)">
+        </div>
+        <!-- 預覽縮圖 -->
+        <div id="qe-receipt-preview" style="display:none;margin-top:10px;position:relative;">
+          <img id="qe-receipt-img" style="width:100%;max-height:200px;object-fit:contain;border-radius:10px;border:1.5px solid var(--bdr);background:#fff;">
+          <button type="button" onclick="clearReceipt()" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.6);color:#fff;border:none;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:15px;line-height:1;">×</button>
+          <div id="qe-receipt-info" style="margin-top:4px;font-size:10.5px;color:var(--mut);text-align:center;"></div>
+        </div>
+        <!-- 用來暫存壓縮後的 base64 -->
+        <input type="hidden" id="qe-receipt-data" value="">
+      </div>
+
       <!-- 🪣 從哪個預算池扣（刷卡痛感設計：讓池子立刻變少） -->
       <div style="margin-bottom:14px;background:linear-gradient(135deg,#F0F9FF,#fff);border:2px dashed #0EA5E9;border-radius:14px;padding:14px 16px;">
         <label style="display:block;font-size:13px;font-weight:700;color:#0369A1;margin-bottom:8px;">🪣 從哪個預算池扣？</label>
@@ -3224,12 +3245,16 @@ function pgQuickExpense(){
           <tbody>
             ${exps.slice(0,50).map(e=>{
               const payTxt=e.paymentMethod==='cash'?'💵 現金':e.paymentMethod==='transfer'?'🏦 轉帳':e.paymentMethod==='credit'?`💳 ${e.cardBank||'信用卡'}`:(e.payMethod||'');
+              const hasReceipt=!!e.receiptPhoto;
               return`<tr style="border-bottom:1px dashed var(--bdr);">
                 <td style="padding:12px 8px;color:var(--brown);white-space:nowrap;">${e.date||''}</td>
                 <td style="padding:12px 8px;"><span style="background:var(--bg2);color:var(--brown);padding:3px 10px;border-radius:8px;font-size:12px;font-weight:600;">${getCatDisplay(e)}</span></td>
                 <td style="padding:12px 8px;text-align:right;font-family:'Noto Serif TC',serif;font-weight:700;color:var(--red);">$${fmt(toN(e.amount))}</td>
                 <td style="padding:12px 8px;color:var(--brown);white-space:nowrap;"><span style="background:var(--bg2);padding:2px 8px;border-radius:6px;font-size:11.5px;">${payTxt}</span></td>
-                <td style="padding:12px 8px;color:var(--mut);font-size:12.5px;">${e.item||''}</td>
+                <td style="padding:12px 8px;color:var(--mut);font-size:12.5px;">
+                  ${hasReceipt?`<button onclick="viewExpenseReceipt('${e.id}')" style="background:var(--gold);color:#fff;border:none;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;margin-right:4px;" title="看收據">📷</button>`:''}
+                  ${e.item||''}
+                </td>
                 <td style="padding:12px 4px;text-align:right;white-space:nowrap;">
                   <button onclick="openM('editExp','${e.id}')" style="background:none;border:none;color:var(--mut);font-size:15px;cursor:pointer;padding:2px 4px;" title="編輯">✏️</button>
                   <button onclick="delExp('${e.id}')" style="background:none;border:none;color:var(--red);font-size:18px;cursor:pointer;padding:2px 4px;">×</button>
@@ -12376,6 +12401,26 @@ function modal(){
         <select id="m_cb">${banks.map(b=>`<option${b===(exp.cardBank||'')?' selected':''}>${b}</option>`).join('')}</select>
       </div>
       <div class="fgrp" style="grid-column:1/-1"><label>備註</label><input type="text" id="m5" value="${exp.note||''}"></div>
+      <!-- 📸 收據照片 -->
+      <div class="fgrp" style="grid-column:1/-1">
+        <label>📸 收據照片</label>
+        <input type="hidden" id="m_receipt" value="${exp.receiptPhoto||''}">
+        <div id="m_receipt_zone">
+          ${exp.receiptPhoto?`
+            <div style="position:relative;">
+              <img src="${exp.receiptPhoto}" onclick="viewReceipt(this.src)" style="width:100%;max-height:200px;object-fit:contain;border-radius:10px;border:1.5px solid var(--bdr);background:#fff;cursor:zoom-in;">
+              <button type="button" onclick="clearModReceipt()" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.6);color:#fff;border:none;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:15px;line-height:1;">×</button>
+            </div>
+            <div style="margin-top:6px;text-align:center;">
+              <label for="m_receipt_input" style="cursor:pointer;color:var(--gold);font-size:12px;text-decoration:underline;">📸 換一張</label>
+              <input type="file" id="m_receipt_input" accept="image/*" capture="environment" style="display:none;" onchange="handleModReceiptSelect(event)">
+            </div>
+          `:`
+            <label for="m_receipt_input" style="cursor:pointer;padding:12px;background:#fff;border:2px dashed var(--gold);border-radius:10px;text-align:center;font-size:13px;font-weight:600;color:var(--goldDk);display:block;">📸 拍照 / 選擇照片</label>
+            <input type="file" id="m_receipt_input" accept="image/*" capture="environment" style="display:none;" onchange="handleModReceiptSelect(event)">
+          `}
+        </div>
+      </div>
     </div>
     <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="updExp('${exp.id}')">✓ 更新</button></div>`;}
 
@@ -14550,6 +14595,9 @@ window.quickSaveExpense=async()=>{
         toast(`✅ 已加入「年繳攤提」`);
       }
     }
+    // 📸 收據照片（已壓縮的 base64）
+    const receiptData=g('qe-receipt-data')||'';
+
     // 一律記一筆支出
     // 🪣 如果有選預算池 → 標記 fromLedger:true（避免雙重計算），但保留 linkedLedgerId
     const expenseDoc={
@@ -14559,7 +14607,8 @@ window.quickSaveExpense=async()=>{
       user:S.user||'',note:'',
       month:d.getMonth()+1,year:d.getFullYear(),
       linkedLedgerId:poolLid||null,
-      fromLedger:!!poolLid  // 有從池扣 → 不雙重計算
+      fromLedger:!!poolLid,  // 有從池扣 → 不雙重計算
+      receiptPhoto:receiptData||null // 📸 收據照片（base64）
     };
     const expId=await addSub('expenses',expenseDoc);
 
@@ -14603,6 +14652,7 @@ window.quickSaveExpense=async()=>{
     document.getElementById('qe-amt').value='';
     const poolSel=document.getElementById('qe-pool');if(poolSel)poolSel.value='';
     const preview=document.getElementById('qe-pool-preview');if(preview)preview.style.display='none';
+    if(typeof window.clearReceipt==='function')window.clearReceipt();
     setTimeout(()=>render(),300);
   }catch(err){alert('儲存失敗：'+err.message);}
 };
@@ -14839,6 +14889,117 @@ window.selPay=(method)=>{
   // 顯示 / 隱藏信用卡選單
   const cardWrap=document.getElementById('qe-card-wrap');
   if(cardWrap)cardWrap.style.display=method==='credit'?'block':'none';
+};
+
+// 📸 處理收據照片選取 + 自動壓縮
+window.handleReceiptSelect=(event)=>{
+  const file=event.target.files&&event.target.files[0];
+  if(!file)return;
+  if(!file.type.startsWith('image/')){alert('請選擇圖片檔案');return;}
+  const reader=new FileReader();
+  reader.onload=(e)=>{
+    const img=new Image();
+    img.onload=()=>{
+      // 壓縮：最大寬 1200px，JPEG 75%
+      const maxW=1200;
+      let w=img.width,h=img.height;
+      if(w>maxW){h=h*(maxW/w);w=maxW;}
+      const canvas=document.createElement('canvas');
+      canvas.width=w;canvas.height=h;
+      const ctx=canvas.getContext('2d');
+      ctx.drawImage(img,0,0,w,h);
+      // 嘗試不同品質直到 < 700KB
+      let quality=0.8, dataUrl=canvas.toDataURL('image/jpeg',quality);
+      while(dataUrl.length>700*1024&&quality>0.3){
+        quality-=0.1;
+        dataUrl=canvas.toDataURL('image/jpeg',quality);
+      }
+      // 存到 hidden input
+      const hidden=document.getElementById('qe-receipt-data');
+      if(hidden)hidden.value=dataUrl;
+      // 顯示預覽
+      const prev=document.getElementById('qe-receipt-preview');
+      const imgEl=document.getElementById('qe-receipt-img');
+      const info=document.getElementById('qe-receipt-info');
+      const wrap=document.getElementById('qe-receipt-wrap');
+      if(imgEl)imgEl.src=dataUrl;
+      if(prev)prev.style.display='block';
+      if(wrap)wrap.style.display='none';
+      if(info){
+        const sizeKB=Math.round(dataUrl.length/1024);
+        info.textContent=`✅ 已壓縮 ${w}×${Math.round(h)}px · ${sizeKB} KB`;
+      }
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+};
+window.clearReceipt=()=>{
+  const hidden=document.getElementById('qe-receipt-data');if(hidden)hidden.value='';
+  const prev=document.getElementById('qe-receipt-preview');if(prev)prev.style.display='none';
+  const wrap=document.getElementById('qe-receipt-wrap');if(wrap)wrap.style.display='flex';
+  const input=document.getElementById('qe-receipt-input');if(input)input.value='';
+};
+// 🔍 檢視收據大圖（lightbox）
+window.viewReceipt=(dataUrl)=>{
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.9);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;cursor:zoom-out;';
+  overlay.onclick=()=>overlay.remove();
+  overlay.innerHTML=`<img src="${dataUrl}" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:8px;box-shadow:0 10px 40px rgba(0,0,0,0.5);"><button style="position:absolute;top:20px;right:20px;background:rgba(255,255,255,0.2);color:#fff;border:none;width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:22px;line-height:1;">×</button>`;
+  document.body.appendChild(overlay);
+};
+// 從支出清單點 📷 → 開收據大圖
+window.viewExpenseReceipt=(expId)=>{
+  const e=(S.data.expenses||[]).find(x=>x.id===expId);
+  if(!e||!e.receiptPhoto){alert('找不到收據');return;}
+  window.viewReceipt(e.receiptPhoto);
+};
+// 💾 編輯 modal 的收據選取/清除
+window.handleModReceiptSelect=(event)=>{
+  const file=event.target.files&&event.target.files[0];
+  if(!file)return;
+  if(!file.type.startsWith('image/')){alert('請選擇圖片檔案');return;}
+  const reader=new FileReader();
+  reader.onload=(e)=>{
+    const img=new Image();
+    img.onload=()=>{
+      const maxW=1200;
+      let w=img.width,h=img.height;
+      if(w>maxW){h=h*(maxW/w);w=maxW;}
+      const canvas=document.createElement('canvas');
+      canvas.width=w;canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      let quality=0.8, dataUrl=canvas.toDataURL('image/jpeg',quality);
+      while(dataUrl.length>700*1024&&quality>0.3){quality-=0.1;dataUrl=canvas.toDataURL('image/jpeg',quality);}
+      const hidden=document.getElementById('m_receipt');if(hidden)hidden.value=dataUrl;
+      const zone=document.getElementById('m_receipt_zone');
+      if(zone){
+        zone.innerHTML=`
+          <div style="position:relative;">
+            <img src="${dataUrl}" onclick="viewReceipt(this.src)" style="width:100%;max-height:200px;object-fit:contain;border-radius:10px;border:1.5px solid var(--bdr);background:#fff;cursor:zoom-in;">
+            <button type="button" onclick="clearModReceipt()" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.6);color:#fff;border:none;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:15px;line-height:1;">×</button>
+          </div>
+          <div style="margin-top:6px;text-align:center;">
+            <label for="m_receipt_input" style="cursor:pointer;color:var(--gold);font-size:12px;text-decoration:underline;">📸 換一張</label>
+            <input type="file" id="m_receipt_input" accept="image/*" capture="environment" style="display:none;" onchange="handleModReceiptSelect(event)">
+            <div style="font-size:10.5px;color:var(--mut);margin-top:3px;">${w}×${Math.round(h)}px · ${Math.round(dataUrl.length/1024)} KB</div>
+          </div>
+        `;
+      }
+    };
+    img.src=e.target.result;
+  };
+  reader.readAsDataURL(file);
+};
+window.clearModReceipt=()=>{
+  const hidden=document.getElementById('m_receipt');if(hidden)hidden.value='';
+  const zone=document.getElementById('m_receipt_zone');
+  if(zone){
+    zone.innerHTML=`
+      <label for="m_receipt_input" style="cursor:pointer;padding:12px;background:#fff;border:2px dashed var(--gold);border-radius:10px;text-align:center;font-size:13px;font-weight:600;color:var(--goldDk);display:block;">📸 拍照 / 選擇照片</label>
+      <input type="file" id="m_receipt_input" accept="image/*" capture="environment" style="display:none;" onchange="handleModReceiptSelect(event)">
+    `;
+  }
 };
 
 // 📌 選「性質」(一次性/每月固定/年繳大筆)
@@ -15466,10 +15627,11 @@ window.updExp=async(id)=>{
   const newSubCatId=sc?sc.id:null;
   const newSubCatName=sc?sc.name:'';
   const newNote=g('m5')||'';
+  const newReceipt=g('m_receipt')||''; // 📸 收據照片
   const newMonth=d.getMonth()+1,newYear=d.getFullYear();
   setSyncing('syncing');
   try{
-    const newData={...oldExp,date,amount,category:newCat,categoryId:newCatId,subCategoryId:newSubCatId,subCategoryName:newSubCatName,payMethod:method,cardBank,note:newNote,month:newMonth,year:newYear};
+    const newData={...oldExp,date,amount,category:newCat,categoryId:newCatId,subCategoryId:newSubCatId,subCategoryName:newSubCatName,payMethod:method,cardBank,note:newNote,receiptPhoto:newReceipt||null,month:newMonth,year:newYear};
     delete newData.id;
     Object.keys(newData).forEach(k=>{if(newData[k]===undefined)newData[k]=null;});
     await setDoc(doc(db,'families',FID,'expenses',id),newData);
