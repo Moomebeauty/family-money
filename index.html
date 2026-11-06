@@ -75,7 +75,19 @@ h1,h2,h3,.serif{font-family:'Noto Serif TC',serif;letter-spacing:0.08em;}
 
 /* APP */
 .app{display:flex;flex-direction:column;height:100vh;}
-.topbar{background:var(--card);border-bottom:1px solid var(--bdr);padding:0 28px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--shd);}
+.topbar{background:var(--card);border-bottom:1px solid var(--bdr);padding:0 28px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--shd);gap:8px;}
+.tb-ico{display:none;}
+.tb-lbl{display:inline;}
+@media(max-width:768px){
+  .topbar{padding:0 12px;height:52px;gap:4px;}
+  .tb-ttl{font-size:15px;letter-spacing:0.05em;}
+  .tb-right{gap:4px;}
+  .sync-wrap .sync-lbl{display:none;}
+  .tb-mobi-hide{display:none!important;}
+  .tb-lbl{display:none;}
+  .tb-ico{display:inline;}
+  .btn-search,.btn-out{padding:7px 10px;font-size:14px;border-radius:8px;min-width:36px;}
+}
 .tb-brand{font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;letter-spacing:4px;color:var(--roseDk);}
 .tb-brand span{color:var(--rose);font-weight:400;}
 .tb-ttl{font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--roseDk);letter-spacing:0.08em;}
@@ -1334,11 +1346,11 @@ function topBar(){
   return`<div class="topbar">
   <div class="tb-ttl">${curPage.ico} ${curPage.lbl}</div>
   <div class="tb-right">
-    <div class="fb g8"><div class="sync-dot ${S.sync}"></div><span class="sync-lbl">${S.sync==='synced'?'已同步':S.sync==='syncing'?'同步中…':'離線'}</span></div>
-    <button class="btn-search" onclick="openGlobalSearch()">🔍 搜尋</button>
-    <button class="btn-out" onclick="toggleWatermark()" title="切換背景浮水印">🌸</button>
-    <button class="btn-out" onclick="exportCSV()">⬇ 匯出</button>
-    <button class="btn-out" onclick="doOut()">登出</button>
+    <div class="fb g8 sync-wrap"><div class="sync-dot ${S.sync}" title="${S.sync==='synced'?'已同步':S.sync==='syncing'?'同步中':'離線'}"></div><span class="sync-lbl">${S.sync==='synced'?'已同步':S.sync==='syncing'?'同步中…':'離線'}</span></div>
+    <button class="btn-search tb-mobi-icon" onclick="openGlobalSearch()" title="搜尋"><span class="tb-lbl">🔍 搜尋</span><span class="tb-ico">🔍</span></button>
+    <button class="btn-out tb-mobi-hide" onclick="toggleWatermark()" title="切換背景浮水印">🌸</button>
+    <button class="btn-out tb-mobi-icon" onclick="exportCSV()" title="匯出 Excel"><span class="tb-lbl">⬇ 匯出</span><span class="tb-ico">⬇</span></button>
+    <button class="btn-out tb-mobi-icon" onclick="doOut()" title="登出"><span class="tb-lbl">登出</span><span class="tb-ico">⏻</span></button>
   </div>
 </div>`;}
 function sidebar(){
