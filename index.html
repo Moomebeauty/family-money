@@ -1015,6 +1015,7 @@ const PAGES=[
   {id:'settings', ico:'⚙️',lbl:'進階功能',group:'main'},
   {id:'simple',   ico:'🏠',lbl:'我的錢',group:'hidden'},
   {id:'ledgerHome',ico:'📒',lbl:'預算儲水池',group:'hidden'},
+  {id:'creditCards',ico:'💳',lbl:'我的信用卡',group:'hidden'},
   {id:'catManage', ico:'🏷️',lbl:'類別管理',group:'hidden'},
   {id:'catMigrate',ico:'🔄',lbl:'舊分類遷移',group:'hidden'},
   {id:'wealth10x',ico:'🎯',lbl:'10X 財富心法',group:'hidden'},
@@ -1127,6 +1128,8 @@ let S={
     savingRecords:[],  // [{id,date,type:'invest'|'save',member,amount,bank,target,note}]
     // 📝 每個預算儲水池的「用來記錄什麼」說明
     ledgerDescriptions:{},  // {lid: '文字說明'}
+    // 💳 信用卡資料（含每年活動）
+    creditCards:[],  // [{id,name,bank,ownerMember,activeFrom,activeTo,officialUrl,monthlyThreshold,monthlyCap,defaultRate,categoryRates:[{categoryId,categoryName,rate}],note}]
     // 🚨 緊急預備金紀錄（放了多少 + 存在哪）
     emgRecords:[],  // [{id,date,member,amount,bank,note}]
     // 📅 累積起算日
@@ -1226,6 +1229,28 @@ function startSync(){
       S.data.savingRecords=d.savingRecords||[];
       S.data.emgRecords=d.emgRecords||[];
       S.data.ledgerDescriptions=d.ledgerDescriptions||{};
+      S.data.creditCards=d.creditCards||[];
+      // 🎁 首次載入：如果沒有任何信用卡 → 預建使用者常用的 5 張空殼
+      if(!d.creditCards||d.creditCards.length===0){
+        const defaultCards=[
+          {name:'富邦 J 卡',bank:'富邦'},
+          {name:'星展勇永續卡',bank:'星展'},
+          {name:'永豐三井卡',bank:'永豐'},
+          {name:'中信 LinePay 卡',bank:'中信'},
+          {name:'聯邦賴點卡',bank:'聯邦'},
+        ];
+        const curYear=new Date().getFullYear();
+        S.data.creditCards=defaultCards.map(c=>({
+          id:'cc_'+Math.random().toString(36).slice(2,8)+'_'+Date.now(),
+          name:c.name,bank:c.bank,ownerMember:'',
+          activeFrom:`${curYear}-01-01`,
+          activeTo:`${curYear}-12-31`,
+          officialUrl:'',monthlyThreshold:0,monthlyCap:0,
+          defaultRate:0,categoryRates:[],note:''
+        }));
+        // 自動存一次（非同步，不阻塞）
+        saveMain({creditCards:S.data.creditCards}).catch(()=>{});
+      }
       S.data.cumulativeStartDate=d.cumulativeStartDate||`${new Date().getFullYear()}-01-01`;
       S.data.investNotes=d.investNotes||{};
     }
@@ -1446,7 +1471,7 @@ function mobNav(){
         <button onclick="mobCloseMore()" style="background:var(--bg2);border:none;color:var(--brown);width:32px;height:32px;border-radius:50%;font-size:18px;cursor:pointer;">×</button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
-        ${['insurance','settings','fixedNew','amortNew','wealth10x','safetyNet','catManage'].map(pid=>{
+        ${['insurance','settings','creditCards','fixedNew','amortNew','wealth10x','safetyNet','catManage'].map(pid=>{
           const p=PAGES.find(x=>x.id===pid);
           if(!p)return'';
           return`<button onclick="mobCloseMore();setP('${pid}');" style="background:#fff;border:1.5px solid var(--bdr);border-radius:12px;padding:14px 8px;cursor:pointer;color:var(--brown);font-size:11px;font-weight:600;line-height:1.5;text-align:center;">
@@ -1470,6 +1495,7 @@ function page(){
     case'quickExp': return pgQuickExpense();
     case'expDash':  return pgExpDash();
     case'ledgerHome':return pgLedgerHome();
+    case'creditCards':return pgCreditCards();
     case'fixedNew': return pgFixedNew();
     case'amortNew': return pgAmortNew();
     case'guardian': return pgGuardian();
@@ -2175,6 +2201,33 @@ function pgOverviewNew(){
       });
       if(unsetPools.length>0){
         todos.push({emoji:'📒',text:`還有 ${unsetPools.length} 個預算池沒設模式`,sub:`設完才會自動扣除`,action:`setP('ledgerHome')`,actionLbl:'去設定',col:'#0369A1'});
+      }
+      // 7. 💳 信用卡活動即將到期（30 天內）
+      const today=new Date().toISOString().slice(0,10);
+      const in30=new Date(Date.now()+30*86400000).toISOString().slice(0,10);
+      const expiringCards=(S.data.creditCards||[]).filter(c=>c.activeTo&&c.activeTo>=today&&c.activeTo<in30);
+      expiringCards.forEach(c=>{
+        const daysLeft=Math.ceil((new Date(c.activeTo).getTime()-Date.now())/86400000);
+        todos.push({
+          emoji:'💳',
+          text:`「${c.name}」活動 ${daysLeft} 天後到期`,
+          sub:`${c.activeTo} 前記得去官網查新活動`,
+          action:c.officialUrl?`window.open('${c.officialUrl}','_blank')`:`setP('creditCards')`,
+          actionLbl:c.officialUrl?'看官網':'去更新',
+          col:'var(--goldDk)'
+        });
+      });
+      // 8. 💳 信用卡活動已過期（還沒更新）
+      const expiredCards=(S.data.creditCards||[]).filter(c=>c.activeTo&&c.activeTo<today);
+      if(expiredCards.length>0){
+        todos.push({
+          emoji:'⌛',
+          text:`${expiredCards.length} 張卡的活動已過期`,
+          sub:expiredCards.map(c=>c.name).join('、')+' → 更新回饋才會重新推薦',
+          action:`setP('creditCards')`,
+          actionLbl:'去更新',
+          col:'var(--red)'
+        });
       }
 
       if(todos.length===0){
@@ -3141,9 +3194,17 @@ function pgQuickExpense(){
       <!-- 信用卡銀行選擇（只在選信用卡才顯示） -->
       <div id="qe-card-wrap" style="margin-bottom:14px;display:none;">
         <label style="display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">哪張信用卡？</label>
-        <select id="qe-card" style="width:100%;padding:12px 16px;font-size:15px;border:2px solid var(--bdr);border-radius:12px;">
-          ${(S.data.cardBanks||['中信','玉山','國泰','聯邦','富邦','台新','星展','其他']).map(b=>`<option>${b}</option>`).join('')}
+        <select id="qe-card" onchange="updateCardRecommend()" style="width:100%;padding:12px 16px;font-size:15px;border:2px solid var(--bdr);border-radius:12px;">
+          ${(()=>{
+            // 優先列出使用者設定的信用卡
+            const userCards=(S.data.creditCards||[]).map(c=>c.name);
+            const legacyBanks=S.data.cardBanks||['中信','玉山','國泰','聯邦','富邦','台新','星展','其他'];
+            const all=[...new Set([...userCards,...legacyBanks])];
+            return all.map(b=>`<option>${b}</option>`).join('');
+          })()}
         </select>
+        <!-- 💡 智能推薦卡 -->
+        <div id="qe-card-recommend" style="margin-top:10px;"></div>
       </div>
 
       <!-- 📸 收據照片（給大額採購用：Costco / 一次買很多） -->
@@ -3480,6 +3541,112 @@ function pgFixedNew(){
         </div>`;
       }).join('')}
     </div>
+  </div>`;
+}
+
+// 💳 我的信用卡（含每年活動追蹤）
+function pgCreditCards(){
+  const cards=S.data.creditCards||[];
+  const today=new Date().toISOString().slice(0,10);
+  const in30days=new Date(Date.now()+30*86400000).toISOString().slice(0,10);
+  const members=S.data.familyMembers||['又權','于蜜','楷宸'];
+  const memCols={'又權':'#3B82F6','于蜜':'#EC4899','楷宸':'#A855F7'};
+  // 統計本月各卡刷卡額
+  const curYear=yr(),curMonth=S.month;
+  const monthCCExps=(S.data.expenses||[]).filter(e=>e.year===curYear&&e.month===curMonth&&e.paymentMethod==='credit');
+  const byCardSpend={};
+  monthCCExps.forEach(e=>{const b=e.cardBank||'未分';byCardSpend[b]=(byCardSpend[b]||0)+toN(e.amount);});
+
+  // 判斷卡片狀態
+  const getCardStatus=(c)=>{
+    if(!c.activeTo)return{col:'var(--mut)',bg:'var(--bg2)',txt:'未設定',icon:'○'};
+    if(c.activeTo<today)return{col:'var(--mut)',bg:'#F3F4F6',txt:'已過期',icon:'⌛'};
+    if(c.activeTo<in30days)return{col:'var(--goldDk)',bg:'#FFF8E7',txt:'即將到期',icon:'⚠️'};
+    return{col:'var(--grn)',bg:'var(--grnl)',txt:'有效中',icon:'✅'};
+  };
+
+  return`
+  <div style="max-width:960px;margin:0 auto;">
+    <!-- 標題 -->
+    <div style="text-align:center;padding:20px 0 14px;">
+      <div style="font-family:'Noto Serif TC',serif;font-size:26px;font-weight:700;color:var(--brown);letter-spacing:0.2em;">💳 我的信用卡</div>
+      <div class="tm" style="font-size:12.5px;margin-top:4px;">管理 ${cards.length} 張卡的回饋活動　·　記支出時會自動推薦最划算的卡</div>
+    </div>
+
+    <!-- 💡 為什麼要管理 -->
+    <details style="background:linear-gradient(135deg,#FFF8E7,#fff);border:1.5px dashed var(--gold);border-radius:12px;padding:12px 16px;margin-bottom:14px;">
+      <summary style="cursor:pointer;font-size:12.5px;color:var(--goldDk);font-weight:700;list-style:none;">💡 為什麼要設定每張卡？ ▼</summary>
+      <div style="padding-top:10px;font-size:12px;color:var(--brown);line-height:1.9;">
+        🎯 <b>每年活動都會變</b> → 系統無法幫你記，但可以幫你管<br>
+        📅 <b>設定有效期</b> → 到期前 30 天會自動提醒你去更新<br>
+        🧮 <b>類別回饋填好</b> → 記支出時自動告訴你「這筆用哪張最划算」<br>
+        ⚠️ <b>過期自動灰掉</b> → 不會推薦過期的活動，但資料保留，更新後再啟用
+      </div>
+    </details>
+
+    <!-- ＋ 新增卡片 -->
+    <button onclick="openM('editCard','')" style="width:100%;padding:14px;background:linear-gradient(135deg,var(--rose),var(--roseDk));color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;letter-spacing:0.1em;cursor:pointer;box-shadow:0 4px 12px rgba(194,116,122,0.3);margin-bottom:16px;">
+      ＋ 新增信用卡
+    </button>
+
+    ${cards.length===0?`<div style="background:#fff;border-radius:16px;padding:40px 24px;text-align:center;color:var(--mut);box-shadow:0 4px 16px rgba(194,116,122,0.08);">
+      <div style="font-size:48px;">💳</div>
+      <div style="margin-top:8px;font-size:14px;">還沒有任何卡片</div>
+    </div>`:`
+    <!-- 卡片列表 -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;">
+      ${cards.map(c=>{
+        const st=getCardStatus(c);
+        const monthSpend=byCardSpend[c.bank||'']||byCardSpend[c.name]||0;
+        const catCount=(c.categoryRates||[]).length;
+        const ownerCol=c.ownerMember?memCols[c.ownerMember]||'#999':'';
+        return`<div style="background:#fff;border-radius:16px;padding:18px 20px;box-shadow:0 4px 16px rgba(194,116,122,0.10);border-left:4px solid ${st.col};${st.txt==='已過期'?'opacity:0.65;':''}">
+          <!-- 卡片頭 -->
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:10px;">
+            <div style="flex:1;min-width:0;">
+              <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);">${c.name}</div>
+              <div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;">
+                ${c.bank?`<span style="background:var(--bg2);color:var(--brown);padding:2px 8px;border-radius:999px;font-size:10.5px;font-weight:600;">🏦 ${c.bank}</span>`:''}
+                ${c.ownerMember?`<span style="background:${ownerCol}22;color:${ownerCol};padding:2px 8px;border-radius:999px;font-size:10.5px;font-weight:600;">${c.ownerMember}</span>`:''}
+                <span style="background:${st.bg};color:${st.col};padding:2px 8px;border-radius:999px;font-size:10.5px;font-weight:700;">${st.icon} ${st.txt}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 有效期 -->
+          ${c.activeFrom&&c.activeTo?`<div style="font-size:11.5px;color:var(--mut);margin-bottom:10px;">📅 ${c.activeFrom} → ${c.activeTo}</div>`:''}
+
+          <!-- 本月刷卡額 -->
+          <div style="padding:10px 12px;background:${monthSpend>0?'#FEE2E2':'var(--bg2)'};border-radius:10px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:11.5px;color:var(--brown);">💳 本月刷卡</span>
+            <span style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:${monthSpend>0?'var(--red)':'var(--mut)'};">$${fmt(monthSpend)}</span>
+          </div>
+
+          <!-- 類別回饋（最多顯示 3 個） -->
+          ${catCount>0?`<div style="margin-bottom:10px;">
+            <div style="font-size:10.5px;color:var(--mut);font-weight:700;margin-bottom:4px;">🎁 類別回饋（${catCount}）</div>
+            <div style="display:flex;gap:4px;flex-wrap:wrap;">
+              ${(c.categoryRates||[]).slice(0,4).map(r=>`<span style="background:var(--grnl);color:var(--grn);padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;">${r.categoryName||r.categoryId||'?'} ${r.rate}%</span>`).join('')}
+              ${catCount>4?`<span style="padding:3px 8px;color:var(--mut);font-size:11px;">+${catCount-4}</span>`:''}
+            </div>
+            ${c.defaultRate>0?`<div style="font-size:10.5px;color:var(--mut);margin-top:4px;">其他：${c.defaultRate}%</div>`:''}
+          </div>`:`<div style="padding:10px;background:#FFF8E7;border-radius:8px;font-size:11px;color:var(--goldDk);text-align:center;margin-bottom:10px;">⚠️ 還沒設定回饋，無法幫你推薦</div>`}
+
+          <!-- 門檻/上限 -->
+          ${c.monthlyThreshold>0||c.monthlyCap>0?`<div style="font-size:10.5px;color:var(--mut);line-height:1.6;margin-bottom:10px;">
+            ${c.monthlyThreshold>0?`📏 月門檻 $${fmt(c.monthlyThreshold)}　`:''}
+            ${c.monthlyCap>0?`💰 月上限 $${fmt(c.monthlyCap)}`:''}
+          </div>`:''}
+
+          <!-- 動作 -->
+          <div style="display:grid;grid-template-columns:${c.officialUrl?'1fr 1fr 1fr':'1fr 1fr'};gap:6px;">
+            <button onclick="openM('editCard','${c.id}')" style="padding:8px;background:var(--gold);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">✏️ 編輯</button>
+            ${c.officialUrl?`<button onclick="window.open('${c.officialUrl}','_blank')" style="padding:8px;background:#fff;color:#0369A1;border:1.5px solid #0EA5E9;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">🔗 看活動</button>`:''}
+            <button onclick="delCreditCard('${c.id}')" style="padding:8px;background:#fff;color:var(--red);border:1.5px solid var(--red);border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;">刪除</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`}
   </div>`;
 }
 
@@ -7687,6 +7854,7 @@ function pgSettings(){
       <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--brown);letter-spacing:0.2em;margin-bottom:10px;padding:0 4px;">📋 主要管理</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;">
         ${settingTile({ico:'📒',title:'預算儲水池',sub:`${getAllLedgers().length} 個池　·　水電/交通/紅包/旅遊等`,action:"setP('ledgerHome')"})}
+        ${settingTile({ico:'💳',title:'我的信用卡',sub:`${(S.data.creditCards||[]).length} 張卡　·　回饋活動管理 + 智能推薦`,action:"setP('creditCards')"})}
         ${settingTile({ico:'📌',title:'每月貸款總額',sub:`${(S.data.fixedItems||[]).length} 項　·　房貸、車貸、分期`,action:"setP('fixedNew')"})}
         ${settingTile({ico:'🏺',title:'年繳攤提',sub:`${(S.data.amortizedItems||[]).length} 項　·　保險、稅金、工會費`,action:"setP('amortNew')"})}
         ${settingTile({ico:'🏷️',title:'類別管理',sub:`${catCount} 個主類別　·　統一支出/收入分類`,action:"setP('catManage')"})}
@@ -11889,6 +12057,58 @@ function modal(){
     </div>`;
   }
 
+  // 💳 新增/編輯信用卡
+  if(m.t==='editCard'){
+    const isEdit=!!m.x;
+    const card=isEdit?(S.data.creditCards||[]).find(c=>c.id===m.x)||{}:{};
+    const members=S.data.familyMembers||['又權','于蜜','楷宸'];
+    const curY=yr();
+    const cats=getMasterCats();
+    const rates=card.categoryRates||[];
+    c=`<div class="mttl">💳 ${isEdit?'編輯':'新增'}信用卡</div>
+
+    <div class="fg fg2">
+      <div class="fgrp" style="grid-column:1/-1"><label>卡片名稱</label><input type="text" id="cc-name" value="${(card.name||'').replace(/"/g,'&quot;')}" placeholder="如：富邦 J 卡" autofocus></div>
+      <div class="fgrp"><label>發卡銀行</label><input type="text" id="cc-bank" value="${(card.bank||'').replace(/"/g,'&quot;')}" placeholder="富邦"></div>
+      <div class="fgrp"><label>持卡人</label>
+        <select id="cc-owner">
+          <option value="" ${!card.ownerMember?'selected':''}>—— 未指定 ——</option>
+          ${members.map(mm=>`<option value="${mm}" ${card.ownerMember===mm?'selected':''}>${mm}</option>`).join('')}
+        </select>
+      </div>
+      <div class="fgrp"><label>📅 活動起始</label><input type="date" id="cc-from" value="${card.activeFrom||`${curY}-01-01`}"></div>
+      <div class="fgrp"><label>📅 活動截止</label><input type="date" id="cc-to" value="${card.activeTo||`${curY}-12-31`}"></div>
+      <div class="fgrp" style="grid-column:1/-1"><label>🔗 官方活動連結（選填，方便之後去查）</label><input type="url" id="cc-url" value="${(card.officialUrl||'').replace(/"/g,'&quot;')}" placeholder="https://..."></div>
+      <div class="fgrp"><label>📏 月門檻（0=無）</label><input type="number" id="cc-threshold" value="${card.monthlyThreshold||''}" placeholder="0"></div>
+      <div class="fgrp"><label>💰 月回饋上限（0=無）</label><input type="number" id="cc-cap" value="${card.monthlyCap||''}" placeholder="0"></div>
+      <div class="fgrp"><label>💵 預設回饋率 %（其他類別）</label><input type="number" step="0.1" id="cc-default" value="${card.defaultRate||''}" placeholder="0.5"></div>
+      <div class="fgrp" style="grid-column:1/-1"><label>📝 備註</label><input type="text" id="cc-note" value="${(card.note||'').replace(/"/g,'&quot;')}" placeholder="說明或備忘"></div>
+    </div>
+
+    <!-- 🎁 類別回饋表 -->
+    <div style="margin-top:14px;padding:14px 16px;background:linear-gradient(135deg,var(--grnl),#fff);border:1.5px dashed var(--grn);border-radius:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+        <div style="font-size:13px;font-weight:700;color:var(--grn);">🎁 類別回饋（%）</div>
+        <button type="button" onclick="addCardRate()" style="background:var(--grn);color:#fff;border:none;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:600;cursor:pointer;">＋ 加類別</button>
+      </div>
+      <div style="font-size:11px;color:var(--mut);margin-bottom:10px;line-height:1.5;">💡 只填「比預設回饋高」的類別就好（例如加油 3%、網購 2.5%）</div>
+      <div id="cc-rates-list" style="display:flex;flex-direction:column;gap:6px;">
+        ${rates.map((r,i)=>`<div class="cc-rate-row" data-idx="${i}" style="display:grid;grid-template-columns:1.5fr 1fr auto;gap:6px;align-items:center;">
+          <select class="cc-rate-cat" style="padding:7px 10px;border:1px solid var(--bdr);border-radius:8px;font-size:12px;">
+            ${cats.map(mc=>`<option value="${mc.id}|${mc.name}" ${r.categoryId===mc.id?'selected':''}>${mc.icon} ${mc.name}</option>`).join('')}
+          </select>
+          <input type="number" step="0.1" class="cc-rate-pct" value="${r.rate||''}" placeholder="2.5" style="padding:7px 10px;border:1px solid var(--bdr);border-radius:8px;font-size:12px;text-align:right;">
+          <button type="button" onclick="this.parentElement.remove()" style="background:none;border:1px solid var(--bdr);color:var(--red);padding:5px 10px;border-radius:6px;font-size:14px;cursor:pointer;">×</button>
+        </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="mbtns">
+      <button class="btn btn-s" onclick="closeMod()">取消</button>
+      <button class="btn btn-p" onclick="saveCreditCard('${isEdit?card.id:''}')" style="background:var(--rose);">${isEdit?'✓ 儲存變更':'＋ 新增卡片'}</button>
+    </div>`;
+  }
+
   // ⚙️ 分配比例設定（花費/儲蓄/投資）
   if(m.t==='allocRatios'){
     const r=S.data.allocationRatios||{spend:40,save:40,invest:20};
@@ -14905,6 +15125,142 @@ window.selPay=(method)=>{
   // 顯示 / 隱藏信用卡選單
   const cardWrap=document.getElementById('qe-card-wrap');
   if(cardWrap)cardWrap.style.display=method==='credit'?'block':'none';
+};
+
+// 💡 計算這筆消費用哪張卡最划算
+window.calcBestCard=(catId,amount)=>{
+  const cards=S.data.creditCards||[];
+  const today=new Date().toISOString().slice(0,10);
+  const validCards=cards.filter(c=>!c.activeTo||c.activeTo>=today);
+  if(validCards.length===0)return null;
+  const options=validCards.map(c=>{
+    // 找類別對應的回饋
+    let rate=toN(c.defaultRate)||0;
+    let matchedCat=null;
+    (c.categoryRates||[]).forEach(r=>{
+      if(r.categoryId===catId&&toN(r.rate)>rate){
+        rate=toN(r.rate);
+        matchedCat=r.categoryName||r.categoryId;
+      }
+    });
+    const cashback=Math.round(amount*rate/100*10)/10;
+    return{...c,matchedRate:rate,cashback,matchedCat};
+  }).filter(o=>o.matchedRate>0).sort((a,b)=>b.cashback-a.cashback);
+  return options;
+};
+// 📺 更新推薦卡顯示（使用者選了類別/金額/切到信用卡時都會更新）
+window.updateCardRecommend=()=>{
+  const wrap=document.getElementById('qe-card-recommend');
+  if(!wrap)return;
+  const amount=toN(g('qe-amt'))||0;
+  const catId=g('qe-cat')||'';
+  const selectedCard=g('qe-card')||'';
+  if(amount<=0){wrap.innerHTML='';return;}
+  const options=window.calcBestCard(catId,amount);
+  if(!options||options.length===0){
+    wrap.innerHTML=`<div style="padding:10px 12px;background:#FFF8E7;border:1px dashed var(--goldDk);border-radius:8px;font-size:11.5px;color:var(--brown);line-height:1.5;">
+      💡 還沒設定任何卡片回饋 → <a onclick="setP('creditCards')" style="color:var(--goldDk);text-decoration:underline;cursor:pointer;">去我的信用卡設定</a>，之後就會自動幫你推薦
+    </div>`;
+    return;
+  }
+  const best=options[0];
+  const isSelectedBest=selectedCard===best.name||selectedCard===best.bank;
+  const diffHtml=options.length>1?`<div style="font-size:10.5px;color:var(--mut);margin-top:4px;">其他卡：${options.slice(1,3).map(o=>`${o.name} ${o.matchedRate}% ($${fmt(o.cashback)})`).join('　·　')}</div>`:'';
+  const col=isSelectedBest?'var(--grn)':'var(--goldDk)';
+  const bg=isSelectedBest?'var(--grnl)':'#FFF8E7';
+  wrap.innerHTML=`<div style="padding:10px 12px;background:${bg};border:1.5px solid ${col};border-radius:10px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;">
+      <div style="font-size:12px;font-weight:700;color:${col};">${isSelectedBest?'✅ 你選對了！這是最划算的卡':`💡 建議改用「${best.name}」`}</div>
+      ${!isSelectedBest?`<button type="button" onclick="document.getElementById('qe-card').value='${best.name.replace(/'/g,"\\'")}';updateCardRecommend();" style="background:${col};color:#fff;border:none;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;cursor:pointer;">自動選</button>`:''}
+    </div>
+    <div style="font-size:11.5px;color:var(--brown);margin-top:4px;">
+      ${best.matchedRate}% 回饋　·　$${fmt(amount)} × ${best.matchedRate}% = <b>$${fmt(best.cashback)}</b>
+      ${best.matchedCat?` <span style="color:var(--mut);">（${best.matchedCat}類）</span>`:''}
+    </div>
+    ${diffHtml}
+  </div>`;
+};
+// 當類別/金額改變 → 更新推薦
+document.addEventListener('change',(e)=>{
+  if(e.target&&(e.target.id==='qe-cat'||e.target.id==='qe-sub')){
+    setTimeout(()=>{if(typeof window.updateCardRecommend==='function')window.updateCardRecommend();},50);
+  }
+});
+document.addEventListener('input',(e)=>{
+  if(e.target&&e.target.id==='qe-amt'){
+    if(typeof window.updateCardRecommend==='function')window.updateCardRecommend();
+  }
+});
+
+// 💳 新增一列類別回饋
+window.addCardRate=()=>{
+  const list=document.getElementById('cc-rates-list');
+  if(!list)return;
+  const cats=getMasterCats();
+  const row=document.createElement('div');
+  row.className='cc-rate-row';
+  row.style.cssText='display:grid;grid-template-columns:1.5fr 1fr auto;gap:6px;align-items:center;';
+  row.innerHTML=`
+    <select class="cc-rate-cat" style="padding:7px 10px;border:1px solid var(--bdr);border-radius:8px;font-size:12px;">
+      ${cats.map(mc=>`<option value="${mc.id}|${mc.name}">${mc.icon} ${mc.name}</option>`).join('')}
+    </select>
+    <input type="number" step="0.1" class="cc-rate-pct" placeholder="2.5" style="padding:7px 10px;border:1px solid var(--bdr);border-radius:8px;font-size:12px;text-align:right;">
+    <button type="button" onclick="this.parentElement.remove()" style="background:none;border:1px solid var(--bdr);color:var(--red);padding:5px 10px;border-radius:6px;font-size:14px;cursor:pointer;">×</button>
+  `;
+  list.appendChild(row);
+};
+
+// 💾 儲存信用卡
+window.saveCreditCard=async(editId)=>{
+  const name=g('cc-name')||'';
+  if(!name){alert('請填卡片名稱');return;}
+  // 蒐集類別回饋列
+  const rateRows=document.querySelectorAll('#cc-rates-list .cc-rate-row');
+  const categoryRates=[];
+  rateRows.forEach(row=>{
+    const sel=row.querySelector('.cc-rate-cat');
+    const pct=row.querySelector('.cc-rate-pct');
+    if(sel&&pct&&sel.value&&pct.value){
+      const [catId,catName]=sel.value.split('|');
+      categoryRates.push({categoryId:catId,categoryName:catName,rate:toN(pct.value)});
+    }
+  });
+  const cardData={
+    id:editId||('cc_'+Math.random().toString(36).slice(2,8)+'_'+Date.now()),
+    name,
+    bank:g('cc-bank')||'',
+    ownerMember:g('cc-owner')||'',
+    activeFrom:g('cc-from')||'',
+    activeTo:g('cc-to')||'',
+    officialUrl:g('cc-url')||'',
+    monthlyThreshold:toN(g('cc-threshold'))||0,
+    monthlyCap:toN(g('cc-cap'))||0,
+    defaultRate:toN(g('cc-default'))||0,
+    categoryRates,
+    note:g('cc-note')||''
+  };
+  const list=[...(S.data.creditCards||[])];
+  if(editId){
+    const idx=list.findIndex(c=>c.id===editId);
+    if(idx>=0)list[idx]=cardData;
+    else list.push(cardData);
+  }else{
+    list.push(cardData);
+  }
+  await saveMain({creditCards:list});
+  toast(`✅ ${editId?'已更新':'已新增'}「${name}」`);
+  closeMod();
+};
+
+// 🗑️ 刪除信用卡
+window.delCreditCard=async(id)=>{
+  const c=(S.data.creditCards||[]).find(x=>x.id===id);
+  if(!c)return;
+  if(!confirm(`確定刪除「${c.name}」？\n\n（已記的刷卡紀錄不會動，只是未來不再推薦這張卡）`))return;
+  const list=(S.data.creditCards||[]).filter(x=>x.id!==id);
+  await saveMain({creditCards:list});
+  toast('已刪除');
+  render();
 };
 
 // 📸 處理收據照片選取 + 自動壓縮
