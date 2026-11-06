@@ -3698,6 +3698,7 @@ function pgExpDash(){
       paymentMethod:e.paymentMethod||'',
       cardBank:e.cardBank||'',
       payMethod:e.payMethod||'',
+      receiptPhoto:e.receiptPhoto||null, // 📸 收據
       _origin:'expense'
     };
   });
@@ -3760,6 +3761,8 @@ function pgExpDash(){
         }
       }
     }
+    // 📸 若有連動 expense（從記支出流程扣池的）→ 抓那筆 expense 的收據
+    const linkedExp=e.linkedExpenseId?(S.data.expenses||[]).find(x=>x.id===e.linkedExpenseId):null;
     return{
       id:'le_'+e.id,
       source:'ledger',
@@ -3770,9 +3773,13 @@ function pgExpDash(){
       subCategoryName:e.subCategoryName||'',
       item:itemLabel,
       amount:Math.abs(toN(e.amount)),
-      paymentMethod:'',cardBank:'',payMethod:'',
+      paymentMethod:linkedExp?linkedExp.paymentMethod||'':'',
+      cardBank:linkedExp?linkedExp.cardBank||'':'',
+      payMethod:linkedExp?linkedExp.payMethod||'':'',
+      receiptPhoto:linkedExp?linkedExp.receiptPhoto||null:null, // 📸 收據
       _origin:'ledger',
       _refId:e.id,
+      _linkedExpenseId:e.linkedExpenseId||null,
       _ledgerName:led?led.name:'',
       _isAmortPayment:!!e.linkedAmortId // 標記這是年繳實繳
     };
@@ -4174,13 +4181,19 @@ function pgExpDash(){
             ${sortedExps.map(e=>{
               const payTxt=e.paymentMethod==='cash'?'💵 現金':e.paymentMethod==='transfer'?'🏦 轉帳':e.paymentMethod==='credit'?`💳 ${e.cardBank||'信用卡'}`:(e.payMethod||'—');
               const canEdit=e._origin==='expense';
+              // 📸 找收據（expense 直接 e.receiptPhoto，ledger 用 _linkedExpenseId）
+              const hasReceipt=!!e.receiptPhoto;
+              const receiptExpId=e._origin==='expense'?e.id:(e._linkedExpenseId||'');
               return`<tr style="border-bottom:1px dashed var(--bdr);">
                 <td style="padding:12px 8px;color:var(--brown);white-space:nowrap;">${e.date||''}</td>
                 <td style="padding:12px 8px;white-space:nowrap;">${srcBadge(e)}</td>
                 <td style="padding:12px 8px;"><span style="background:var(--bg2);color:var(--brown);padding:3px 10px;border-radius:8px;font-size:12px;font-weight:600;">${getCatDisplay(e)}</span></td>
                 <td style="padding:12px 8px;text-align:right;font-family:'Noto Serif TC',serif;font-weight:700;color:var(--red);">$${fmt(e.amount)}</td>
                 <td style="padding:12px 8px;color:var(--brown);white-space:nowrap;font-size:12px;">${payTxt}</td>
-                <td style="padding:12px 8px;color:var(--mut);font-size:12.5px;">${e.item||''}</td>
+                <td style="padding:12px 8px;color:var(--mut);font-size:12.5px;">
+                  ${hasReceipt&&receiptExpId?`<button onclick="viewExpenseReceipt('${receiptExpId}')" style="background:var(--gold);color:#fff;border:none;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;margin-right:4px;" title="看收據">📷</button>`:''}
+                  ${e.item||''}
+                </td>
                 <td style="padding:12px 4px;text-align:right;white-space:nowrap;">
                   ${canEdit?`<button onclick="openM('editExp','${e.id}')" style="background:none;border:none;color:var(--mut);font-size:15px;cursor:pointer;padding:2px 4px;" title="編輯">✏️</button>
                   <button onclick="delExp('${e.id}')" style="background:none;border:none;color:var(--red);font-size:18px;cursor:pointer;padding:2px 4px;">×</button>`:`<span class="tm" style="font-size:10px;">${e._origin==='amort'?'年繳':'基金'}</span>`}
@@ -10122,7 +10135,7 @@ function pgCC(){
                 </label>
               </td>
               <td>${e.date||''}</td>
-              <td>${e.fromLedger?'<span class="bdg" style="background:var(--pur);color:#fff;font-size:10px;margin-right:5px;">⛓️ 預備金</span>':''}${isReconciled?'<span class="bdg" style="background:var(--grn);color:#fff;font-size:10px;margin-right:5px;">✓ 已對帳</span>':''}<b>${e.item||'-'}</b>${e.note?`<br><span class="tm" style="font-size:11.5px;">${e.note}</span>`:''}</td>
+              <td>${e.fromLedger?'<span class="bdg" style="background:var(--pur);color:#fff;font-size:10px;margin-right:5px;">⛓️ 預備金</span>':''}${isReconciled?'<span class="bdg" style="background:var(--grn);color:#fff;font-size:10px;margin-right:5px;">✓ 已對帳</span>':''}${e.receiptPhoto?`<button onclick="viewExpenseReceipt('${e.id}')" style="background:var(--gold);color:#fff;border:none;padding:2px 7px;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;margin-right:5px;" title="看收據">📷</button>`:''}<b>${e.item||'-'}</b>${e.note?`<br><span class="tm" style="font-size:11.5px;">${e.note}</span>`:''}</td>
               <td><span class="bdg">${e.category||'—'}</span></td>
               <td class="an" style="font-weight:700;color:${toN(e.amount)<0?'var(--grn)':'var(--red)'};">${toN(e.amount)<0?`+$${fmt(Math.abs(e.amount))}`:`-$${fmt(e.amount)}`}${toN(e.amount)<0?'<br><span class="tm" style="font-size:11px;color:var(--grn);">退款</span>':''}</td>
               <td><span class="bdg" style="background:var(--accL);color:var(--brown);">${e.cardBank||'其他'}</span></td>
@@ -10320,11 +10333,15 @@ function pgLedger(){
       </div>`:`<div style="max-height:400px;overflow-y:auto;">
         ${monthList.map(r=>{
           const isIn=toN(r.amount)>=0;
+          // 📸 若有連動 expense 且該 expense 有收據 → 顯示 📷
+          const linkedExp=r.linkedExpenseId?(S.data.expenses||[]).find(x=>x.id===r.linkedExpenseId):null;
+          const hasReceipt=linkedExp&&linkedExp.receiptPhoto;
           return`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 4px;border-bottom:1px dashed var(--bdr);gap:10px;">
             <div style="flex:1;min-width:0;">
               <div style="font-size:13.5px;color:var(--brown);font-weight:600;">${r.date||''}　<span style="font-size:11px;color:var(--mut);font-weight:400;background:var(--bg2);padding:1px 6px;border-radius:4px;">${getCatDisplay(r)}</span></div>
               ${r.note?`<div class="tm" style="font-size:11px;margin-top:2px;">${r.note}</div>`:''}
             </div>
+            ${hasReceipt?`<button onclick="viewExpenseReceipt('${linkedExp.id}')" style="background:var(--gold);color:#fff;border:none;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;" title="看收據">📷</button>`:''}
             <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:${isIn?'var(--grn)':'var(--red)'};white-space:nowrap;">${isIn?'+':'−'}$${fmt(Math.abs(toN(r.amount)))}</div>
             <button onclick="openM('editLE','${r.id}')" style="background:none;border:none;color:var(--mut);font-size:13px;cursor:pointer;padding:2px 4px;">✏️</button>
             <button onclick="delLE('${r.id}')" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;padding:2px 4px;">×</button>
@@ -13388,7 +13405,7 @@ function renderSearchResults(query){
 
   const sections=[
     {key:'incomes',label:'💵 收入',color:'var(--grn)',page:'incomes',fmt:i=>`${i.date||''}　${i.item||'-'}　<b style="color:var(--grn);">+$${fmt(toN(i.amount))}</b>　<span class="tm" style="font-size:11px;">${i.category||''}</span>`},
-    {key:'expenses',label:'💸 支出',color:'var(--red)',page:'expenses2',fmt:e=>`${e.date||''}　${e.item||e.category||'-'}　<b style="color:var(--red);">-$${fmt(toN(e.amount))}</b>　<span class="tm" style="font-size:11px;">${e.category||''}${e.cardBank?' 💳'+e.cardBank:''}</span>`},
+    {key:'expenses',label:'💸 支出',color:'var(--red)',page:'expenses2',fmt:e=>`${e.date||''}　${e.receiptPhoto?`<button onclick="event.stopPropagation();viewExpenseReceipt('${e.id}')" style="background:var(--gold);color:#fff;border:none;padding:1px 6px;border-radius:5px;font-size:10px;cursor:pointer;" title="看收據">📷</button>　`:''}${e.item||e.category||'-'}　<b style="color:var(--red);">-$${fmt(toN(e.amount))}</b>　<span class="tm" style="font-size:11px;">${e.category||''}${e.cardBank?' 💳'+e.cardBank:''}</span>`},
     {key:'ledger',label:'📒 預備金',color:'var(--pur)',page:'ledger',fmt:e=>`${e.date||''}　${e._ledgerName}　${toN(e.amount)>=0?'<b style="color:var(--grn);">+':'<b style="color:var(--red);">'}$${fmt(toN(e.amount))}</b>　<span class="tm" style="font-size:11px;">${e.cat||''}${e.note?' · '+e.note:''}</span>`},
     {key:'savings',label:'🏦 每月存款',color:'var(--blu)',page:'settings',fmt:s=>`${s.date||''}　${s.item||'-'}　<b style="color:var(--blu);">$${fmt(toN(s.amount))}</b>`},
     {key:'stocks',label:'📈 股票',color:'var(--gold)',page:'settings',fmt:s=>`${s.name||s.code||'-'}　${s.qty||0} 股　<b style="color:var(--gold);">$${fmt(toN(s.price)*toN(s.qty))}</b>`},
