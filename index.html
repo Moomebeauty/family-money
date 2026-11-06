@@ -1230,26 +1230,106 @@ function startSync(){
       S.data.emgRecords=d.emgRecords||[];
       S.data.ledgerDescriptions=d.ledgerDescriptions||{};
       S.data.creditCards=d.creditCards||[];
-      // 🎁 首次載入：如果沒有任何信用卡 → 預建使用者常用的 5 張空殼
+      // 🎁 卡片詳細回饋預設（2026 舊戶權益，到 2026/12/31）
+      const CARD_PRESETS={
+        '富邦 J 卡':{
+          bank:'富邦',defaultRate:1,
+          categoryRates:[
+            {categoryName:'國內一般',rate:1,note:'無上限'},
+            {categoryName:'日韓泰 一般消費',rate:3,note:'無上限'},
+            {categoryName:'日韓泰 實體店（單筆滿千+登錄）',rate:6,note:'上限 1000 點/季'},
+            {categoryName:'Apple Pay 儲值日交通卡（滿 2000+登錄）',rate:10,note:'上限 200 點/季 · Suica/PASMO/ICOCA'}
+          ],
+          note:'✅ 富邦 J 卡（舊戶權益到 2026/12/31）\n· 國內 1% 無上限\n· 日韓泰 3% 無上限\n· 日韓泰實體店 單筆滿千 + 登錄 → 6%（上限 1000 點/季）\n· Apple Pay 儲值日本交通卡（Suica/PASMO/ICOCA）滿 2 千 + 登錄 → 10%（上限 200 點/季）'
+        },
+        '星展eco永續卡':{
+          bank:'星展',defaultRate:1,
+          categoryRates:[
+            {categoryName:'國內外一般（含保費）',rate:1,note:'無上限'},
+            {categoryName:'日/韓/泰/新/美/歐 實體',rate:5,note:'加碼上限 600 點/期'},
+            {categoryName:'Tesla / Gogoro 充電或電池費',rate:10,note:'加碼上限 500 點/期'}
+          ],
+          note:'✅ 星展 eco 永續卡（舊戶權益到 2026/12/31）\n· 國內外一般消費 1% 無上限（含保費）\n· 日/韓/泰/新/美/歐 實體消費 5%（加碼上限 600 點/期）\n· Tesla/Gogoro 充電或電池費 10%（加碼上限 500 點/期）'
+        },
+        '永豐三井聯名卡':{
+          bank:'永豐',defaultRate:1,
+          categoryRates:[
+            {categoryName:'三井館內（LaLaport/OUTLET）',rate:1,note:'豐點 + 專屬餐飲折價 + 天天免費停車 2 小時'},
+            {categoryName:'館外餐飲（需自動扣繳+電子帳單）',rate:7,note:'每期上限 100 元'},
+            {categoryName:'全盈+PAY（需自動扣繳+電子帳單）',rate:7,note:'每期上限 100 元'}
+          ],
+          note:'✅ 永豐三井聯名卡（舊戶權益到 2026/12/31）\n· 三井館內 1% 豐點 + 專屬餐飲折價 + 天天免費停車 2 小時\n· 條件觸發：設定自動扣繳 + 電子帳單 → 館外餐飲 & 全盈+PAY 7%（每期上限 100 元）'
+        },
+        '中信 LINE Pay 卡':{
+          bank:'中信',defaultRate:1,
+          categoryRates:[
+            {categoryName:'國內一般',rate:1,note:'無上限'},
+            {categoryName:'國外實體',rate:2.8,note:'無上限 · 登錄最高 5%'},
+            {categoryName:'百大品牌通路（脆饗食/脆好購等）',rate:20,note:'最高 16-25%，需登錄'}
+          ],
+          note:'✅ 中信 LINE Pay 卡（舊戶權益到 2026/12/31）\n· 國內一般 1% 無上限\n· 國外實體 2.8% 無上限（登錄最高 5%）\n· 特定百大品牌通路（脆饗食/脆好購等）最高 16-25%'
+        },
+        '聯邦賴點卡':{
+          bank:'聯邦',defaultRate:1,
+          categoryRates:[
+            {categoryName:'國內一般',rate:1,note:''},
+            {categoryName:'國外一般',rate:3,note:'無上限'},
+            {categoryName:'綁 LINE Pay 國內（單筆滿 100）',rate:2,note:'加碼上限 200 點/月'},
+            {categoryName:'偶數日 + 餐飲/量販 + LINE Pay（單筆滿 100）',rate:7,note:'加碼上限 150 點/月'}
+          ],
+          note:'✅ 聯邦賴點卡（舊戶權益到 2026/12/31）\n· 國內一般 1% / 國外 3% 無上限\n· 綁 LINE Pay 國內單筆滿 100 → 2%（加碼上限 200 點/月）\n· 偶數日 + 指定通路（餐飲/量販）單筆滿 100 + 綁 LINE Pay → 7%（加碼上限 150 點/月）'
+        }
+      };
+      // 卡名別名映射（處理之前拼寫差異）
+      const CARD_NAME_ALIASES={
+        '星展勇永續卡':'星展eco永續卡',
+        '永豐三井卡':'永豐三井聯名卡',
+        '中信 LinePay 卡':'中信 LINE Pay 卡'
+      };
+
+      // 🎁 首次載入：如果沒有任何信用卡 → 預建完整 5 張
       if(!d.creditCards||d.creditCards.length===0){
-        const defaultCards=[
-          {name:'富邦 J 卡',bank:'富邦'},
-          {name:'星展勇永續卡',bank:'星展'},
-          {name:'永豐三井卡',bank:'永豐'},
-          {name:'中信 LinePay 卡',bank:'中信'},
-          {name:'聯邦賴點卡',bank:'聯邦'},
-        ];
         const curYear=new Date().getFullYear();
-        S.data.creditCards=defaultCards.map(c=>({
-          id:'cc_'+Math.random().toString(36).slice(2,8)+'_'+Date.now(),
-          name:c.name,bank:c.bank,ownerMember:'',
-          activeFrom:`${curYear}-01-01`,
-          activeTo:`${curYear}-12-31`,
-          officialUrl:'',monthlyThreshold:0,monthlyCap:0,
-          defaultRate:0,categoryRates:[],note:''
-        }));
-        // 自動存一次（非同步，不阻塞）
+        const cardNames=['富邦 J 卡','星展eco永續卡','永豐三井聯名卡','中信 LINE Pay 卡','聯邦賴點卡'];
+        S.data.creditCards=cardNames.map(name=>{
+          const preset=CARD_PRESETS[name];
+          return{
+            id:'cc_'+Math.random().toString(36).slice(2,8)+'_'+Date.now()+'_'+Math.random().toString(36).slice(2,4),
+            name,bank:preset.bank,ownerMember:'',
+            activeFrom:`${curYear}-01-01`,
+            activeTo:`${curYear}-12-31`,
+            officialUrl:'',monthlyThreshold:0,monthlyCap:0,
+            defaultRate:preset.defaultRate,
+            categoryRates:preset.categoryRates,
+            note:preset.note
+          };
+        });
         saveMain({creditCards:S.data.creditCards}).catch(()=>{});
+      }else{
+        // 🪄 升級既有卡片：有卡但沒詳細資料 → 自動套用 preset
+        let needUpdate=false;
+        const updated=S.data.creditCards.map(c=>{
+          // 先處理舊名稱升級
+          const aliasedName=CARD_NAME_ALIASES[c.name]||c.name;
+          const preset=CARD_PRESETS[aliasedName];
+          // 若沒有對應 preset 就不動
+          if(!preset)return c;
+          // 若已經有 categoryRates（使用者可能已手動填過）→ 不覆蓋
+          if(c.categoryRates&&c.categoryRates.length>0&&c.note)return c;
+          needUpdate=true;
+          return{
+            ...c,
+            name:aliasedName,
+            bank:c.bank||preset.bank,
+            defaultRate:c.defaultRate||preset.defaultRate,
+            categoryRates:preset.categoryRates,
+            note:preset.note
+          };
+        });
+        if(needUpdate){
+          S.data.creditCards=updated;
+          saveMain({creditCards:updated}).catch(()=>{});
+        }
       }
       S.data.cumulativeStartDate=d.cumulativeStartDate||`${new Date().getFullYear()}-01-01`;
       S.data.investNotes=d.investNotes||{};
@@ -3622,15 +3702,26 @@ function pgCreditCards(){
             <span style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:${monthSpend>0?'var(--red)':'var(--mut)'};">$${fmt(monthSpend)}</span>
           </div>
 
-          <!-- 類別回饋（最多顯示 3 個） -->
+          <!-- 類別回饋（詳細顯示） -->
           ${catCount>0?`<div style="margin-bottom:10px;">
-            <div style="font-size:10.5px;color:var(--mut);font-weight:700;margin-bottom:4px;">🎁 類別回饋（${catCount}）</div>
-            <div style="display:flex;gap:4px;flex-wrap:wrap;">
-              ${(c.categoryRates||[]).slice(0,4).map(r=>`<span style="background:var(--grnl);color:var(--grn);padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;">${r.categoryName||r.categoryId||'?'} ${r.rate}%</span>`).join('')}
-              ${catCount>4?`<span style="padding:3px 8px;color:var(--mut);font-size:11px;">+${catCount-4}</span>`:''}
+            <div style="font-size:10.5px;color:var(--mut);font-weight:700;margin-bottom:6px;">🎁 類別回饋（${catCount}）</div>
+            <div style="display:flex;flex-direction:column;gap:5px;">
+              ${(c.categoryRates||[]).map(r=>`<div style="padding:7px 9px;background:${r.rate>=5?'var(--grnl)':r.rate>=3?'#FFF8E7':'#F9FAFB'};border-left:3px solid ${r.rate>=5?'var(--grn)':r.rate>=3?'var(--goldDk)':'#999'};border-radius:6px;font-size:11.5px;line-height:1.5;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+                  <span style="color:var(--brown);font-weight:600;flex:1;">${r.categoryName||r.categoryId||'?'}</span>
+                  <b style="color:${r.rate>=5?'var(--grn)':r.rate>=3?'var(--goldDk)':'var(--brown)'};font-family:'Noto Serif TC',serif;white-space:nowrap;">${r.rate}%</b>
+                </div>
+                ${r.note?`<div style="font-size:10px;color:var(--mut);margin-top:2px;">${r.note}</div>`:''}
+              </div>`).join('')}
             </div>
-            ${c.defaultRate>0?`<div style="font-size:10.5px;color:var(--mut);margin-top:4px;">其他：${c.defaultRate}%</div>`:''}
+            ${c.defaultRate>0?`<div style="font-size:10.5px;color:var(--mut);margin-top:6px;padding:4px 8px;background:#F3F4F6;border-radius:6px;">其他未列類別：${c.defaultRate}%</div>`:''}
           </div>`:`<div style="padding:10px;background:#FFF8E7;border-radius:8px;font-size:11px;color:var(--goldDk);text-align:center;margin-bottom:10px;">⚠️ 還沒設定回饋，無法幫你推薦</div>`}
+
+          <!-- 備註（完整規則） -->
+          ${c.note?`<details style="margin-bottom:10px;">
+            <summary style="cursor:pointer;font-size:11px;color:var(--mut);font-weight:600;list-style:none;padding:4px 0;">📝 完整規則說明 ▼</summary>
+            <div style="padding:10px 12px;background:var(--bg2);border-radius:8px;font-size:11.5px;color:var(--brown);line-height:1.8;white-space:pre-line;">${c.note}</div>
+          </details>`:''}
 
           <!-- 門檻/上限 -->
           ${c.monthlyThreshold>0||c.monthlyCap>0?`<div style="font-size:10.5px;color:var(--mut);line-height:1.6;margin-bottom:10px;">
@@ -12092,13 +12183,17 @@ function modal(){
         <button type="button" onclick="addCardRate()" style="background:var(--grn);color:#fff;border:none;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:600;cursor:pointer;">＋ 加類別</button>
       </div>
       <div style="font-size:11px;color:var(--mut);margin-bottom:10px;line-height:1.5;">💡 只填「比預設回饋高」的類別就好（例如加油 3%、網購 2.5%）</div>
-      <div id="cc-rates-list" style="display:flex;flex-direction:column;gap:6px;">
-        ${rates.map((r,i)=>`<div class="cc-rate-row" data-idx="${i}" style="display:grid;grid-template-columns:1.5fr 1fr auto;gap:6px;align-items:center;">
-          <select class="cc-rate-cat" style="padding:7px 10px;border:1px solid var(--bdr);border-radius:8px;font-size:12px;">
-            ${cats.map(mc=>`<option value="${mc.id}|${mc.name}" ${r.categoryId===mc.id?'selected':''}>${mc.icon} ${mc.name}</option>`).join('')}
-          </select>
-          <input type="number" step="0.1" class="cc-rate-pct" value="${r.rate||''}" placeholder="2.5" style="padding:7px 10px;border:1px solid var(--bdr);border-radius:8px;font-size:12px;text-align:right;">
-          <button type="button" onclick="this.parentElement.remove()" style="background:none;border:1px solid var(--bdr);color:var(--red);padding:5px 10px;border-radius:6px;font-size:14px;cursor:pointer;">×</button>
+      <div id="cc-rates-list" style="display:flex;flex-direction:column;gap:8px;">
+        ${rates.map((r,i)=>`<div class="cc-rate-row" data-idx="${i}" style="padding:8px;background:#fff;border:1px solid var(--bdr);border-radius:8px;display:flex;flex-direction:column;gap:5px;">
+          <div style="display:grid;grid-template-columns:1.5fr 80px auto;gap:6px;align-items:center;">
+            <input type="text" class="cc-rate-catname" value="${(r.categoryName||'').replace(/"/g,'&quot;')}" placeholder="類別名稱（如：日韓泰實體）" style="padding:7px 10px;border:1px solid var(--bdr);border-radius:8px;font-size:12px;">
+            <div style="display:flex;align-items:center;gap:4px;">
+              <input type="number" step="0.1" class="cc-rate-pct" value="${r.rate||''}" placeholder="%" style="width:100%;padding:7px 6px;border:1px solid var(--bdr);border-radius:8px;font-size:12px;text-align:right;">
+              <span style="font-size:11px;color:var(--mut);">%</span>
+            </div>
+            <button type="button" onclick="this.closest('.cc-rate-row').remove()" style="background:none;border:1px solid var(--bdr);color:var(--red);padding:5px 10px;border-radius:6px;font-size:14px;cursor:pointer;">×</button>
+          </div>
+          <input type="text" class="cc-rate-note" value="${(r.note||'').replace(/"/g,'&quot;')}" placeholder="條件/上限（如：單筆滿千+登錄，上限 1000/季）" style="width:100%;padding:6px 10px;border:1px dashed var(--bdr);border-radius:6px;font-size:11px;color:var(--mut);">
         </div>`).join('')}
       </div>
     </div>
@@ -15196,16 +15291,19 @@ document.addEventListener('input',(e)=>{
 window.addCardRate=()=>{
   const list=document.getElementById('cc-rates-list');
   if(!list)return;
-  const cats=getMasterCats();
   const row=document.createElement('div');
   row.className='cc-rate-row';
-  row.style.cssText='display:grid;grid-template-columns:1.5fr 1fr auto;gap:6px;align-items:center;';
+  row.style.cssText='padding:8px;background:#fff;border:1px solid var(--bdr);border-radius:8px;display:flex;flex-direction:column;gap:5px;';
   row.innerHTML=`
-    <select class="cc-rate-cat" style="padding:7px 10px;border:1px solid var(--bdr);border-radius:8px;font-size:12px;">
-      ${cats.map(mc=>`<option value="${mc.id}|${mc.name}">${mc.icon} ${mc.name}</option>`).join('')}
-    </select>
-    <input type="number" step="0.1" class="cc-rate-pct" placeholder="2.5" style="padding:7px 10px;border:1px solid var(--bdr);border-radius:8px;font-size:12px;text-align:right;">
-    <button type="button" onclick="this.parentElement.remove()" style="background:none;border:1px solid var(--bdr);color:var(--red);padding:5px 10px;border-radius:6px;font-size:14px;cursor:pointer;">×</button>
+    <div style="display:grid;grid-template-columns:1.5fr 80px auto;gap:6px;align-items:center;">
+      <input type="text" class="cc-rate-catname" placeholder="類別名稱（如：日韓泰實體）" style="padding:7px 10px;border:1px solid var(--bdr);border-radius:8px;font-size:12px;">
+      <div style="display:flex;align-items:center;gap:4px;">
+        <input type="number" step="0.1" class="cc-rate-pct" placeholder="%" style="width:100%;padding:7px 6px;border:1px solid var(--bdr);border-radius:8px;font-size:12px;text-align:right;">
+        <span style="font-size:11px;color:var(--mut);">%</span>
+      </div>
+      <button type="button" onclick="this.closest('.cc-rate-row').remove()" style="background:none;border:1px solid var(--bdr);color:var(--red);padding:5px 10px;border-radius:6px;font-size:14px;cursor:pointer;">×</button>
+    </div>
+    <input type="text" class="cc-rate-note" placeholder="條件/上限（如：單筆滿千+登錄，上限 1000/季）" style="width:100%;padding:6px 10px;border:1px dashed var(--bdr);border-radius:6px;font-size:11px;color:var(--mut);">
   `;
   list.appendChild(row);
 };
@@ -15218,11 +15316,15 @@ window.saveCreditCard=async(editId)=>{
   const rateRows=document.querySelectorAll('#cc-rates-list .cc-rate-row');
   const categoryRates=[];
   rateRows.forEach(row=>{
-    const sel=row.querySelector('.cc-rate-cat');
+    const catnameInput=row.querySelector('.cc-rate-catname');
     const pct=row.querySelector('.cc-rate-pct');
-    if(sel&&pct&&sel.value&&pct.value){
-      const [catId,catName]=sel.value.split('|');
-      categoryRates.push({categoryId:catId,categoryName:catName,rate:toN(pct.value)});
+    const noteInput=row.querySelector('.cc-rate-note');
+    if(catnameInput&&pct&&catnameInput.value&&pct.value){
+      categoryRates.push({
+        categoryName:catnameInput.value,
+        rate:toN(pct.value),
+        note:(noteInput&&noteInput.value)||''
+      });
     }
   });
   const cardData={
