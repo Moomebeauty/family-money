@@ -1573,7 +1573,7 @@ function mobNav(){
         <button onclick="mobCloseMore()" style="background:var(--bg2);border:none;color:var(--brown);width:32px;height:32px;border-radius:50%;font-size:18px;cursor:pointer;">×</button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
-        ${['insurance','settings','creditCards','advances','expenseCalendar','fixedNew','amortNew','wealth10x','safetyNet','catManage'].map(pid=>{
+        ${['insurance','settings','creditCards','advances','expenseCalendar','wealth10x','safetyNet','catManage'].map(pid=>{
           const p=PAGES.find(x=>x.id===pid);
           if(!p)return'';
           return`<button onclick="mobCloseMore();setP('${pid}');" style="background:#fff;border:1.5px solid var(--bdr);border-radius:12px;padding:14px 8px;cursor:pointer;color:var(--brown);font-size:11px;font-weight:600;line-height:1.5;text-align:center;">
@@ -3898,8 +3898,20 @@ function pgExpenseCalendar(){
   <div style="max-width:1100px;margin:0 auto;">
     <!-- 標題 -->
     <div style="text-align:center;padding:20px 0 14px;">
-      <div style="font-family:'Noto Serif TC',serif;font-size:26px;font-weight:700;color:var(--brown);letter-spacing:0.2em;">📅 全年固定支出時間軸</div>
-      <div class="tm" style="font-size:12.5px;margin-top:4px;">${curYear} 年度　·　什麼時候要繳哪一筆　·　池子夠不夠</div>
+      <div style="font-family:'Noto Serif TC',serif;font-size:26px;font-weight:700;color:var(--brown);letter-spacing:0.2em;">📅 年度固定支出主控台</div>
+      <div class="tm" style="font-size:12.5px;margin-top:4px;">${curYear} 年　·　看時間軸 + 當場新增/編輯　·　一頁搞定</div>
+    </div>
+
+    <!-- 🚀 快速操作區 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+      <button onclick="openM('addFixed')" style="padding:14px 16px;background:linear-gradient(135deg,var(--gold),var(--goldDk));color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(196,164,107,0.3);display:flex;align-items:center;justify-content:center;gap:8px;font-family:inherit;">
+        <span style="font-size:20px;">📌</span>
+        <span>＋ 新增月繳項（房貸/訂閱）</span>
+      </button>
+      <button onclick="openM('addAmort')" style="padding:14px 16px;background:linear-gradient(135deg,var(--pur),#7040A0);color:#fff;border:none;border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(140,90,194,0.3);display:flex;align-items:center;justify-content:center;gap:8px;font-family:inherit;">
+        <span style="font-size:20px;">🏺</span>
+        <span>＋ 新增年繳項（保險/稅）</span>
+      </button>
     </div>
 
     <!-- 📊 年度總覽卡 -->
@@ -3954,11 +3966,18 @@ function pgExpenseCalendar(){
     ${fixedItems.length>0?`<div style="background:#fff;border-radius:14px;padding:16px 20px;margin-bottom:16px;border:1.5px solid var(--gold);">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
         <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--goldDk);">📌 每個月都要繳 · 合計 $${fmt(fixedTotal)}/月</div>
-        <button onclick="setP('fixedNew')" style="background:var(--gold);color:#fff;border:none;padding:6px 14px;border-radius:999px;font-size:11.5px;font-weight:600;cursor:pointer;">管理 →</button>
       </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        ${fixedItems.map(f=>`<div style="padding:5px 10px;background:#FFF8E7;border:1px solid var(--gold);border-radius:999px;font-size:11.5px;color:var(--brown);">
-          <b>${f.name}</b>　<span style="color:var(--red);">$${fmt(toN(f.amount))}</span>${f.payDay?`　<span style="color:var(--mut);">· ${f.payDay} 號</span>`:''}
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        ${fixedItems.map(f=>`<div style="padding:8px 12px;background:#FFF8E7;border:1px solid var(--gold);border-radius:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;color:var(--brown);font-weight:700;">${f.name}</div>
+            <div style="font-size:11px;color:var(--mut);margin-top:1px;">${f.category||''}${f.payDay?` · 每月 ${f.payDay} 號扣款`:''}${f.installmentTotal&&f.installmentStart?` · 分期`:''}</div>
+          </div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--red);">$${fmt(toN(f.amount))}</div>
+          <div style="display:flex;gap:4px;">
+            <button onclick="editFixed('${f.id}')" style="background:none;border:1px solid var(--gold);color:var(--goldDk);padding:4px 8px;border-radius:6px;font-size:12px;cursor:pointer;" title="編輯">✏️</button>
+            <button onclick="delFixed('${f.id}')" style="background:none;border:1px solid var(--bdr);color:var(--red);padding:4px 7px;border-radius:6px;font-size:13px;cursor:pointer;" title="刪除">×</button>
+          </div>
         </div>`).join('')}
       </div>
     </div>`:''}
@@ -3995,7 +4014,7 @@ function pgExpenseCalendar(){
               const isPaid=a.paidThisYear>=a.annualAmount;
               const perInst=a._perInstallment;
               const isMulti=a._installments>1;
-              return`<div style="padding:6px 10px;background:#fff;border-radius:8px;margin-bottom:5px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+              return`<div style="padding:8px 10px;background:#fff;border-radius:8px;margin-bottom:5px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
                 <div style="flex:1;min-width:0;">
                   <div style="font-size:12.5px;color:var(--brown);font-weight:600;">
                     ${isPaid?'✅':'🏺'} ${a.name}${isMulti?` <span style="font-size:10px;color:var(--mut);">(第 ${a._installmentSeq}/${a._installments} 期)</span>`:''}
@@ -4005,6 +4024,10 @@ function pgExpenseCalendar(){
                   ${ledName?`<div style="font-size:10px;color:${ledBal>=perInst?'var(--grn)':'var(--goldDk)'};">池餘 $${fmt(ledBal)}${ledBal<perInst?' · 差 $'+fmt(perInst-ledBal):''}</div>`:''}
                 </div>
                 <b style="font-size:13px;color:${isBig?'var(--red)':'var(--brown)'};">$${fmt(perInst)}</b>
+                <div style="display:flex;gap:4px;">
+                  <button onclick="editAmort('${a.id}')" style="background:none;border:1px solid var(--pur);color:var(--pur);padding:4px 8px;border-radius:6px;font-size:12px;cursor:pointer;" title="編輯">✏️</button>
+                  <button onclick="delAmort('${a.id}')" style="background:none;border:1px solid var(--bdr);color:var(--red);padding:4px 7px;border-radius:6px;font-size:13px;cursor:pointer;" title="刪除">×</button>
+                </div>
               </div>`;
             }).join('')}
           </div>`:''}
@@ -4017,10 +4040,16 @@ function pgExpenseCalendar(){
       <div style="font-size:12px;color:#0369A1;line-height:1.8;">
         💡 <b>怎麼用這頁？</b><br>
         · 看到「⚠️ 大筆月」→ 提前 1-2 個月開始加碼存錢<br>
-        · 看到池子餘額「⚠️ 不夠」→ 下個月預算池多撥一些進去<br>
+        · 看到池子餘額「⚠️ 不夠」→ 預算池多撥一些進去<br>
         · 看到年繳項目「✅ 池足夠」→ 心理放心，到期自動扣<br>
-        · 新增 / 修改：📌 月繳 → 「每月貸款總額」　🏺 年繳 → 「年繳攤提」
+        · 新增 / 修改 → 點每一項旁邊的 ✏️ 或頂部「＋ 新增」按鈕
       </div>
+    </div>
+
+    <!-- 批次管理連結（給進階使用者） -->
+    <div style="text-align:center;margin-top:10px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+      <button onclick="setP('fixedNew')" style="background:none;border:1px solid var(--bdr);color:var(--mut);padding:5px 12px;border-radius:999px;font-size:11px;cursor:pointer;">📌 批次管理月繳</button>
+      <button onclick="setP('amortNew')" style="background:none;border:1px solid var(--bdr);color:var(--mut);padding:5px 12px;border-radius:999px;font-size:11px;cursor:pointer;">🏺 批次管理年繳</button>
     </div>
   </div>`;
 }
@@ -8352,9 +8381,7 @@ function pgSettings(){
           const subTxt=pendingCt>0?`⚠️ ${pendingCt} 張待結算　·　女兒費用先墊付`:'女兒費用先墊付，向前夫請款';
           return settingTile({ico:'💰',title:'代墊請款管理',sub:subTxt,action:"setP('advances')",bg:pendingCt>0?'linear-gradient(135deg,#FDF4FF,#fff)':'#fff',border:pendingCt>0?'#A855F7':'var(--bdr)',titleCol:pendingCt>0?'#7E22CE':'var(--brown)'});
         })()}
-        ${settingTile({ico:'📅',title:'固定支出年曆',sub:'全年 12 月時間軸　·　整合月繳+年繳+池子',action:"setP('expenseCalendar')",bg:'linear-gradient(135deg,var(--goldL),#fff)',border:'var(--gold)',titleCol:'var(--goldDk)'})}
-        ${settingTile({ico:'📌',title:'每月貸款總額',sub:`${(S.data.fixedItems||[]).length} 項　·　房貸、車貸、分期`,action:"setP('fixedNew')"})}
-        ${settingTile({ico:'🏺',title:'年繳攤提',sub:`${(S.data.amortizedItems||[]).length} 項　·　保險、稅金、工會費`,action:"setP('amortNew')"})}
+        ${settingTile({ico:'📅',title:'年度固定支出主控台',sub:`整合月繳+年繳+池子　·　${(S.data.fixedItems||[]).length} 月繳 + ${(S.data.amortizedItems||[]).length} 年繳`,action:"setP('expenseCalendar')",bg:'linear-gradient(135deg,var(--goldL),#fff)',border:'var(--gold)',titleCol:'var(--goldDk)'})}
         ${settingTile({ico:'🏷️',title:'類別管理',sub:`${catCount} 個主類別　·　統一支出/收入分類`,action:"setP('catManage')"})}
       </div>
     </div>
