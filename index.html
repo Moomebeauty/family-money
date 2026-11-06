@@ -3986,7 +3986,7 @@ function pgExpenseCalendar(){
     <div style="display:flex;flex-direction:column;gap:12px;">
       ${Array.from({length:12},(_,i)=>i+1).map(m=>{
         const amorts=amortByMonth[m];
-        const amortMoTotal=amorts.reduce((s,a)=>s+toN(a.annualAmount),0);
+        const amortMoTotal=amorts.reduce((s,a)=>s+toN(a._perInstallment),0);
         const total=monthTotals[m];
         const isBig=total>bigThreshold;
         const isCurrent=m===curMonth;
