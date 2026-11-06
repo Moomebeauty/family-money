@@ -1218,6 +1218,7 @@ function startSync(){
       S.data.safetyChecks=d.safetyChecks||{};
       S.data.ledgerPurpose=d.ledgerPurpose||{};
       S.data.allocationRatios=d.allocationRatios||{spend:40,save:40,invest:20};
+      S.data.coolDownThreshold=d.coolDownThreshold||3000; // 💳 大額冷靜門檻（預設 $3000）
       S.data.emergencyFundMonths=d.emergencyFundMonths||6;
       S.data.ledgerBudgetMode=d.ledgerBudgetMode||{};
       S.data.equipmentItems=d.equipmentItems||{};
@@ -1253,8 +1254,12 @@ async function saveMain(patch){
 function cleanUndef(o){const r={...o};Object.keys(r).forEach(k=>{if(r[k]===undefined)r[k]=null;});return r;}
 async function addSub(col,data){
   setSyncing('syncing');
-  try{await addDoc(collection(db,'families',FID,col),cleanUndef({...data,_at:Date.now()}));setSyncing('synced');}
-  catch(err){setSyncing('error');toast('儲存失敗');console.error('addSub error:',err);}
+  try{
+    const ref=await addDoc(collection(db,'families',FID,col),cleanUndef({...data,_at:Date.now()}));
+    setSyncing('synced');
+    return ref.id;
+  }
+  catch(err){setSyncing('error');toast('儲存失敗');console.error('addSub error:',err);return null;}
 }
 async function delSub(col,id){
   setSyncing('syncing');
@@ -1287,7 +1292,7 @@ function setSyncing(s){
   if(dot)dot.className='sync-dot '+s;
   if(lbl)lbl.textContent=s==='synced'?'已同步':s==='syncing'?'同步中…':'離線';
 }
-function toast(msg){const el=document.createElement('div');el.className='toast';el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),2500);}
+function toast(msg,duration){const el=document.createElement('div');el.className='toast';el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),duration||2500);}
 function getInc(all){return(S.data.incomes||[]).filter(i=>i.month===S.month&&i.year===yr());}
 function getExp(all){return(S.data.expenses||[]).filter(e=>e.month===S.month&&e.year===yr());}
 function getLedger(lid,mo){return(S.data.ledgerEntries||[]).filter(e=>e.lid===lid&&e.month===(mo||S.month)&&e.year===yr());}
@@ -2052,6 +2057,54 @@ function pgOverviewNew(){
     <div style="display:flex;gap:6px;justify-content:center;margin-bottom:16px;flex-wrap:wrap;padding:0 8px;">
       ${mBtns}
     </div>
+
+    <!-- 🎈 本期信用卡預估帳單（紅氣球 · 刷卡痛感設計） -->
+    ${(()=>{
+      // 本月已刷（未結帳）
+      const monthCreditExps=(S.data.expenses||[]).filter(e=>e.year===curYear&&e.month===curMonth&&e.paymentMethod==='credit');
+      const monthCreditTotal=monthCreditExps.reduce((s,e)=>s+toN(e.amount),0);
+      // 按卡分組
+      const byCard={};
+      monthCreditExps.forEach(e=>{
+        const b=e.cardBank||'未分卡';
+        byCard[b]=(byCard[b]||0)+toN(e.amount);
+      });
+      const cardList=Object.entries(byCard).sort((a,b)=>b[1]-a[1]);
+      // 比例計算
+      const pct=monthInc>0?Math.round(monthCreditTotal/monthInc*100):0;
+      // 顏色狀態
+      let col,bg,borderCol,anim,emoji,status;
+      if(pct<10){col='#7DB89A';bg='linear-gradient(135deg,#f0fdf4,#fff)';borderCol='#7DB89A';emoji='🎈';status='健康';anim='';}
+      else if(pct<20){col='#0369A1';bg='linear-gradient(135deg,#F0F9FF,#fff)';borderCol='#0EA5E9';emoji='🎈';status='正常';anim='';}
+      else if(pct<30){col='var(--goldDk)';bg='linear-gradient(135deg,#FFF8E7,#fff)';borderCol='var(--gold)';emoji='⚠️';status='注意';anim='';}
+      else {col='var(--red)';bg='linear-gradient(135deg,#FEE2E2,#fff)';borderCol='var(--red)';emoji='🚨';status='警戒';anim='animation:balloonShake 0.5s infinite;';}
+      return`<style>@keyframes balloonShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-2px)}75%{transform:translateX(2px)}}</style>
+      <div style="background:${bg};border:2px solid ${borderCol};border-radius:16px;padding:16px 20px;margin-bottom:14px;${anim}">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:${cardList.length>0?'10':'0'}px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="font-size:28px;">${emoji}</div>
+            <div>
+              <div style="font-size:11px;color:${col};letter-spacing:0.2em;font-weight:700;">本期信用卡預估帳單</div>
+              <div style="font-family:'Noto Serif TC',serif;font-size:26px;font-weight:700;color:${col};line-height:1.1;margin-top:2px;">$${fmt(monthCreditTotal)}</div>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:11px;color:var(--mut);">佔本月收入</div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:24px;font-weight:700;color:${col};">${pct}%</div>
+            <div style="font-size:10px;color:${col};font-weight:700;">${status}</div>
+          </div>
+        </div>
+        ${monthInc>0?`<div style="height:8px;background:#F3F4F6;border-radius:4px;overflow:hidden;margin-bottom:${cardList.length>0?'10':'0'}px;">
+          <div style="height:100%;width:${Math.min(100,pct)}%;background:${borderCol};border-radius:4px;transition:width 0.5s;"></div>
+        </div>
+        <div style="font-size:10.5px;color:var(--mut);margin-bottom:${cardList.length>0?'8':'0'}px;line-height:1.5;">
+          🚦 &lt;10% 健康 ✅　10-20% 正常 　20-30% 注意 ⚠️　&gt;30% 警戒 🚨
+        </div>`:''}
+        ${cardList.length>0?`<div style="padding-top:8px;border-top:1px dashed ${borderCol}66;display:flex;flex-wrap:wrap;gap:6px;">
+          ${cardList.map(([bank,amt])=>`<div style="padding:4px 10px;background:#fff;border:1px solid ${borderCol}66;border-radius:999px;font-size:11px;color:${col};font-weight:600;">💳 ${bank} <b>$${fmt(amt)}</b></div>`).join('')}
+        </div>`:`<div style="font-size:11px;color:var(--mut);text-align:center;padding:6px 0;">本月還沒有信用卡消費紀錄</div>`}
+      </div>`;
+    })()}
 
     <!-- 📋 本月待辦清單（置頂提醒） -->
     ${(()=>{
@@ -3091,6 +3144,31 @@ function pgQuickExpense(){
         <select id="qe-card" style="width:100%;padding:12px 16px;font-size:15px;border:2px solid var(--bdr);border-radius:12px;">
           ${(S.data.cardBanks||['中信','玉山','國泰','聯邦','富邦','台新','星展','其他']).map(b=>`<option>${b}</option>`).join('')}
         </select>
+      </div>
+
+      <!-- 🪣 從哪個預算池扣（刷卡痛感設計：讓池子立刻變少） -->
+      <div style="margin-bottom:14px;background:linear-gradient(135deg,#F0F9FF,#fff);border:2px dashed #0EA5E9;border-radius:14px;padding:14px 16px;">
+        <label style="display:block;font-size:13px;font-weight:700;color:#0369A1;margin-bottom:8px;">🪣 從哪個預算池扣？</label>
+        <div style="font-size:11px;color:var(--mut);margin-bottom:8px;line-height:1.5;">💡 選了池子 → 池子立刻扣款，讓你跟付現金一樣有感</div>
+        <select id="qe-pool" onchange="previewPoolDeduction()" style="width:100%;padding:12px 16px;font-size:14px;border:2px solid #BAE6FD;border-radius:10px;background:#fff;color:var(--brown);font-family:inherit;">
+          <option value="">— 不從池子扣（例外，例如投資/緊急金撥款）—</option>
+          ${(()=>{
+            const POOL_ORDER=['utility','traffic','union','home','gift','travel','beauty','food','muji'];
+            const sorted=[...getAllLedgers()].sort((a,b)=>{
+              const ia=POOL_ORDER.indexOf(a.id);const ib=POOL_ORDER.indexOf(b.id);
+              if(ia===-1&&ib===-1)return 0;if(ia===-1)return 1;if(ib===-1)return -1;
+              return ia-ib;
+            });
+            return sorted.map(l=>{
+              const bal=(S.data.ledgerEntries||[]).filter(e=>e.lid===l.id).reduce((s,e)=>s+toN(e.amount),0);
+              return `<option value="${l.id}" data-bal="${bal}">${l.name}（餘額 $${fmt(bal)}）</option>`;
+            }).join('');
+          })()}
+        </select>
+        <!-- 即時扣款預覽 -->
+        <div id="qe-pool-preview" style="display:none;margin-top:10px;padding:10px 14px;background:#fff;border-radius:10px;border-left:4px solid #0EA5E9;">
+          <div style="font-size:12px;color:var(--brown);line-height:1.8;" id="qe-pool-preview-content"></div>
+        </div>
       </div>
 
       <!-- 頻率（一次性/每月/年繳提醒） -->
@@ -14426,10 +14504,17 @@ window.quickSaveExpense=async()=>{
   const paymentMethod=(document.querySelector('input[name="qe-pay-r"]:checked')||{}).value||'cash';
   const cardBank=paymentMethod==='credit'?(g('qe-card')||''):'';
   const frequency=(document.querySelector('input[name="qe-freq"]:checked')||{}).value||'once';
+  const poolLid=g('qe-pool')||''; // 🪣 從哪個池扣
   if(!date||!amount){alert('請填日期和金額');return;}
   const d=new Date(date);
   const payTxt={cash:'現金',transfer:'轉帳',credit:'信用卡'}[paymentMethod]||'現金';
   const cat=catName; // 相容舊變數名
+
+  // 🎯 大額冷靜 10 秒檢查（下個 task 會用）— 先預留 hook
+  if(window._needCoolDown&&window._needCoolDown(amount,paymentMethod,poolLid)){
+    const ok=await window._coolDownDialog(amount,item,paymentMethod,poolLid);
+    if(!ok)return;
+  }
   try{
     // 如果選了「每月固定」→ 自動加進固定支出
     if(frequency==='monthly'&&item){
@@ -14460,19 +14545,274 @@ window.quickSaveExpense=async()=>{
       }
     }
     // 一律記一筆支出
-    await addSub('expenses',{
+    // 🪣 如果有選預算池 → 標記 fromLedger:true（避免雙重計算），但保留 linkedLedgerId
+    const expenseDoc={
       date,amount,item,category:cat,categoryId:catId||null,subCategoryId:subCatId||null,subCategoryName:subCatName||'',
       paymentMethod,cardBank,frequency,
       payMethod:payTxt, // 相容舊欄位
       user:S.user||'',note:'',
-      month:d.getMonth()+1,year:d.getFullYear()
-    });
-    toast(`✅ 已記錄 -$${fmt(amount)}`);
+      month:d.getMonth()+1,year:d.getFullYear(),
+      linkedLedgerId:poolLid||null,
+      fromLedger:!!poolLid  // 有從池扣 → 不雙重計算
+    };
+    const expId=await addSub('expenses',expenseDoc);
+
+    // 🪣 如果有選池 → 寫入對應的 ledgerEntry（負數＝池子扣款）
+    if(poolLid){
+      await addSub('ledgerEntries',{
+        lid:poolLid,
+        date,
+        amount:-Math.abs(amount), // 負數 = 扣款
+        cat:cat,
+        categoryId:catId||null,
+        subCategoryId:subCatId||null,
+        subCategoryName:subCatName||'',
+        note:item||'',
+        paymentMethod,cardBank,
+        month:d.getMonth()+1,year:d.getFullYear(),
+        linkedExpenseId:expId||null,
+        fromExpense:true
+      });
+    }
+
+    // 🎉 顯示扣款結果
+    if(poolLid){
+      const led=getAllLedgers().find(x=>x.id===poolLid);
+      const newBal=(S.data.ledgerEntries||[]).filter(e=>e.lid===poolLid).reduce((s,e)=>s+toN(e.amount),0)-amount;
+      if(newBal<0){
+        toast(`⚠️ ${led?led.name:''} 池已見底！餘額 -$${fmt(Math.abs(newBal))}`,5000);
+      }else{
+        toast(`✅ 從 ${led?led.name:''} 扣 $${fmt(amount)} · 剩 $${fmt(newBal)}`,4000);
+      }
+    }else{
+      toast(`✅ 已記錄 -$${fmt(amount)}`);
+    }
+
+    // 💭 時薪翻譯（金額 >= 1000 才顯示，避免打擾小筆）
+    if(amount>=1000){
+      showTimeValueToast(amount,item||cat);
+    }
+
     document.getElementById('qe-item').value='';
     document.getElementById('qe-amt').value='';
+    const poolSel=document.getElementById('qe-pool');if(poolSel)poolSel.value='';
+    const preview=document.getElementById('qe-pool-preview');if(preview)preview.style.display='none';
     setTimeout(()=>render(),300);
   }catch(err){alert('儲存失敗：'+err.message);}
 };
+
+// 💭 時薪翻譯 Toast（把金額翻成時間/便當/紋繡客）
+window.showTimeValueToast=(amount,item)=>{
+  const curYear=yr(),curMonth=S.month;
+  // 本月+近 3 月平均收入（避免當月為 0）
+  const allIncs=S.data.incomes||[];
+  let incBase=allIncs.filter(i=>i.year===curYear&&i.month===curMonth).reduce((s,i)=>s+toN(i.amount),0);
+  if(incBase<=0){
+    // 回推最近 3 月平均
+    const hist=[];
+    for(let i=1;i<=3;i++){
+      const d=new Date(curYear,curMonth-1-i,1);
+      const t=allIncs.filter(x=>x.year===d.getFullYear()&&x.month===d.getMonth()+1).reduce((s,x)=>s+toN(x.amount),0);
+      if(t>0)hist.push(t);
+    }
+    incBase=hist.length>0?Math.round(hist.reduce((s,v)=>s+v,0)/hist.length):0;
+  }
+  if(incBase<=0)return; // 沒收入資料就不顯示
+  const hourlyRate=Math.round(incBase/180); // 假設 180 小時/月
+  const hoursEq=hourlyRate>0?(amount/hourlyRate).toFixed(1):0;
+  const daysEq=hourlyRate>0?(amount/(hourlyRate*8)).toFixed(1):0; // 1 天 8 小時
+  const bentoEq=Math.round(amount/120); // 1 便當 $120
+  const latteEq=Math.round(amount/150); // 1 杯拿鐵 $150
+
+  const banner=document.createElement('div');
+  banner.style.cssText='position:fixed;top:72px;left:50%;transform:translateX(-50%);z-index:9500;max-width:380px;width:92vw;background:linear-gradient(135deg,#2C1810,#4A2C1F);color:#fff;border:2px solid #C4A46B;border-radius:16px;padding:14px 18px;box-shadow:0 10px 30px rgba(44,24,16,0.4);animation:slideDown 0.4s ease;';
+  banner.innerHTML=`
+    <style>@keyframes slideDown{from{transform:translate(-50%,-40px);opacity:0}to{transform:translate(-50%,0);opacity:1}}</style>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <div style="font-size:11px;color:#C4A46B;letter-spacing:0.2em;font-weight:700;">💭 時間翻譯</div>
+      <button onclick="this.parentElement.parentElement.remove()" style="background:none;border:none;color:#888;font-size:16px;cursor:pointer;padding:0;line-height:1;">×</button>
+    </div>
+    <div style="font-size:13px;line-height:1.9;color:#fff;">
+      剛記錄 <b style="color:#FFD700;">$${fmt(amount)}</b>　${item?`<span style="color:#aaa;">· ${item}</span>`:''}
+    </div>
+    <div style="margin-top:8px;padding-top:8px;border-top:1px dashed #C4A46B66;font-size:12.5px;line-height:1.9;color:#eee;">
+      💼 相當於你 <b style="color:#FFD700;">${hoursEq} 小時</b> 的工作（約 ${daysEq} 天）<br>
+      🍜 相當於 <b style="color:#FFD700;">${bentoEq}</b> 個便當<br>
+      ☕ 相當於 <b style="color:#FFD700;">${latteEq}</b> 杯咖啡<br>
+      ⏱ 時薪基礎：$${fmt(hourlyRate)}/hr（月收入 $${fmt(incBase)} ÷ 180 hr）
+    </div>
+  `;
+  document.body.appendChild(banner);
+  setTimeout(()=>{banner.style.transition='opacity 0.5s';banner.style.opacity='0';setTimeout(()=>banner.remove(),500);},7000);
+};
+
+// ⏸ 大額冷靜 10 秒：判斷是否需要冷靜
+window._needCoolDown=(amount,paymentMethod,poolLid)=>{
+  const threshold=toN(S.data.coolDownThreshold)||3000;
+  // 刷卡 && 金額 >= 門檻 → 強制冷靜
+  if(paymentMethod==='credit'&&amount>=threshold)return true;
+  // 現金/轉帳 >= 3 倍門檻 → 也強制冷靜（大錢就是大錢）
+  if(amount>=threshold*3)return true;
+  return false;
+};
+
+// ⏸ 大額冷靜 10 秒 Dialog
+window._coolDownDialog=(amount,item,paymentMethod,poolLid)=>{
+  return new Promise(resolve=>{
+    // 計算本月累計刷卡
+    const curYear=yr(),curMonth=S.month;
+    const monthCreditTotal=(S.data.expenses||[])
+      .filter(e=>e.year===curYear&&e.month===curMonth&&e.paymentMethod==='credit')
+      .reduce((s,e)=>s+toN(e.amount),0);
+    const afterTotal=monthCreditTotal+amount;
+    // 本月收入
+    const monthInc=(S.data.incomes||[])
+      .filter(i=>i.year===curYear&&i.month===curMonth)
+      .reduce((s,i)=>s+toN(i.amount),0);
+    const incPct=monthInc>0?Math.round(afterTotal/monthInc*100):0;
+    // 池子資訊
+    let poolInfo='';
+    if(poolLid){
+      const led=getAllLedgers().find(x=>x.id===poolLid);
+      if(led){
+        const bal=(S.data.ledgerEntries||[]).filter(e=>e.lid===poolLid).reduce((s,e)=>s+toN(e.amount),0);
+        const after=bal-amount;
+        poolInfo=`<div style="margin-top:12px;padding:12px;background:${after<0?'rgba(255,100,100,0.2)':'rgba(255,215,0,0.15)'};border-radius:10px;border:1px solid ${after<0?'#FF4444':'#FFD700'};">
+          <div style="font-size:12.5px;color:#fff;line-height:1.7;">
+            🪣 <b>${led.name}</b>　$${fmt(bal)} → $${fmt(after)}<br>
+            ${after<0?`<span style="color:#FFB4B4;font-weight:700;">⚠️ 這筆會讓池子見底，超支 $${fmt(Math.abs(after))}！</span>`:`<span style="color:#FFD700;">扣完剩 $${fmt(after)}</span>`}
+          </div>
+        </div>`;
+      }
+    }
+    // 時薪計算（假設 180 小時/月工作）
+    const hourlyRate=monthInc>0?Math.round(monthInc/180):0;
+    const hoursEq=hourlyRate>0?(amount/hourlyRate).toFixed(1):0;
+    const bentoEq=Math.round(amount/120); // 1 便當 $120
+    // 建立全屏遮罩
+    const overlay=document.createElement('div');
+    overlay.style.cssText='position:fixed;inset:0;background:linear-gradient(135deg,#2A0F0F,#4A1515);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn 0.3s ease;';
+    overlay.innerHTML=`
+      <style>
+        @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+        @keyframes pulseRed{0%,100%{box-shadow:0 0 0 0 rgba(255,215,0,0.6)}50%{box-shadow:0 0 0 20px rgba(255,215,0,0)}}
+        .cd-pulse{animation:pulseRed 1.5s infinite;}
+      </style>
+      <div style="max-width:420px;width:100%;background:#1a0a0a;border:2px solid #FFD700;border-radius:24px;padding:28px 24px;box-shadow:0 20px 60px rgba(255,68,68,0.3);">
+        <!-- 標題 -->
+        <div style="text-align:center;margin-bottom:20px;">
+          <div style="font-size:48px;line-height:1;" class="cd-pulse" id="cd-emoji">⏸</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:#FFD700;letter-spacing:0.15em;margin-top:10px;">等一下 · 冷靜 <span id="cd-countdown">10</span> 秒</div>
+        </div>
+
+        <!-- 這筆是什麼 -->
+        <div style="background:rgba(255,215,0,0.1);border:1px solid #FFD700;border-radius:12px;padding:14px 16px;margin-bottom:16px;text-align:center;">
+          <div style="font-size:11px;color:#FFD700;letter-spacing:0.2em;">這筆消費</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:32px;font-weight:700;color:#fff;margin:4px 0;">$${fmt(amount)}</div>
+          <div style="font-size:13px;color:#FFB4B4;">${item||'未填寫品項'}</div>
+          <div style="font-size:11px;color:#aaa;margin-top:4px;">💳 ${{cash:'現金',transfer:'轉帳',credit:'信用卡'}[paymentMethod]||'現金'}</div>
+        </div>
+
+        <!-- 自我質問 -->
+        <div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:14px 16px;margin-bottom:12px;">
+          <div style="font-size:12px;color:#FFD700;font-weight:700;margin-bottom:8px;">❓ 快問自己 3 題：</div>
+          <div style="font-size:13px;color:#fff;line-height:2;">
+            ☐ 這是<b style="color:#FFD700;">需要</b>，還是<b style="color:#FFB4B4;">想要</b>？<br>
+            ☐ 沒有信用卡的話，我會<b>付現買</b>嗎？<br>
+            ☐ <b style="color:#FFD700;">24 小時後</b>我還想要它嗎？
+          </div>
+        </div>
+
+        <!-- 衝擊力：真實翻譯 -->
+        <div style="background:rgba(255,100,100,0.1);border-left:3px solid #FF6B6B;border-radius:10px;padding:12px 14px;margin-bottom:12px;">
+          <div style="font-size:12px;color:#FFB4B4;line-height:1.8;">
+            💼 相當於你 <b style="color:#FFD700;">${hoursEq} 小時</b> 的工作<br>
+            🍜 相當於 <b style="color:#FFD700;">${bentoEq}</b> 個便當<br>
+            📊 本月累計刷卡 $${fmt(monthCreditTotal)} → <b style="color:${incPct>=30?'#FF6B6B':incPct>=20?'#FFD700':'#7DB89A'};">$${fmt(afterTotal)}（佔收入 ${incPct}%）</b>
+          </div>
+        </div>
+
+        ${poolInfo}
+
+        <!-- 按鈕 -->
+        <div style="margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <button id="cd-cancel" style="padding:14px;background:#7DB89A;color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;">❌ 先取消</button>
+          <button id="cd-confirm" disabled style="padding:14px;background:#555;color:#999;border:none;border-radius:12px;font-size:14px;font-weight:700;cursor:not-allowed;font-family:inherit;">💳 確認刷（<span id="cd-btn-sec">10</span>）</button>
+        </div>
+        <div style="margin-top:10px;text-align:center;font-size:10.5px;color:#666;">
+          門檻：${paymentMethod==='credit'?`刷卡 ≥ $${fmt(toN(S.data.coolDownThreshold)||3000)}`:'任何付款方式 ≥ $9000'}
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    let sec=10;
+    const timer=setInterval(()=>{
+      sec--;
+      const cd=document.getElementById('cd-countdown');
+      const btnSec=document.getElementById('cd-btn-sec');
+      if(cd)cd.textContent=sec;
+      if(btnSec)btnSec.textContent=sec;
+      if(sec<=0){
+        clearInterval(timer);
+        const btn=document.getElementById('cd-confirm');
+        if(btn){
+          btn.disabled=false;
+          btn.style.background='linear-gradient(135deg,#FF4444,#C2747A)';
+          btn.style.color='#fff';
+          btn.style.cursor='pointer';
+          btn.innerHTML='💳 確認刷（10 秒已到）';
+        }
+        const emo=document.getElementById('cd-emoji');
+        if(emo){emo.textContent='⚡';emo.classList.remove('cd-pulse');}
+      }
+    },1000);
+    const cleanup=(result)=>{
+      clearInterval(timer);
+      overlay.remove();
+      resolve(result);
+    };
+    document.getElementById('cd-cancel').onclick=()=>cleanup(false);
+    document.getElementById('cd-confirm').onclick=()=>{
+      if(sec>0)return; // 還沒 10 秒
+      cleanup(true);
+    };
+  });
+};
+
+// 🪣 預覽：選了池子就顯示扣款前後對比
+window.previewPoolDeduction=()=>{
+  const lid=g('qe-pool');
+  const amt=toN(g('qe-amt'))||0;
+  const preview=document.getElementById('qe-pool-preview');
+  const content=document.getElementById('qe-pool-preview-content');
+  if(!preview||!content)return;
+  if(!lid){preview.style.display='none';return;}
+  const led=getAllLedgers().find(x=>x.id===lid);
+  if(!led){preview.style.display='none';return;}
+  const curBal=(S.data.ledgerEntries||[]).filter(e=>e.lid===lid).reduce((s,e)=>s+toN(e.amount),0);
+  const after=curBal-amt;
+  const col=after<0?'var(--red)':after<curBal*0.2?'var(--goldDk)':'var(--grn)';
+  content.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
+      <span>🪣 <b>${led.name}</b></span>
+      <span style="color:var(--mut);">目前餘額 <b style="color:var(--brown);">$${fmt(curBal)}</b></span>
+    </div>
+    ${amt>0?`<div style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--bdr);display:flex;justify-content:space-between;align-items:center;">
+      <span>扣 $${fmt(amt)} 之後</span>
+      <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:${col};">$${fmt(after)}</span>
+    </div>
+    ${after<0?`<div style="margin-top:4px;color:var(--red);font-size:11px;font-weight:700;">⚠️ 這筆會讓池子見底，超支 $${fmt(Math.abs(after))}</div>`:after<curBal*0.2?`<div style="margin-top:4px;color:var(--goldDk);font-size:11px;font-weight:700;">⚠️ 扣完剩不到 20%，池子快空了</div>`:''}
+    `:''}
+  `;
+  preview.style.display='block';
+};
+
+// 當金額改變時也更新預覽
+document.addEventListener('input',(e)=>{
+  if(e.target&&e.target.id==='qe-amt'){
+    if(typeof window.previewPoolDeduction==='function')window.previewPoolDeduction();
+  }
+});
 
 // 💳 選付款方式（切換按鈕視覺 + 顯示信用卡選單）
 window.selPay=(method)=>{
