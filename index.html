@@ -3828,20 +3828,24 @@ function pgExpenseCalendar(){
   // 固定每月都要繳的項目（fixedItems 全部都算）
   const fixedTotal=fixedItems.reduce((s,f)=>s+toN(f.amount),0);
 
-  // 把 amort 項目拆到各到期月
+  // 把 amort 項目拆到各到期月（🔧 每次繳款 = 年總額 ÷ 到期月數）
   const amortByMonth={};
   for(let m=1;m<=12;m++)amortByMonth[m]=[];
   amortItems.forEach(a=>{
     const ms=a.dueMonths&&a.dueMonths.length?a.dueMonths:(a.dueMonth?[a.dueMonth]:[]);
-    ms.forEach(m=>{
-      if(m>=1&&m<=12)amortByMonth[m].push(a);
+    if(ms.length===0)return;
+    const perInstallment=Math.round(toN(a.annualAmount)/ms.length);
+    ms.forEach((m,idx)=>{
+      if(m>=1&&m<=12){
+        amortByMonth[m].push({...a,_perInstallment:perInstallment,_installments:ms.length,_installmentSeq:idx+1});
+      }
     });
   });
 
   // 計算每月 total
   const monthTotals={};
   for(let m=1;m<=12;m++){
-    const amortMo=amortByMonth[m].reduce((s,a)=>s+toN(a.annualAmount),0);
+    const amortMo=amortByMonth[m].reduce((s,a)=>s+a._perInstallment,0);
     monthTotals[m]=fixedTotal+amortMo;
   }
 
@@ -3862,6 +3866,8 @@ function pgExpenseCalendar(){
     const upcomingList=[];
     amortItems.filter(a=>a.linkedLedger===l.id).forEach(a=>{
       const ms=a.dueMonths&&a.dueMonths.length?a.dueMonths:(a.dueMonth?[a.dueMonth]:[]);
+      if(ms.length===0)return;
+      const perInstallment=Math.round(toN(a.annualAmount)/ms.length);
       ms.forEach(dm=>{
         // 計算這次到期的距離（在未來 6 個月內）
         let monthsAhead=dm-curMonth;
@@ -3870,8 +3876,8 @@ function pgExpenseCalendar(){
           // 未繳：如果今年還沒繳或下次是明年
           const isPaid=a.paidThisYear>=a.annualAmount;
           if(!isPaid||monthsAhead>0){
-            upcoming+=toN(a.annualAmount);
-            upcomingList.push({name:a.name,amount:toN(a.annualAmount),month:dm});
+            upcoming+=perInstallment;
+            upcomingList.push({name:a.name,amount:perInstallment,month:dm,seq:ms.length>1?` (期/${ms.length})`:''});
           }
         }
       });
@@ -3937,7 +3943,7 @@ function pgExpenseCalendar(){
             ${ok?`<div style="font-size:11px;color:var(--grn);font-weight:600;">✅ 池子足夠（還有結餘 $${fmt(-pw.shortfall)}）</div>`:`
             <div style="font-size:11.5px;color:var(--red);font-weight:700;">⚠️ 不夠！差 <b>$${fmt(pw.shortfall)}</b> → 建議每月多存 $${fmt(Math.ceil(pw.shortfall/6))}</div>`}
             <div style="margin-top:6px;font-size:10.5px;color:var(--mut);line-height:1.6;">
-              ${pw.items.map(it=>`${it.month} 月 ${it.name} $${fmt(it.amount)}`).join('　·　')}
+              ${pw.items.map(it=>`${it.month} 月 ${it.name}${it.seq||''} $${fmt(it.amount)}`).join('　·　')}
             </div>
           </div>`;
         }).join('')}
@@ -3987,15 +3993,18 @@ function pgExpenseCalendar(){
               const ledName=a.linkedLedger?((allLedgers.find(l=>l.id===a.linkedLedger)||{}).name||''):'';
               const ledBal=a.linkedLedger?getLedgerAll(a.linkedLedger).reduce((s,e)=>s+toN(e.amount),0):0;
               const isPaid=a.paidThisYear>=a.annualAmount;
+              const perInst=a._perInstallment;
+              const isMulti=a._installments>1;
               return`<div style="padding:6px 10px;background:#fff;border-radius:8px;margin-bottom:5px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
                 <div style="flex:1;min-width:0;">
                   <div style="font-size:12.5px;color:var(--brown);font-weight:600;">
-                    ${isPaid?'✅':'🏺'} ${a.name}
-                    ${ledName?`<span style="font-size:10px;color:var(--mut);">· 🪣 ${ledName}${ledBal>=toN(a.annualAmount)?' ✅':' ⚠️'}</span>`:''}
+                    ${isPaid?'✅':'🏺'} ${a.name}${isMulti?` <span style="font-size:10px;color:var(--mut);">(第 ${a._installmentSeq}/${a._installments} 期)</span>`:''}
+                    ${ledName?`<span style="font-size:10px;color:var(--mut);">· 🪣 ${ledName}${ledBal>=perInst?' ✅':' ⚠️'}</span>`:''}
                   </div>
-                  ${ledName?`<div style="font-size:10px;color:${ledBal>=toN(a.annualAmount)?'var(--grn)':'var(--goldDk)'};">池餘 $${fmt(ledBal)}${ledBal<toN(a.annualAmount)?' · 差 $'+fmt(toN(a.annualAmount)-ledBal):''}</div>`:''}
+                  ${isMulti?`<div style="font-size:10px;color:var(--mut);margin-top:1px;">年繳 $${fmt(toN(a.annualAmount))} ÷ ${a._installments} 期</div>`:''}
+                  ${ledName?`<div style="font-size:10px;color:${ledBal>=perInst?'var(--grn)':'var(--goldDk)'};">池餘 $${fmt(ledBal)}${ledBal<perInst?' · 差 $'+fmt(perInst-ledBal):''}</div>`:''}
                 </div>
-                <b style="font-size:13px;color:${isBig?'var(--red)':'var(--brown)'};">$${fmt(toN(a.annualAmount))}</b>
+                <b style="font-size:13px;color:${isBig?'var(--red)':'var(--brown)'};">$${fmt(perInst)}</b>
               </div>`;
             }).join('')}
           </div>`:''}
