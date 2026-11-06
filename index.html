@@ -1017,6 +1017,7 @@ const PAGES=[
   {id:'ledgerHome',ico:'📒',lbl:'預算儲水池',group:'hidden'},
   {id:'creditCards',ico:'💳',lbl:'我的信用卡',group:'hidden'},
   {id:'advances',ico:'💰',lbl:'代墊請款管理',group:'hidden'},
+  {id:'expenseCalendar',ico:'📅',lbl:'固定支出年曆',group:'hidden'},
   {id:'catManage', ico:'🏷️',lbl:'類別管理',group:'hidden'},
   {id:'catMigrate',ico:'🔄',lbl:'舊分類遷移',group:'hidden'},
   {id:'wealth10x',ico:'🎯',lbl:'10X 財富心法',group:'hidden'},
@@ -1572,7 +1573,7 @@ function mobNav(){
         <button onclick="mobCloseMore()" style="background:var(--bg2);border:none;color:var(--brown);width:32px;height:32px;border-radius:50%;font-size:18px;cursor:pointer;">×</button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
-        ${['insurance','settings','creditCards','advances','fixedNew','amortNew','wealth10x','safetyNet','catManage'].map(pid=>{
+        ${['insurance','settings','creditCards','advances','expenseCalendar','fixedNew','amortNew','wealth10x','safetyNet','catManage'].map(pid=>{
           const p=PAGES.find(x=>x.id===pid);
           if(!p)return'';
           return`<button onclick="mobCloseMore();setP('${pid}');" style="background:#fff;border:1.5px solid var(--bdr);border-radius:12px;padding:14px 8px;cursor:pointer;color:var(--brown);font-size:11px;font-weight:600;line-height:1.5;text-align:center;">
@@ -1598,6 +1599,7 @@ function page(){
     case'ledgerHome':return pgLedgerHome();
     case'creditCards':return pgCreditCards();
     case'advances':return pgAdvances();
+    case'expenseCalendar':return pgExpenseCalendar();
     case'fixedNew': return pgFixedNew();
     case'amortNew': return pgAmortNew();
     case'guardian': return pgGuardian();
@@ -3811,6 +3813,206 @@ function pgCreditCards(){
         </div>`;
       }).join('')}
     </div>`}
+  </div>`;
+}
+
+// 📅 全年固定支出時間軸（整合月繳 + 年繳 + 池子餘額警訊）
+function pgExpenseCalendar(){
+  const curYear=yr();
+  const curMonth=S.month;
+  const now=new Date();
+  const fixedItems=S.data.fixedItems||[];
+  const amortItems=S.data.amortizedItems||[];
+  const allLedgers=getAllLedgers();
+
+  // 固定每月都要繳的項目（fixedItems 全部都算）
+  const fixedTotal=fixedItems.reduce((s,f)=>s+toN(f.amount),0);
+
+  // 把 amort 項目拆到各到期月
+  const amortByMonth={};
+  for(let m=1;m<=12;m++)amortByMonth[m]=[];
+  amortItems.forEach(a=>{
+    const ms=a.dueMonths&&a.dueMonths.length?a.dueMonths:(a.dueMonth?[a.dueMonth]:[]);
+    ms.forEach(m=>{
+      if(m>=1&&m<=12)amortByMonth[m].push(a);
+    });
+  });
+
+  // 計算每月 total
+  const monthTotals={};
+  for(let m=1;m<=12;m++){
+    const amortMo=amortByMonth[m].reduce((s,a)=>s+toN(a.annualAmount),0);
+    monthTotals[m]=fixedTotal+amortMo;
+  }
+
+  // 年度統計
+  const yearlyGrand=Object.values(monthTotals).reduce((s,v)=>s+v,0);
+  const avgMonth=Math.round(yearlyGrand/12);
+  const maxMonth=Object.entries(monthTotals).sort((a,b)=>b[1]-a[1])[0];
+  const minMonth=Object.entries(monthTotals).sort((a,b)=>a[1]-b[1])[0];
+  // 大筆閾值（平均 1.5 倍）
+  const bigThreshold=Math.max(avgMonth*1.5,3000);
+
+  // 池子警訊：對每個池子 → 未來 6 個月的扣款 vs 當前餘額
+  const poolWarnings=[];
+  allLedgers.forEach(l=>{
+    const balance=getLedgerAll(l.id).reduce((s,e)=>s+toN(e.amount),0);
+    // 找出綁定此池、未來 6 個月內到期且未繳的
+    let upcoming=0;
+    const upcomingList=[];
+    amortItems.filter(a=>a.linkedLedger===l.id).forEach(a=>{
+      const ms=a.dueMonths&&a.dueMonths.length?a.dueMonths:(a.dueMonth?[a.dueMonth]:[]);
+      ms.forEach(dm=>{
+        // 計算這次到期的距離（在未來 6 個月內）
+        let monthsAhead=dm-curMonth;
+        if(monthsAhead<0)monthsAhead+=12;
+        if(monthsAhead>=0&&monthsAhead<=6){
+          // 未繳：如果今年還沒繳或下次是明年
+          const isPaid=a.paidThisYear>=a.annualAmount;
+          if(!isPaid||monthsAhead>0){
+            upcoming+=toN(a.annualAmount);
+            upcomingList.push({name:a.name,amount:toN(a.annualAmount),month:dm});
+          }
+        }
+      });
+    });
+    if(upcoming>0){
+      const shortfall=upcoming-balance;
+      poolWarnings.push({
+        lid:l.id,name:l.name,balance,upcoming,shortfall,items:upcomingList
+      });
+    }
+  });
+
+  // 月份名
+  const monthNames=['一月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月'];
+  const monthKey=(m)=>`${curYear}-${String(m).padStart(2,'0')}`;
+
+  return`
+  <div style="max-width:1100px;margin:0 auto;">
+    <!-- 標題 -->
+    <div style="text-align:center;padding:20px 0 14px;">
+      <div style="font-family:'Noto Serif TC',serif;font-size:26px;font-weight:700;color:var(--brown);letter-spacing:0.2em;">📅 全年固定支出時間軸</div>
+      <div class="tm" style="font-size:12.5px;margin-top:4px;">${curYear} 年度　·　什麼時候要繳哪一筆　·　池子夠不夠</div>
+    </div>
+
+    <!-- 📊 年度總覽卡 -->
+    <div style="background:linear-gradient(135deg,#fff,var(--goldL));border:2px solid var(--gold);border-radius:18px;padding:18px 22px;margin-bottom:16px;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;">
+        <div style="padding:12px;background:#fff;border-radius:12px;text-align:center;">
+          <div class="tm" style="font-size:10.5px;color:var(--brown);font-weight:700;">📊 全年合計</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--brown);margin-top:3px;">$${fmt(yearlyGrand)}</div>
+        </div>
+        <div style="padding:12px;background:#fff;border-radius:12px;text-align:center;">
+          <div class="tm" style="font-size:10.5px;color:var(--mut);font-weight:700;">平均月</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--goldDk);margin-top:3px;">$${fmt(avgMonth)}</div>
+        </div>
+        <div style="padding:12px;background:#fff;border-radius:12px;text-align:center;">
+          <div class="tm" style="font-size:10.5px;color:var(--red);font-weight:700;">最大月 ⚠️</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--red);margin-top:3px;">${maxMonth?parseInt(maxMonth[0])+' 月':'-'}</div>
+          <div style="font-size:11px;color:var(--mut);">$${fmt(maxMonth?maxMonth[1]:0)}</div>
+        </div>
+        <div style="padding:12px;background:#fff;border-radius:12px;text-align:center;">
+          <div class="tm" style="font-size:10.5px;color:var(--grn);font-weight:700;">最小月 ✅</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:var(--grn);margin-top:3px;">${minMonth?parseInt(minMonth[0])+' 月':'-'}</div>
+          <div style="font-size:11px;color:var(--mut);">$${fmt(minMonth?minMonth[1]:0)}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 🪣 池子警訊 -->
+    ${poolWarnings.length>0?`<div style="background:linear-gradient(135deg,#FEE2E2,#fff);border:2px solid var(--red);border-radius:16px;padding:16px 20px;margin-bottom:16px;">
+      <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--red);margin-bottom:12px;">⚠️ 池子警訊 · 未來 6 個月</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        ${poolWarnings.map(pw=>{
+          const ok=pw.shortfall<=0;
+          return`<div style="padding:12px 14px;background:${ok?'var(--grnl)':'#FEE2E2'};border-radius:10px;border-left:4px solid ${ok?'var(--grn)':'var(--red)'};">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px;">
+              <div style="font-weight:700;color:var(--brown);font-size:13px;">🏢 ${pw.name}</div>
+              <div style="display:flex;gap:8px;font-size:11.5px;">
+                <span>池餘 <b style="color:var(--brown);">$${fmt(pw.balance)}</b></span>
+                <span>將扣 <b style="color:var(--red);">$${fmt(pw.upcoming)}</b></span>
+              </div>
+            </div>
+            ${ok?`<div style="font-size:11px;color:var(--grn);font-weight:600;">✅ 池子足夠（還有結餘 $${fmt(-pw.shortfall)}）</div>`:`
+            <div style="font-size:11.5px;color:var(--red);font-weight:700;">⚠️ 不夠！差 <b>$${fmt(pw.shortfall)}</b> → 建議每月多存 $${fmt(Math.ceil(pw.shortfall/6))}</div>`}
+            <div style="margin-top:6px;font-size:10.5px;color:var(--mut);line-height:1.6;">
+              ${pw.items.map(it=>`${it.month} 月 ${it.name} $${fmt(it.amount)}`).join('　·　')}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`:''}
+
+    <!-- 📌 每月都要繳的（固定支出 - 固定在每個月） -->
+    ${fixedItems.length>0?`<div style="background:#fff;border-radius:14px;padding:16px 20px;margin-bottom:16px;border:1.5px solid var(--gold);">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+        <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--goldDk);">📌 每個月都要繳 · 合計 $${fmt(fixedTotal)}/月</div>
+        <button onclick="setP('fixedNew')" style="background:var(--gold);color:#fff;border:none;padding:6px 14px;border-radius:999px;font-size:11.5px;font-weight:600;cursor:pointer;">管理 →</button>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        ${fixedItems.map(f=>`<div style="padding:5px 10px;background:#FFF8E7;border:1px solid var(--gold);border-radius:999px;font-size:11.5px;color:var(--brown);">
+          <b>${f.name}</b>　<span style="color:var(--red);">$${fmt(toN(f.amount))}</span>${f.payDay?`　<span style="color:var(--mut);">· ${f.payDay} 號</span>`:''}
+        </div>`).join('')}
+      </div>
+    </div>`:''}
+
+    <!-- 📅 12 月時間軸 -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      ${Array.from({length:12},(_,i)=>i+1).map(m=>{
+        const amorts=amortByMonth[m];
+        const amortMoTotal=amorts.reduce((s,a)=>s+toN(a.annualAmount),0);
+        const total=monthTotals[m];
+        const isBig=total>bigThreshold;
+        const isCurrent=m===curMonth;
+        const bg=isCurrent?'linear-gradient(135deg,var(--roseL),#fff)':(isBig?'linear-gradient(135deg,#FEE2E2,#fff)':'#fff');
+        const borderCol=isCurrent?'var(--roseDk)':(isBig?'var(--red)':'var(--bdr)');
+        return`<div style="background:${bg};border:2px solid ${borderCol};border-radius:14px;padding:14px 18px;${isCurrent?'box-shadow:0 4px 16px rgba(194,116,122,0.15);':''}">
+          <!-- 月標題 -->
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:${amorts.length>0?'10':'0'}px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:${isCurrent?'var(--roseDk)':'var(--brown)'};min-width:52px;">${m} 月</div>
+              ${isCurrent?`<span style="background:var(--roseDk);color:#fff;padding:2px 10px;border-radius:999px;font-size:10.5px;font-weight:700;">本月</span>`:''}
+              ${isBig?`<span style="background:var(--red);color:#fff;padding:2px 10px;border-radius:999px;font-size:10.5px;font-weight:700;">⚠️ 大筆月</span>`:''}
+            </div>
+            <div style="text-align:right;">
+              <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:${isBig?'var(--red)':'var(--brown)'};">$${fmt(total)}</div>
+              <div style="font-size:10.5px;color:var(--mut);">月繳 $${fmt(fixedTotal)}${amortMoTotal>0?` + 年繳 $${fmt(amortMoTotal)}`:''}</div>
+            </div>
+          </div>
+
+          <!-- 年繳項目（如果這月有） -->
+          ${amorts.length>0?`<div style="padding-top:8px;border-top:1px dashed ${borderCol}66;">
+            ${amorts.map(a=>{
+              const ledName=a.linkedLedger?((allLedgers.find(l=>l.id===a.linkedLedger)||{}).name||''):'';
+              const ledBal=a.linkedLedger?getLedgerAll(a.linkedLedger).reduce((s,e)=>s+toN(e.amount),0):0;
+              const isPaid=a.paidThisYear>=a.annualAmount;
+              return`<div style="padding:6px 10px;background:#fff;border-radius:8px;margin-bottom:5px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:12.5px;color:var(--brown);font-weight:600;">
+                    ${isPaid?'✅':'🏺'} ${a.name}
+                    ${ledName?`<span style="font-size:10px;color:var(--mut);">· 🪣 ${ledName}${ledBal>=toN(a.annualAmount)?' ✅':' ⚠️'}</span>`:''}
+                  </div>
+                  ${ledName?`<div style="font-size:10px;color:${ledBal>=toN(a.annualAmount)?'var(--grn)':'var(--goldDk)'};">池餘 $${fmt(ledBal)}${ledBal<toN(a.annualAmount)?' · 差 $'+fmt(toN(a.annualAmount)-ledBal):''}</div>`:''}
+                </div>
+                <b style="font-size:13px;color:${isBig?'var(--red)':'var(--brown)'};">$${fmt(toN(a.annualAmount))}</b>
+              </div>`;
+            }).join('')}
+          </div>`:''}
+        </div>`;
+      }).join('')}
+    </div>
+
+    <!-- 底部提示 -->
+    <div style="background:#F0F9FF;border:1.5px dashed #0EA5E9;border-radius:12px;padding:12px 16px;margin-top:14px;">
+      <div style="font-size:12px;color:#0369A1;line-height:1.8;">
+        💡 <b>怎麼用這頁？</b><br>
+        · 看到「⚠️ 大筆月」→ 提前 1-2 個月開始加碼存錢<br>
+        · 看到池子餘額「⚠️ 不夠」→ 下個月預算池多撥一些進去<br>
+        · 看到年繳項目「✅ 池足夠」→ 心理放心，到期自動扣<br>
+        · 新增 / 修改：📌 月繳 → 「每月貸款總額」　🏺 年繳 → 「年繳攤提」
+      </div>
+    </div>
   </div>`;
 }
 
@@ -8141,6 +8343,7 @@ function pgSettings(){
           const subTxt=pendingCt>0?`⚠️ ${pendingCt} 張待結算　·　女兒費用先墊付`:'女兒費用先墊付，向前夫請款';
           return settingTile({ico:'💰',title:'代墊請款管理',sub:subTxt,action:"setP('advances')",bg:pendingCt>0?'linear-gradient(135deg,#FDF4FF,#fff)':'#fff',border:pendingCt>0?'#A855F7':'var(--bdr)',titleCol:pendingCt>0?'#7E22CE':'var(--brown)'});
         })()}
+        ${settingTile({ico:'📅',title:'固定支出年曆',sub:'全年 12 月時間軸　·　整合月繳+年繳+池子',action:"setP('expenseCalendar')",bg:'linear-gradient(135deg,var(--goldL),#fff)',border:'var(--gold)',titleCol:'var(--goldDk)'})}
         ${settingTile({ico:'📌',title:'每月貸款總額',sub:`${(S.data.fixedItems||[]).length} 項　·　房貸、車貸、分期`,action:"setP('fixedNew')"})}
         ${settingTile({ico:'🏺',title:'年繳攤提',sub:`${(S.data.amortizedItems||[]).length} 項　·　保險、稅金、工會費`,action:"setP('amortNew')"})}
         ${settingTile({ico:'🏷️',title:'類別管理',sub:`${catCount} 個主類別　·　統一支出/收入分類`,action:"setP('catManage')"})}
