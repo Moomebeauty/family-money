@@ -1018,6 +1018,7 @@ const PAGES=[
   {id:'creditCards',ico:'💳',lbl:'我的信用卡',group:'hidden'},
   {id:'advances',ico:'💰',lbl:'代墊請款管理',group:'hidden'},
   {id:'expenseCalendar',ico:'📅',lbl:'固定支出年曆',group:'hidden'},
+  {id:'migration',ico:'🔧',lbl:'系統資料整理',group:'hidden'},
   {id:'catManage', ico:'🏷️',lbl:'類別管理',group:'hidden'},
   {id:'catMigrate',ico:'🔄',lbl:'舊分類遷移',group:'hidden'},
   {id:'wealth10x',ico:'🎯',lbl:'10X 財富心法',group:'hidden'},
@@ -1248,6 +1249,7 @@ function startSync(){
       S.data.creditCards=d.creditCards||[];
       S.data.advanceInvoices=d.advanceInvoices||[];
       S.data.lastAdvanceCheckMonth=d.lastAdvanceCheckMonth||'';
+      S.data._migrationStatus=d._migrationStatus||{};
       // 🎁 卡片詳細回饋預設（2026 舊戶權益，到 2026/12/31）
       const CARD_PRESETS={
         '富邦 J 卡':{
@@ -1600,6 +1602,7 @@ function page(){
     case'creditCards':return pgCreditCards();
     case'advances':return pgAdvances();
     case'expenseCalendar':return pgExpenseCalendar();
+    case'migration':return pgMigration();
     case'fixedNew': return pgFixedNew();
     case'amortNew': return pgAmortNew();
     case'guardian': return pgGuardian();
@@ -3813,6 +3816,143 @@ function pgCreditCards(){
         </div>`;
       }).join('')}
     </div>`}
+  </div>`;
+}
+
+// 🔧 系統資料整理頁 (Migration)
+function pgMigration(){
+  // 分析目前資料
+  const expenses=S.data.expenses||[];
+  const fixedItems=S.data.fixedItems||[];
+  const amortItems=S.data.amortizedItems||[];
+  const incomes=S.data.incomes||[];
+  const masterCats=getMasterCats();
+
+  // 1. 支出缺 categoryId
+  const expsNoCatId=expenses.filter(e=>!e.categoryId);
+  // 2. 支出缺 paymentMethod (只有舊 payMethod)
+  const expsNoPayMethod=expenses.filter(e=>!e.paymentMethod&&e.payMethod);
+  // 3. 支出的 category 文字對不到任何 master cat
+  const catNameMap={};
+  masterCats.forEach(mc=>{catNameMap[mc.name]=mc.id;});
+  const expsOrphanCat=expenses.filter(e=>{
+    if(e.categoryId)return false;
+    if(!e.category)return true;
+    return !catNameMap[e.category];
+  });
+  // 4. 固定月繳沒綁池
+  const fixedNoPool=fixedItems.filter(f=>!f.poolId);
+  // 5. 年繳沒綁池
+  const amortNoPool=amortItems.filter(a=>!a.linkedLedger);
+  // 6. 收入缺 categoryId / 來源欄
+  const incNoSource=incomes.filter(i=>!i.source);
+
+  // 推斷池子（舊有 linkedLedgerId → poolId）
+  const expsLegacyPoolLink=expenses.filter(e=>e.linkedLedgerId&&!e.poolId);
+
+  const totalIssues=expsNoCatId.length+expsNoPayMethod.length+expsLegacyPoolLink.length+fixedNoPool.length+amortNoPool.length;
+
+  const migStatus=(S.data._migrationStatus||{});
+  const v1Done=!!migStatus.v1_done;
+
+  return`
+  <div style="max-width:920px;margin:0 auto;">
+    <!-- 標題 -->
+    <div style="text-align:center;padding:20px 0 14px;">
+      <div style="font-family:'Noto Serif TC',serif;font-size:26px;font-weight:700;color:var(--brown);letter-spacing:0.2em;">🔧 系統資料整理</div>
+      <div class="tm" style="font-size:12.5px;margin-top:4px;">把舊資料對齊新 schema　·　為「單一真相」架構鋪路</div>
+    </div>
+
+    ${v1Done?`<div style="background:var(--grnl);border:2px solid var(--grn);border-radius:14px;padding:18px 20px;margin-bottom:16px;">
+      <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--grn);">✅ V1 遷移已完成</div>
+      <div style="font-size:12px;color:var(--brown);margin-top:4px;">完成於 ${migStatus.v1_done_at||'—'}</div>
+    </div>`:''}
+
+    <!-- ⚠️ 警告 -->
+    <div style="background:linear-gradient(135deg,#FEE2E2,#fff);border:2px solid var(--red);border-radius:14px;padding:16px 20px;margin-bottom:16px;">
+      <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--red);margin-bottom:8px;">⚠️ 操作前請先備份</div>
+      <div style="font-size:12.5px;color:var(--brown);line-height:1.8;">
+        1. 到 ⚙️ 進階 → <b>💾 全資料備份 (JSON)</b> 下載一份<br>
+        2. 妥善保存（iCloud/Google Drive）<br>
+        3. 確認備份 OK 再執行以下整理
+      </div>
+    </div>
+
+    <!-- 📊 診斷結果 -->
+    <div style="background:#fff;border-radius:14px;padding:18px 22px;margin-bottom:16px;box-shadow:0 4px 16px rgba(194,116,122,0.08);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);">📊 目前資料狀況</div>
+        <div style="background:${totalIssues===0?'var(--grn)':'var(--goldDk)'};color:#fff;padding:4px 14px;border-radius:999px;font-size:12px;font-weight:700;">${totalIssues===0?'✅ 乾淨':`⚠️ ${totalIssues} 項需整理`}</div>
+      </div>
+
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <tbody>
+          <tr style="border-bottom:1px dashed var(--bdr);">
+            <td style="padding:10px 0;color:var(--brown);">💸 支出缺 categoryId</td>
+            <td style="padding:10px 0;text-align:right;"><b style="color:${expsNoCatId.length>0?'var(--red)':'var(--grn)'};">${expsNoCatId.length} 筆</b></td>
+          </tr>
+          <tr style="border-bottom:1px dashed var(--bdr);">
+            <td style="padding:10px 0;color:var(--brown);">💳 支出缺 paymentMethod（舊 payMethod）</td>
+            <td style="padding:10px 0;text-align:right;"><b style="color:${expsNoPayMethod.length>0?'var(--goldDk)':'var(--grn)'};">${expsNoPayMethod.length} 筆</b></td>
+          </tr>
+          <tr style="border-bottom:1px dashed var(--bdr);">
+            <td style="padding:10px 0;color:var(--brown);">🪣 支出用舊 linkedLedgerId（需轉成 poolId）</td>
+            <td style="padding:10px 0;text-align:right;"><b style="color:${expsLegacyPoolLink.length>0?'var(--goldDk)':'var(--grn)'};">${expsLegacyPoolLink.length} 筆</b></td>
+          </tr>
+          <tr style="border-bottom:1px dashed var(--bdr);">
+            <td style="padding:10px 0;color:var(--brown);">📌 固定月繳缺 poolId（未綁池）</td>
+            <td style="padding:10px 0;text-align:right;"><b style="color:${fixedNoPool.length>0?'var(--goldDk)':'var(--grn)'};">${fixedNoPool.length} 項</b></td>
+          </tr>
+          <tr style="border-bottom:1px dashed var(--bdr);">
+            <td style="padding:10px 0;color:var(--brown);">🏺 年繳缺 linkedLedger（未綁池）</td>
+            <td style="padding:10px 0;text-align:right;"><b style="color:${amortNoPool.length>0?'var(--goldDk)':'var(--grn)'};">${amortNoPool.length} 項</b></td>
+          </tr>
+          <tr>
+            <td style="padding:10px 0;color:var(--brown);">⚠️ 支出的 category 文字找不到對應主類別</td>
+            <td style="padding:10px 0;text-align:right;"><b style="color:${expsOrphanCat.length>0?'var(--red)':'var(--grn)'};">${expsOrphanCat.length} 筆</b></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 🪄 Migration 會做什麼 -->
+    <div style="background:linear-gradient(135deg,#FFF8E7,#fff);border:1.5px solid var(--gold);border-radius:14px;padding:16px 20px;margin-bottom:16px;">
+      <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--goldDk);margin-bottom:10px;">🪄 V1 遷移會做什麼</div>
+      <div style="font-size:12.5px;color:var(--brown);line-height:1.9;">
+        <b>1. 自動補 categoryId</b><br>
+        　→ 根據 category 文字查主類別，找不到的歸「其他」<br>
+        <br>
+        <b>2. 自動補 paymentMethod</b><br>
+        　→「現金」→ cash、「轉帳」→ transfer、「信用卡」→ credit<br>
+        <br>
+        <b>3. 支出的 linkedLedgerId 複製到 poolId</b><br>
+        　→ 新欄位 poolId 統一語言，舊欄位保留不動<br>
+        <br>
+        <b>4. 標記 _migrationStatus.v1_done = true</b><br>
+        　→ 下次不會再跑<br>
+        <br>
+        <span style="color:var(--mut);font-size:11px;">⚠️ 不會動：</span>
+        <span style="font-size:11px;color:var(--mut);">fixedItems/amortItems 的池綁定（需你手動指派 → 之後另一階段處理）</span>
+      </div>
+    </div>
+
+    <!-- 執行按鈕 -->
+    ${v1Done?`<div style="text-align:center;padding:14px;">
+      <div style="color:var(--grn);font-size:13px;margin-bottom:10px;">✅ V1 遷移已完成，無需再執行</div>
+      <button onclick="if(confirm('確定要重跑 V1 遷移嗎？'))rerunMigration()" style="background:none;border:1px solid var(--bdr);color:var(--mut);padding:8px 16px;border-radius:8px;font-size:12px;cursor:pointer;">重跑一次</button>
+    </div>`:totalIssues===0?`<div style="text-align:center;padding:20px;background:var(--grnl);border-radius:12px;">
+      <div style="font-family:'Noto Serif TC',serif;font-size:16px;color:var(--grn);font-weight:700;">✅ 目前資料已經很乾淨</div>
+      <div style="font-size:12px;color:var(--brown);margin-top:6px;">沒有需要整理的項目</div>
+      <button onclick="runMigrationV1()" style="margin-top:12px;background:var(--grn);color:#fff;border:none;padding:10px 24px;border-radius:999px;font-size:13px;font-weight:700;cursor:pointer;">✅ 標記為已完成</button>
+    </div>`:`<button onclick="if(confirm('確定要跑 V1 遷移？\\n\\n將影響 ${totalIssues} 筆資料。\\n備份好了再繼續！'))runMigrationV1()" style="width:100%;padding:16px;background:linear-gradient(135deg,var(--rose),var(--roseDk));color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;letter-spacing:0.15em;cursor:pointer;box-shadow:0 4px 12px rgba(194,116,122,0.3);">
+      🚀 執行 V1 遷移（${totalIssues} 筆）
+    </button>`}
+
+    <!-- Migration log -->
+    ${migStatus.v1_log?`<div style="background:#F9FAFB;border-radius:12px;padding:12px 16px;margin-top:14px;">
+      <div style="font-size:12px;font-weight:700;color:var(--brown);margin-bottom:6px;">📝 上次遷移記錄</div>
+      <pre style="white-space:pre-wrap;font-size:11px;color:var(--mut);margin:0;font-family:'SF Mono',Monaco,monospace;">${migStatus.v1_log}</pre>
+    </div>`:''}
   </div>`;
 }
 
@@ -8382,6 +8522,10 @@ function pgSettings(){
           return settingTile({ico:'💰',title:'代墊請款管理',sub:subTxt,action:"setP('advances')",bg:pendingCt>0?'linear-gradient(135deg,#FDF4FF,#fff)':'#fff',border:pendingCt>0?'#A855F7':'var(--bdr)',titleCol:pendingCt>0?'#7E22CE':'var(--brown)'});
         })()}
         ${settingTile({ico:'📅',title:'年度固定支出主控台',sub:`整合月繳+年繳+池子　·　${(S.data.fixedItems||[]).length} 月繳 + ${(S.data.amortizedItems||[]).length} 年繳`,action:"setP('expenseCalendar')",bg:'linear-gradient(135deg,var(--goldL),#fff)',border:'var(--gold)',titleCol:'var(--goldDk)'})}
+        ${(()=>{
+          const done=!!(S.data._migrationStatus||{}).v1_done;
+          return settingTile({ico:'🔧',title:'系統資料整理',sub:done?'✅ V1 已完成':'⚠️ 舊資料需整理對齊新架構',action:"setP('migration')",bg:done?'#fff':'linear-gradient(135deg,#FEE2E2,#fff)',border:done?'var(--bdr)':'var(--red)',titleCol:done?'var(--brown)':'var(--red)'});
+        })()}
         ${settingTile({ico:'🏷️',title:'類別管理',sub:`${catCount} 個主類別　·　統一支出/收入分類`,action:"setP('catManage')"})}
       </div>
     </div>
@@ -18457,6 +18601,104 @@ window.saveCardPay=async(bank,field,val)=>{
 };
 
 // ─── EXPORT XLSX ─────────────────────────────────────────────
+// 🔧 Migration V1：補 categoryId / paymentMethod / poolId
+window.runMigrationV1=async()=>{
+  const logs=[];
+  const nowStr=new Date().toISOString().slice(0,19).replace('T',' ');
+  logs.push(`開始 V1 遷移 @ ${nowStr}`);
+  try{
+    const masterCats=getMasterCats();
+    const catNameMap={};
+    masterCats.forEach(mc=>{catNameMap[mc.name]=mc.id;});
+    const otherCatId=(masterCats.find(mc=>mc.name==='其他')||masterCats[masterCats.length-1]||{}).id;
+
+    // 收集需要更新的 expenses
+    const expenses=S.data.expenses||[];
+    const updates=[];
+    let catFixed=0,payFixed=0,poolFixed=0,orphaned=0;
+
+    for(const e of expenses){
+      const patch={};
+      let needUpdate=false;
+      // 1. categoryId
+      if(!e.categoryId){
+        if(e.category&&catNameMap[e.category]){
+          patch.categoryId=catNameMap[e.category];
+          catFixed++;needUpdate=true;
+        }else{
+          patch.categoryId=otherCatId;
+          patch.categoryOriginalText=e.category||''; // 保留原文字
+          orphaned++;needUpdate=true;
+        }
+      }
+      // 2. paymentMethod
+      if(!e.paymentMethod&&e.payMethod){
+        if(e.payMethod==='現金'||e.payMethod==='cash')patch.paymentMethod='cash';
+        else if(e.payMethod==='轉帳'||e.payMethod==='transfer')patch.paymentMethod='transfer';
+        else if(e.payMethod==='信用卡'||e.payMethod==='credit')patch.paymentMethod='credit';
+        else patch.paymentMethod='other';
+        payFixed++;needUpdate=true;
+      }
+      // 3. poolId from linkedLedgerId
+      if(!e.poolId&&e.linkedLedgerId){
+        patch.poolId=e.linkedLedgerId;
+        poolFixed++;needUpdate=true;
+      }
+      if(needUpdate){
+        updates.push({id:e.id,patch});
+      }
+    }
+
+    logs.push(`分析完成：${updates.length} 筆需更新`);
+    logs.push(`  - categoryId 補 ${catFixed} 筆（文字對得到主類別）`);
+    logs.push(`  - categoryId 歸「其他」${orphaned} 筆（文字對不到）`);
+    logs.push(`  - paymentMethod 補 ${payFixed} 筆`);
+    logs.push(`  - poolId 補 ${poolFixed} 筆`);
+
+    // 執行更新（批次，每 50 筆 await 一下）
+    setSyncing('syncing');
+    let done=0;
+    for(const u of updates){
+      const exp=expenses.find(x=>x.id===u.id);
+      if(!exp)continue;
+      const merged={...exp,...u.patch};
+      delete merged.id;
+      await setDoc(doc(db,'families',FID,'expenses',u.id),cleanUndef(merged));
+      done++;
+      if(done%20===0){
+        toast(`🔧 遷移中... ${done}/${updates.length}`,2000);
+      }
+    }
+    setSyncing('synced');
+    logs.push(`執行完成：${done} 筆已更新`);
+
+    // 標記完成
+    const migStatus={
+      ...(S.data._migrationStatus||{}),
+      v1_done:true,
+      v1_done_at:nowStr,
+      v1_log:logs.join('\n'),
+      v1_stats:{catFixed,payFixed,poolFixed,orphaned,total:done}
+    };
+    await saveMain({_migrationStatus:migStatus});
+
+    alert(`✅ V1 遷移完成！\n\n更新 ${done} 筆：\n· 分類對到 ${catFixed} 筆\n· 歸其他 ${orphaned} 筆\n· 付款方式 ${payFixed} 筆\n· 池子連結 ${poolFixed} 筆\n\n已標記為完成，不會再跑`);
+    render();
+  }catch(err){
+    logs.push(`❌ 錯誤：${err.message}`);
+    alert('遷移失敗：\n'+err.message+'\n\n別慌，你的資料沒動到。請聯絡我處理。');
+    console.error('Migration V1 error:',err);
+  }
+};
+
+window.rerunMigration=async()=>{
+  const ms={...(S.data._migrationStatus||{})};
+  delete ms.v1_done;
+  await saveMain({_migrationStatus:ms});
+  toast('已重置，準備重跑');
+  render();
+};
+
 // 💾 一鍵全資料 JSON 備份（最完整 · 給 Migration 前備份用）
 window.exportFullBackup=async()=>{
   try{
