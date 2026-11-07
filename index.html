@@ -4008,17 +4008,17 @@ function pgExpenseCalendar(){
       const ms=a.dueMonths&&a.dueMonths.length?a.dueMonths:(a.dueMonth?[a.dueMonth]:[]);
       if(ms.length===0)return;
       const perInstallment=Math.round(toN(a.annualAmount)/ms.length);
+      const paidIns=a.paidInstallments||[];
       ms.forEach(dm=>{
+        const periodKey=`${curYear}-${String(dm).padStart(2,'0')}`;
+        // 已繳的期不算
+        if(paidIns.some(p=>p.period===periodKey))return;
         // 計算這次到期的距離（在未來 6 個月內）
         let monthsAhead=dm-curMonth;
         if(monthsAhead<0)monthsAhead+=12;
         if(monthsAhead>=0&&monthsAhead<=6){
-          // 未繳：如果今年還沒繳或下次是明年
-          const isPaid=a.paidThisYear>=a.annualAmount;
-          if(!isPaid||monthsAhead>0){
-            upcoming+=perInstallment;
-            upcomingList.push({name:a.name,amount:perInstallment,month:dm,seq:ms.length>1?` (期/${ms.length})`:''});
-          }
+          upcoming+=perInstallment;
+          upcomingList.push({name:a.name,amount:perInstallment,month:dm,seq:ms.length>1?` (期/${ms.length})`:''});
         }
       });
     });
@@ -4160,17 +4160,23 @@ function pgExpenseCalendar(){
               const isPaid=a.paidThisYear>=a.annualAmount;
               const perInst=a._perInstallment;
               const isMulti=a._installments>1;
-              return`<div style="padding:8px 10px;background:#fff;border-radius:8px;margin-bottom:5px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+              // 📅 當期的 key：YYYY-MM
+              const periodKey=`${curYear}-${String(m).padStart(2,'0')}`;
+              const paidInstallments=a.paidInstallments||[];
+              const isInstallmentPaid=paidInstallments.some(p=>p.period===periodKey);
+              return`<div style="padding:8px 10px;background:${isInstallmentPaid?'var(--grnl)':'#fff'};border:${isInstallmentPaid?'1px solid var(--grn)':'1px solid transparent'};border-radius:8px;margin-bottom:5px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
                 <div style="flex:1;min-width:0;">
                   <div style="font-size:12.5px;color:var(--brown);font-weight:600;">
-                    ${isPaid?'✅':'🏺'} ${a.name}${isMulti?` <span style="font-size:10px;color:var(--mut);">(第 ${a._installmentSeq}/${a._installments} 期)</span>`:''}
+                    ${isInstallmentPaid?'✅':'🏺'} ${a.name}${isMulti?` <span style="font-size:10px;color:var(--mut);">(第 ${a._installmentSeq}/${a._installments} 期)</span>`:''}
                     ${ledName?`<span style="font-size:10px;color:var(--mut);">· 🪣 ${ledName}${ledBal>=perInst?' ✅':' ⚠️'}</span>`:''}
                   </div>
                   ${isMulti?`<div style="font-size:10px;color:var(--mut);margin-top:1px;">年繳 $${fmt(toN(a.annualAmount))} ÷ ${a._installments} 期</div>`:''}
-                  ${ledName?`<div style="font-size:10px;color:${ledBal>=perInst?'var(--grn)':'var(--goldDk)'};">池餘 $${fmt(ledBal)}${ledBal<perInst?' · 差 $'+fmt(perInst-ledBal):''}</div>`:''}
+                  ${ledName&&!isInstallmentPaid?`<div style="font-size:10px;color:${ledBal>=perInst?'var(--grn)':'var(--goldDk)'};">池餘 $${fmt(ledBal)}${ledBal<perInst?' · 差 $'+fmt(perInst-ledBal):''}</div>`:''}
+                  ${isInstallmentPaid?`<div style="font-size:10px;color:var(--grn);font-weight:600;">✅ 已繳 ${paidInstallments.find(p=>p.period===periodKey)?.paidDate||''}</div>`:''}
                 </div>
-                <b style="font-size:13px;color:${isBig?'var(--red)':'var(--brown)'};">$${fmt(perInst)}</b>
+                <b style="font-size:13px;color:${isInstallmentPaid?'var(--grn)':(isBig?'var(--red)':'var(--brown)')};">$${fmt(perInst)}</b>
                 <div style="display:flex;gap:4px;">
+                  ${isInstallmentPaid?`<button onclick="unpayAmortInstallment('${a.id}','${periodKey}')" style="background:var(--bg2);border:1px solid var(--bdr);color:var(--mut);padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;">取消</button>`:`<button onclick="openPayAmort('${a.id}','${periodKey}',${perInst})" style="background:var(--grn);color:#fff;border:none;padding:4px 10px;border-radius:6px;font-size:11.5px;font-weight:700;cursor:pointer;">✓ 已繳</button>`}
                   <button onclick="editAmort('${a.id}')" style="background:none;border:1px solid var(--pur);color:var(--pur);padding:4px 8px;border-radius:6px;font-size:12px;cursor:pointer;" title="編輯">✏️</button>
                   <button onclick="delAmort('${a.id}')" style="background:none;border:1px solid var(--bdr);color:var(--red);padding:4px 7px;border-radius:6px;font-size:13px;cursor:pointer;" title="刪除">×</button>
                 </div>
@@ -4541,32 +4547,10 @@ function pgExpDash(){
   // 🔗 新規則：如果該年繳項目「當年任何一個月」已被實繳過 → 該年全年不顯示攤提
   const amortItems=S.data.amortizedItems||[];
   const currentYear=yr();
-  // 找出本年度已被實繳的年繳 ID 清單
-  const paidAmortIdsThisYear=new Set(
-    (S.data.ledgerEntries||[])
-      .filter(e=>e.year===currentYear&&toN(e.amount)<0&&e.linkedAmortId)
-      .map(e=>e.linkedAmortId)
-  );
-  const amortMonthly=amortItems.map(a=>{
-    // 本年度已實繳的年繳 → 全年不顯示攤提（避免重複）
-    if(paidAmortIdsThisYear.has(a.id))return null;
-    const monthly=toN(a.monthlyAmortize)||Math.ceil(toN(a.annualAmount)/12);
-    if(monthly<=0)return null;
-    return{
-      id:'am_'+a.id,
-      source:'amort',
-      date:`${currentYear}-${String(S.month).padStart(2,'0')}-01`,
-      category:a.category||'年繳',
-      categoryId:a.categoryId||null,
-      subCategoryId:a.subCategoryId||null,
-      subCategoryName:a.subCategoryName||'',
-      item:a.name+' · 本月攤提',
-      amount:monthly,
-      paymentMethod:'',cardBank:'',payMethod:'',
-      _origin:'amort',
-      _refId:a.id
-    };
-  }).filter(x=>x);
+  // 🏗️ Stage 3: 年繳攤提去虛擬化 → 不再生成虛擬月支出
+  // 年繳只在「實繳」時才算支出（透過 ledgerEntries 的 linkedAmortId）
+  // 攤提只作為「預算規劃參考」顯示在年度主控台
+  const amortMonthly=[];
 
   // 3️⃣ 預算儲水池支出（ledgerEntries 負數）
   const ledgerExps=(S.data.ledgerEntries||[]).filter(e=>{
@@ -12241,19 +12225,8 @@ function modal(){
       const isFixed=e.frequency==='monthly';
       return{...e,_origin:'expense',_source:isFixed?'固定':'變動',_id:e.id};
     });
-    const amortItems=S.data.amortizedItems||[];
-    const curYear=yr();
-    const paidAmortIds=new Set((S.data.ledgerEntries||[]).filter(e=>e.year===curYear&&toN(e.amount)<0&&e.linkedAmortId).map(e=>e.linkedAmortId));
-    const amortMonthly=amortItems.filter(a=>!paidAmortIds.has(a.id)).map(a=>{
-      const monthly=toN(a.monthlyAmortize)||Math.ceil(toN(a.annualAmount)/12);
-      if(monthly<=0)return null;
-      return{
-        _origin:'amort',_source:'年繳攤提',_id:a.id,
-        date:`${curYear}-${String(S.month).padStart(2,'0')}-01`,
-        category:a.category||'年繳',categoryId:a.categoryId||null,
-        item:a.name+' · 本月攤提',amount:monthly
-      };
-    }).filter(x=>x);
+    // 🏗️ Stage 3: 年繳攤提去虛擬化
+    const amortMonthly=[];
     const ledgerExps=(S.data.ledgerEntries||[]).filter(e=>e.month===S.month&&e.year===yr()&&toN(e.amount)<0).map(e=>{
       const led=getAllLedgers().find(x=>x.id===e.lid);
       let categoryLabel;
@@ -12642,6 +12615,71 @@ function modal(){
     <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">關閉</button></div>`;}
 
   // 📌 標記固定支出已繳 modal
+  // 🏺 繳本期年繳（per installment）
+  if(m.t==='payAmort'){
+    const [aid,periodKey,perInst]=(m.x||'').split('|');
+    const amort=(S.data.amortizedItems||[]).find(a=>a.id===aid);
+    if(!amort){c=`<div class="mttl">找不到年繳項目</div><div class="mbtns"><button class="btn btn-p" onclick="closeMod()">關閉</button></div>`;}
+    else{
+      const banks=S.data.cardBanks||['中信','玉山','國泰','聯邦','富邦','台新','星展','其他'];
+      const amount=toN(perInst);
+      const [yyy,mmm]=periodKey.split('-');
+      c=`<div class="mttl">✓ 繳「${amort.name}」${parseInt(mmm)} 月期</div>
+      <div style="background:var(--grnL);padding:12px 16px;border-radius:10px;margin-bottom:14px;">
+        <div style="font-size:13px;color:var(--grn);font-weight:600;line-height:1.7;">
+          🏺 <b>${amort.name}</b>　年繳 $${fmt(toN(amort.annualAmount))}　本期 <b>$${fmt(amount)}</b><br>
+          期別：<b>${yyy} 年 ${parseInt(mmm)} 月</b>
+        </div>
+      </div>
+      <div class="fg fg2">
+        <div class="fgrp"><label>繳費日期</label><input type="date" id="pa-date" value="${today()}"></div>
+      </div>
+      <div style="margin-top:14px;">
+        <label style="display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:8px;">怎麼付的？</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+          <label style="cursor:pointer;padding:14px 8px;background:var(--red);color:#fff;border:2px solid var(--red);border-radius:12px;text-align:center;font-size:14px;font-weight:600;" onclick="selPayAmort('cash')" id="pa-btn-cash">
+            <input type="radio" name="pa-pay" value="cash" checked style="display:none;">
+            <div style="font-size:22px;">💵</div><div>現金</div>
+          </label>
+          <label style="cursor:pointer;padding:14px 8px;background:#fff;border:2px solid var(--bdr);border-radius:12px;text-align:center;font-size:14px;font-weight:600;color:var(--brown);" onclick="selPayAmort('transfer')" id="pa-btn-transfer">
+            <input type="radio" name="pa-pay" value="transfer" style="display:none;">
+            <div style="font-size:22px;">🏦</div><div>轉帳</div>
+          </label>
+          <label style="cursor:pointer;padding:14px 8px;background:#fff;border:2px solid var(--bdr);border-radius:12px;text-align:center;font-size:14px;font-weight:600;color:var(--brown);" onclick="selPayAmort('credit')" id="pa-btn-credit">
+            <input type="radio" name="pa-pay" value="credit" style="display:none;">
+            <div style="font-size:22px;">💳</div><div>信用卡</div>
+          </label>
+        </div>
+      </div>
+      <div id="pa-card-wrap" style="margin-top:12px;display:none;">
+        <label style="display:block;font-size:13px;font-weight:700;color:var(--brown);margin-bottom:6px;">哪張信用卡？</label>
+        <select id="pa-card" style="width:100%;padding:10px 14px;border:2px solid var(--bdr);border-radius:10px;font-size:14px;">
+          ${banks.map(b=>`<option>${b}</option>`).join('')}
+        </select>
+      </div>
+      <div style="margin-top:14px;padding:12px 14px;background:linear-gradient(135deg,#F0F9FF,#fff);border:2px dashed #0EA5E9;border-radius:12px;">
+        <label style="display:block;font-size:13px;font-weight:700;color:#0369A1;margin-bottom:6px;">🪣 從哪個池扣？</label>
+        <select id="pa-pool" style="width:100%;padding:10px 12px;border:1.5px solid #BAE6FD;border-radius:10px;background:#fff;">
+          <option value="">— 不扣池 —</option>
+          ${(()=>{
+            const POOL_ORDER=['utility','traffic','union','home','gift','travel','beauty','food','muji'];
+            const sorted=[...getAllLedgers()].sort((a,b)=>{
+              const ia=POOL_ORDER.indexOf(a.id);const ib=POOL_ORDER.indexOf(b.id);
+              if(ia===-1&&ib===-1)return 0;if(ia===-1)return 1;if(ib===-1)return -1;
+              return ia-ib;
+            });
+            return sorted.map(l=>{
+              const bal=(S.data.ledgerEntries||[]).filter(e=>e.lid===l.id).reduce((s,e)=>s+toN(e.amount),0);
+              const selected=l.id===(amort.linkedLedger||'')?'selected':'';
+              return `<option value="${l.id}" ${selected}>${l.name}（餘額 $${fmt(bal)}）</option>`;
+            }).join('');
+          })()}
+        </select>
+      </div>
+      <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="savePayAmortInstallment('${aid}','${periodKey}',${amount})" style="background:var(--grn);">✓ 確認已繳</button></div>`;
+    }
+  }
+
   if(m.t==='payFixed'){
     const itemId=m.x||m.editId; // 相容兩種 key
     const item=(S.data.fixedItems||[]).find(f=>f.id===itemId);
@@ -18700,6 +18738,118 @@ window.saveCardPay=async(bank,field,val)=>{
 };
 
 // ─── EXPORT XLSX ─────────────────────────────────────────────
+// 🏺 打開繳本期年繳 modal
+window.openPayAmort=(aid,periodKey,perInst)=>{
+  S.modal={t:'payAmort',x:`${aid}|${periodKey}|${perInst}`};
+  render();
+};
+// 切付款方式樣式
+window.selPayAmort=(method)=>{
+  document.querySelectorAll('input[name="pa-pay"]').forEach(r=>{r.checked=(r.value===method);});
+  document.querySelectorAll('label[onclick^="selPayAmort"]').forEach(lbl=>{
+    const inp=lbl.querySelector('input');
+    if(inp&&inp.checked){
+      lbl.style.background='var(--red)';lbl.style.color='#fff';lbl.style.borderColor='var(--red)';
+    }else{
+      lbl.style.background='#fff';lbl.style.color='var(--brown)';lbl.style.borderColor='var(--bdr)';
+    }
+  });
+  const cardWrap=document.getElementById('pa-card-wrap');
+  if(cardWrap)cardWrap.style.display=method==='credit'?'block':'none';
+};
+// 儲存繳本期年繳
+window.savePayAmortInstallment=async(aid,periodKey,amount)=>{
+  const paidDate=g('pa-date')||today();
+  const paymentMethod=(document.querySelector('input[name="pa-pay"]:checked')||{}).value||'cash';
+  const cardBank=paymentMethod==='credit'?(g('pa-card')||''):'';
+  const poolId=g('pa-pool')||'';
+  const list=[...(S.data.amortizedItems||[])];
+  const idx=list.findIndex(a=>a.id===aid);
+  if(idx<0){alert('找不到年繳項目');return;}
+  const amort=list[idx];
+  const d=new Date(paidDate);
+  const payTxt={cash:'現金',transfer:'轉帳',credit:'信用卡'}[paymentMethod]||'現金';
+  // 建 expense
+  const newExp={
+    date:paidDate,amount:toN(amount),item:`${amort.name} · ${periodKey} 繳期`,
+    category:amort.category||'年繳',
+    categoryId:amort.categoryId||null,
+    subCategoryId:amort.subCategoryId||null,
+    subCategoryName:amort.subCategoryName||'',
+    frequency:'amortized',
+    paymentMethod,cardBank,
+    payMethod:payTxt,
+    _fromAmort:amort.id,
+    _amortPeriod:periodKey,
+    user:S.user||'',note:`年繳本期繳費`,
+    month:d.getMonth()+1,year:d.getFullYear(),
+    poolId:poolId||null,
+    linkedLedgerId:poolId||null,
+    fromLedger:!!poolId,
+    linkedAmortId:amort.id
+  };
+  const expId=await addSub('expenses',newExp);
+  // 若有扣池 → 建 ledgerEntry
+  if(poolId&&expId){
+    await addSub('ledgerEntries',{
+      lid:poolId,
+      date:paidDate,
+      amount:-Math.abs(toN(amount)),
+      cat:amort.category||'年繳',
+      categoryId:amort.categoryId||null,
+      subCategoryId:amort.subCategoryId||null,
+      subCategoryName:amort.subCategoryName||'',
+      note:`${amort.name} · ${periodKey} 繳期`,
+      paymentMethod,cardBank,
+      month:d.getMonth()+1,year:d.getFullYear(),
+      linkedExpenseId:expId,
+      linkedAmortId:amort.id,
+      linkedAmortPeriod:periodKey,
+      fromAmortPayment:true
+    });
+  }
+  // 更新 amort.paidInstallments
+  const paidIns=amort.paidInstallments||[];
+  if(!paidIns.some(p=>p.period===periodKey)){
+    paidIns.push({period:periodKey,amount:toN(amount),paidDate,expenseId:expId||null,paymentMethod,cardBank,poolId});
+  }
+  // 累加 paidThisYear
+  const curYear=d.getFullYear();
+  const yearPaidTotal=paidIns.filter(p=>p.period.startsWith(String(curYear))).reduce((s,p)=>s+toN(p.amount),0);
+  list[idx]={...amort,paidInstallments:paidIns,paidThisYear:yearPaidTotal,paidDate};
+  await saveMain({amortizedItems:list});
+  const poolMsg=poolId?` · 從池扣`:'';
+  toast(`✅ 已繳「${amort.name}」${periodKey} 期 $${fmt(amount)}${poolMsg}`,4500);
+  closeMod();
+};
+// 取消本期年繳繳費
+window.unpayAmortInstallment=async(aid,periodKey)=>{
+  const list=[...(S.data.amortizedItems||[])];
+  const idx=list.findIndex(a=>a.id===aid);
+  if(idx<0)return;
+  const amort=list[idx];
+  const paidRec=(amort.paidInstallments||[]).find(p=>p.period===periodKey);
+  if(!paidRec)return;
+  if(!confirm(`確定取消「${amort.name}」${periodKey} 期的繳費紀錄？\n\n會同時刪除：\n· 對應的支出紀錄\n· 連動的池子扣款`))return;
+  // 刪除連動 expense + ledgerEntry
+  const expsToDelete=(S.data.expenses||[]).filter(e=>e._fromAmort===aid&&e._amortPeriod===periodKey);
+  const lesToDelete=(S.data.ledgerEntries||[]).filter(e=>e.linkedAmortId===aid&&e.linkedAmortPeriod===periodKey&&e.fromAmortPayment);
+  for(const e of expsToDelete){
+    if(e.id)await deleteDoc(doc(db,'families',FID,'expenses',e.id));
+  }
+  for(const e of lesToDelete){
+    if(e.id)await deleteDoc(doc(db,'families',FID,'ledgerEntries',e.id));
+  }
+  // 更新 amort
+  const paidIns=(amort.paidInstallments||[]).filter(p=>p.period!==periodKey);
+  const curYear=new Date().getFullYear();
+  const yearPaidTotal=paidIns.filter(p=>p.period.startsWith(String(curYear))).reduce((s,p)=>s+toN(p.amount),0);
+  list[idx]={...amort,paidInstallments:paidIns,paidThisYear:yearPaidTotal};
+  await saveMain({amortizedItems:list});
+  toast('已取消繳費紀錄 + 還原池子');
+  render();
+};
+
 // 🔧 Migration V1：補 categoryId / paymentMethod / poolId
 window.runMigrationV1=async()=>{
   const logs=[];
