@@ -4355,8 +4355,11 @@ function pgLedgerHome(){
     muji:'沐蜜美學工作室相關的個人開銷'
   };
 
+  // 🐛 Fix: selLedger 使用原始 getAllLedgers() 的 index，不能用排序後的
+  const UNSORTED=getAllLedgers();
   // 計算每個池的狀態
-  const rows=ALL_LEDGERS.map((l,idx)=>{
+  const rows=ALL_LEDGERS.map((l)=>{
+    const origIdx=UNSORTED.findIndex(x=>x.id===l.id);
     const mode=ldModes[l.id]||'';
     const balance=getLedgerAll(l.id).reduce((s,e)=>s+toN(e.amount),0);
     let monthlyAmt=0, needSetup=false, setupHint='', isConfig=false;
@@ -4377,7 +4380,7 @@ function pgLedgerHome(){
       if(monthlyAmt<=0){needSetup=true;setupHint='模式已設，但還沒填年度清單';}
       else isConfig=true;
     }
-    return {...l,idx,mode,monthlyAmt:Math.round(monthlyAmt),balance,needSetup,isConfig,setupHint,desc:descs[l.id]||defDescs[l.id]||''};
+    return {...l,idx:origIdx,mode,monthlyAmt:Math.round(monthlyAmt),balance,needSetup,isConfig,setupHint,desc:descs[l.id]||defDescs[l.id]||''};
   });
 
   const configuredCount=rows.filter(r=>r.isConfig).length;
