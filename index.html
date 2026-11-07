@@ -4795,6 +4795,31 @@ function pgLedgerHome(){
       </div>`;
     })()}
 
+    <!-- 🧹 負餘額池警示（新制度過渡期一鍵重置） -->
+    ${(()=>{
+      const negPools=rows.filter(r=>r.balance<0);
+      if(negPools.length===0)return'';
+      const totalNeg=negPools.reduce((s,r)=>s+r.balance,0);
+      return`<div style="background:linear-gradient(135deg,#FEF3F2,#fff);border:2px solid var(--red);border-radius:16px;padding:14px 20px;margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+          <div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:14.5px;font-weight:700;color:var(--red);">⚠️ 有 ${negPools.length} 個池是負餘額</div>
+            <div style="font-size:11.5px;color:var(--brown);margin-top:3px;line-height:1.6;">
+              合計 <b style="color:var(--red);">$${fmt(totalNeg)}</b> · 這是因為過去花了錢但沒撥錢進池<br>
+              想「從今天乾淨重新開始」？按右邊一鍵重置
+            </div>
+          </div>
+          <button onclick="batchResetPools()" style="background:var(--red);color:#fff;border:none;padding:10px 18px;border-radius:999px;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;">🧹 一鍵全部重置 →</button>
+        </div>
+        <div style="padding-top:8px;border-top:1px dashed var(--red)66;display:flex;flex-wrap:wrap;gap:6px;">
+          ${negPools.map(r=>`<span style="background:#fff;border:1px solid var(--red);padding:3px 10px;border-radius:999px;font-size:10.5px;color:var(--red);font-weight:600;">${r.name} $${fmt(r.balance)}</span>`).join('')}
+        </div>
+        <div style="margin-top:8px;font-size:10.5px;color:var(--mut);line-height:1.6;">
+          💡 重置會把每個池加一筆「🧹 期初重置」正數紀錄抵銷，餘額歸零。歷史紀錄都保留，之後想還原刪掉那筆就好。
+        </div>
+      </div>`;
+    })()}
+
     <!-- 📊 進度卡 -->
     <div style="background:linear-gradient(135deg,${pct===100?'var(--grn)':'var(--gold)'},${pct===100?'#5B9E7A':'var(--goldDk)'});color:#fff;border-radius:18px;padding:20px 24px;margin-bottom:16px;box-shadow:0 6px 20px rgba(196,164,107,0.25);">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
@@ -11541,6 +11566,17 @@ function pgLedger(){
       </div>
     </div>
 
+    <!-- 🧹 負餘額池重置提醒（單池版） -->
+    ${balance<0?`<div style="background:linear-gradient(135deg,#FEF3F2,#fff);border:1.5px solid var(--red);border-radius:12px;padding:12px 16px;margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <div style="flex:1;min-width:200px;">
+          <div style="font-size:12.5px;color:var(--red);font-weight:700;">⚠️ 這個池是負餘額 $${fmt(balance)}</div>
+          <div style="font-size:11px;color:var(--brown);margin-top:3px;line-height:1.6;">過去花了錢但沒撥錢進池 · 想從今天乾淨重新開始？</div>
+        </div>
+        <button onclick="resetPool('${l.id}')" style="background:var(--red);color:#fff;border:none;padding:8px 14px;border-radius:999px;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;">🧹 重置這個池</button>
+      </div>
+    </div>`:''}
+
     <!-- 📈 池子趨勢曲線（最近 12 個月餘額變化） -->
     ${(()=>{
       const pts=getPoolMonthlyBalances(l.id);
@@ -11733,9 +11769,10 @@ function pgLedger(){
           // 📸 若有連動 expense 且該 expense 有收據 → 顯示 📷
           const linkedExp=r.linkedExpenseId?(S.data.expenses||[]).find(x=>x.id===r.linkedExpenseId):null;
           const hasReceipt=linkedExp&&linkedExp.receiptPhoto;
-          // 🏷️ 來源標籤（Stage 4 + 轉帳）
+          // 🏷️ 來源標籤（Stage 4 + 轉帳 + 期初重置）
           let sourceBadge='';
-          if(r.transferId&&r.transferDirection==='out')sourceBadge='<span style="background:#0EA5E9;color:#fff;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700;margin-left:4px;">↗️ 轉出</span>';
+          if(r.isPoolReset)sourceBadge='<span style="background:#6B4C3A;color:#fff;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700;margin-left:4px;">🧹 期初重置</span>';
+          else if(r.transferId&&r.transferDirection==='out')sourceBadge='<span style="background:#0EA5E9;color:#fff;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700;margin-left:4px;">↗️ 轉出</span>';
           else if(r.transferId&&r.transferDirection==='in')sourceBadge='<span style="background:#0369A1;color:#fff;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700;margin-left:4px;">↙️ 轉入</span>';
           else if(r.fromAmortPayment)sourceBadge='<span style="background:#A855F7;color:#fff;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700;margin-left:4px;">🏺 年繳</span>';
           else if(r.fromFixedPayment)sourceBadge='<span style="background:var(--gold);color:#fff;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700;margin-left:4px;">📌 月繳</span>';
@@ -15994,6 +16031,58 @@ window.delSavingRecord=async(id)=>{
   await saveMain({savingRecords:list});
   toast('已刪除');
   render();
+};
+
+// 🧹 單池重置（把累積餘額歸零，加一筆「期初重置」紀錄抵銷）
+window.resetPool=async(lid)=>{
+  const l=getAllLedgers().find(x=>x.id===lid);
+  if(!l){alert('找不到池');return;}
+  const bal=getPoolBalance(lid);
+  if(bal===0){alert(`「${l.name}」餘額已是 0，不需要重置`);return;}
+  const offsetAmt=-bal; // 正數抵銷負餘額，負數抵銷正餘額
+  const sign=bal<0?'負':'正';
+  if(!confirm(`要把「${l.name}」的目前餘額歸零嗎？\n\n目前餘額：$${fmt(bal)}（${sign}）\n會新增一筆 ${offsetAmt>0?'+':''}$${fmt(offsetAmt)} 的「🧹 期初重置」紀錄\n\n歷史紀錄都保留，只是多一筆抵銷。之後想還原，去明細刪掉那筆就好。`))return;
+  const today_=today();
+  const d=new Date(today_);
+  await addSub('ledgerEntries',{
+    lid,date:today_,amount:offsetAmt,
+    cat:'期初重置',categoryId:null,subCategoryName:'',
+    user:S.user||'',
+    note:`🧹 池子重置：抵銷過去累積 $${fmt(bal)}，從今日開始重新規劃`,
+    month:d.getMonth()+1,year:d.getFullYear(),
+    isPoolReset:true,resetAt:Date.now()
+  });
+  toast(`✅ 「${l.name}」已重置，餘額歸零 · 從今天開始重新累積`);
+};
+
+// 🧹 批次重置所有負餘額池（新制度上路一次性清理）
+window.batchResetPools=async()=>{
+  const all=getAllLedgers();
+  const needReset=all.filter(l=>getPoolBalance(l.id)<0);
+  if(needReset.length===0){alert('目前沒有負餘額的池需要重置 🎉');return;}
+  const list=needReset.map(l=>`　· ${l.name}　$${fmt(getPoolBalance(l.id))}`).join('\n');
+  if(!confirm(`要一次重置這 ${needReset.length} 個負餘額池嗎？\n\n${list}\n\n每個池會新增一筆「🧹 期初重置」紀錄，把餘額歸零。\n歷史紀錄都保留，等於承認過去的消費已付掉，從今日重新規劃。`))return;
+  const today_=today();
+  const d=new Date(today_);
+  setSyncing('syncing');
+  try{
+    for(const l of needReset){
+      const bal=getPoolBalance(l.id);
+      await addSub('ledgerEntries',{
+        lid:l.id,date:today_,amount:-bal,
+        cat:'期初重置',categoryId:null,subCategoryName:'',
+        user:S.user||'',
+        note:`🧹 池子重置（批次）：抵銷過去累積 $${fmt(bal)}，從今日開始重新規劃`,
+        month:d.getMonth()+1,year:d.getFullYear(),
+        isPoolReset:true,resetAt:Date.now()
+      });
+    }
+    toast(`✅ 已重置 ${needReset.length} 個池 · 全部餘額歸零`);
+    render();
+  }catch(e){
+    setSyncing('error');
+    alert('重置失敗：'+e.message);
+  }
 };
 
 // 🔄 池子互轉（A → B）
