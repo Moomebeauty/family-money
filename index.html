@@ -11859,48 +11859,87 @@ function pgLedger(){
       if(budgetMode==='yearly'){
         const items=(S.data.redEnvelopeItems||{})[l.id]||[];
         const yearTotal=items.reduce((s,it)=>s+toN(it.amount),0);
-        const monthlyNeed=Math.round(yearTotal/12);
         const balance=getLedgerAll(l.id).reduce((s,e)=>s+toN(e.amount),0);
+        // 倒數到目標日（若有）
+        const targetDate=(S.data.ledgerTargetDates||{})[l.id]||'';
+        let daysLeft=-1,monthsLeft=12,monthlyNeed=0,urgentHint='',countdownBadge='';
+        if(targetDate){
+          daysLeft=Math.ceil((new Date(targetDate).getTime()-Date.now())/86400000);
+          monthsLeft=Math.max(1,Math.ceil(daysLeft/30));
+          const diff=yearTotal-balance;
+          monthlyNeed=diff>0&&daysLeft>0?Math.ceil(diff/monthsLeft):0;
+          if(daysLeft>=0){
+            countdownBadge=`<span style="background:#DC2626;color:#fff;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;margin-left:6px;">⏰ 距 ${targetDate} 剩 ${daysLeft} 天</span>`;
+            if(daysLeft<=60&&diff>0)urgentHint=`<div style="margin-top:8px;padding:10px 14px;background:#FEE2E2;border:1.5px solid #DC2626;border-radius:10px;font-size:12px;color:#DC2626;line-height:1.7;">🚨 <b>剩不到 ${daysLeft} 天</b>，還差 <b>$${fmt(diff)}</b>！建議<b>這個月馬上存 $${fmt(monthlyNeed)}</b>才夠</div>`;
+          }else{countdownBadge=`<span style="background:var(--mut);color:#fff;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;margin-left:6px;">已過期</span>`;}
+        }else{
+          // 沒目標日：用 12 月平均
+          monthlyNeed=Math.round(yearTotal/12);
+        }
+        // 對象按家族分組排序（如果 name 匹配得到）
+        const groupKeys={'🏠 自己家':['楷宸','又權','兒女','配偶'],'👴 爸媽家':['媽媽','爸爸'],'👵 公婆家':['婆婆','公公'],'👨‍👩‍👧 小朋友/姪子外甥':['小朋友','姪','外甥','姪女','外甥女'],'👭 朋友同事':['朋友','同事','員工']};
+        const grouped={};
+        items.forEach(it=>{
+          let matched=null;
+          for(const[grp,keys]of Object.entries(groupKeys)){
+            if(keys.some(k=>it.name.includes(k))){matched=grp;break;}
+          }
+          const g=matched||'🎁 其他';
+          (grouped[g]=grouped[g]||[]).push(it);
+        });
         return`<div style="background:#fff;border-radius:14px;padding:20px 22px;margin-bottom:16px;box-shadow:0 4px 16px rgba(194,116,122,0.08);border-top:4px solid #DC2626;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
             <div>
-              <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:#DC2626;">🧧 紅包池年度結算</span>
-              <div class="tm" style="font-size:11.5px;margin-top:2px;">年度總額 ÷ 12 = 每月該存</div>
+              <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:#DC2626;">🧧 紅包池年度結算</span>${countdownBadge}
+              <div class="tm" style="font-size:11.5px;margin-top:2px;">${targetDate?'目標總額 ÷ 剩餘月數 = 每月該存':'年度總額 ÷ 12 = 每月該存'}</div>
             </div>
             <button onclick="setLedgerBudgetMode('${l.id}')" style="background:none;border:1px solid var(--bdr);color:var(--mut);padding:5px 12px;border-radius:8px;font-size:11px;cursor:pointer;">切換模式</button>
           </div>
 
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;">
+          <!-- 🪄 一鍵啟動：紅包規劃精靈（最顯眼） -->
+          <button onclick="openM('redEnvWizard','${l.id}')" style="width:100%;padding:14px;background:linear-gradient(135deg,#DC2626,#991B1B);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:700;letter-spacing:0.1em;cursor:pointer;box-shadow:0 4px 12px rgba(220,38,38,0.3);margin-bottom:14px;">
+            🧧 ${items.length===0?'啟動紅包規劃精靈 · 一次設完要包給誰':'重新規劃／調整對象金額'}
+          </button>
+
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:${urgentHint?'0':'14'}px;">
             <div style="background:#FEE2E2;padding:12px;border-radius:10px;text-align:center;">
-              <div class="tm" style="font-size:11px;">全年紅包總額</div>
+              <div class="tm" style="font-size:11px;">${targetDate?'目標總額':'全年紅包總額'}</div>
               <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:#DC2626;margin-top:3px;">$${fmt(yearTotal)}</div>
             </div>
             <div style="background:#FEE2E2;padding:12px;border-radius:10px;text-align:center;">
-              <div class="tm" style="font-size:11px;">每月該存</div>
+              <div class="tm" style="font-size:11px;">${targetDate&&daysLeft>0?`剩 ${monthsLeft} 月 · 月存`:'每月該存'}</div>
               <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:#DC2626;margin-top:3px;">$${fmt(monthlyNeed)}</div>
             </div>
-            <div style="background:${balance>=yearTotal*0.3?'var(--grnl)':'var(--yel)'};padding:12px;border-radius:10px;text-align:center;">
+            <div style="background:${balance>=yearTotal?'var(--grnl)':balance>=yearTotal*0.3?'var(--yel)':'#FEE2E2'};padding:12px;border-radius:10px;text-align:center;">
               <div class="tm" style="font-size:11px;">目前餘額</div>
-              <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:${balance>=yearTotal*0.3?'var(--grn)':'var(--goldDk)'};margin-top:3px;">$${fmt(balance)}</div>
+              <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:${balance>=yearTotal?'var(--grn)':balance>=yearTotal*0.3?'var(--goldDk)':'var(--red)'};margin-top:3px;">$${fmt(balance)}</div>
             </div>
           </div>
+          ${urgentHint}
 
-          <div style="margin-bottom:10px;">
-            <span style="font-size:13px;color:var(--brown);font-weight:700;">🎁 年度事件清單（${items.length} 項）</span>
-            <button onclick="addRedEnvItem('${l.id}')" style="float:right;background:#DC2626;color:#fff;border:none;padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">＋ 加事件</button>
+          <!-- 分組顯示對象清單 -->
+          <div style="margin-top:14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:13px;color:var(--brown);font-weight:700;">🎁 對象清單（${items.length} 項）</span>
+            <button onclick="addRedEnvItem('${l.id}')" style="background:none;border:1px solid var(--bdr);color:var(--brown);padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">＋ 單筆新增</button>
           </div>
           ${items.length===0?`<div style="padding:20px;text-align:center;color:var(--mut);background:var(--bg2);border-radius:10px;font-size:12px;line-height:1.7;">
-            還沒有事件<br>建議加：過年紅包、三節禮金、長輩生日、父母節聚餐、紅白包交際費
-          </div>`:items.map(it=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--bg2);border-radius:8px;margin-bottom:6px;gap:8px;">
-            <div style="flex:1;">
-              <div style="font-size:13px;color:var(--brown);font-weight:600;">${it.name}</div>
-            </div>
-            <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:#DC2626;">$${fmt(toN(it.amount))}</div>
-            <div style="display:flex;gap:4px;">
-              <button onclick="editRedEnvItem('${l.id}','${it.id}')" style="background:none;border:1px solid var(--bdr);color:var(--mut);padding:4px 8px;border-radius:6px;font-size:11px;cursor:pointer;">✏️</button>
-              <button onclick="delRedEnvItem('${l.id}','${it.id}')" style="background:none;border:1px solid var(--bdr);color:var(--red);padding:4px 8px;border-radius:6px;font-size:12px;cursor:pointer;">×</button>
-            </div>
-          </div>`).join('')}
+            還沒有對象<br>👆 按上方「紅包規劃精靈」一次填完最快！
+          </div>`:Object.entries(grouped).map(([grp,list])=>{
+            const grpTotal=list.reduce((s,it)=>s+toN(it.amount),0);
+            return`<div style="margin-bottom:10px;">
+              <div style="font-size:11.5px;color:#92400E;font-weight:700;padding:4px 10px;background:#FFF8E7;border-left:3px solid #FBBF24;border-radius:4px;margin-bottom:6px;display:flex;justify-content:space-between;">
+                <span>${grp}（${list.length}）</span><span>$${fmt(grpTotal)}</span>
+              </div>
+              ${list.map(it=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--bg2);border-radius:8px;margin-bottom:4px;gap:8px;">
+                <div style="flex:1;font-size:13px;color:var(--brown);font-weight:600;">${it.name}</div>
+                <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:#DC2626;">$${fmt(toN(it.amount))}</div>
+                <div style="display:flex;gap:4px;">
+                  <button onclick="editRedEnvItem('${l.id}','${it.id}')" style="background:none;border:1px solid var(--bdr);color:var(--mut);padding:3px 7px;border-radius:5px;font-size:10.5px;cursor:pointer;">✏️</button>
+                  <button onclick="delRedEnvItem('${l.id}','${it.id}')" style="background:none;border:1px solid var(--bdr);color:var(--red);padding:3px 7px;border-radius:5px;font-size:11px;cursor:pointer;">×</button>
+                </div>
+              </div>`).join('')}
+            </div>`;
+          }).join('')}
         </div>`;
       }
 
@@ -13638,6 +13677,116 @@ function modal(){
       <button class="btn btn-s" onclick="closeMod()">取消</button>
       <button class="btn btn-p" onclick="saveAllocRatios()" style="background:var(--gold);">✓ 儲存比例</button>
     </div>`;
+  }
+
+  // 🧧 紅包規劃精靈（一次設完過年要包給誰 + 自動串目標倒數）
+  if(m.t==='redEnvWizard'){
+    const lid=m.x;
+    const l=getAllLedgers().find(x=>x.id===lid)||{name:'紅包池'};
+    const curBal=getPoolBalance(lid);
+    // 現有清單（如果有，預填回去；否則用預設家族結構）
+    const existing=((S.data.redEnvelopeItems||{})[lid]||[]);
+    const existMap={};
+    existing.forEach(it=>{existMap[it.name]=toN(it.amount);});
+    // 預設家族對象（按家庭常見分組）+ 常見市價 placeholder
+    const DEFAULT_GROUPS=[
+      {title:'🏠 自己家',items:[
+        {key:'兒女 楷宸',hint:'2000~6000'},
+        {key:'配偶 又權',hint:'600~1200（象徵）'},
+      ]},
+      {title:'👴 長輩（妳的爸媽）',items:[
+        {key:'媽媽',hint:'6000~12000'},
+        {key:'爸爸',hint:'6000~12000'},
+      ]},
+      {title:'👵 長輩（配偶的爸媽／前夫家）',items:[
+        {key:'婆婆',hint:'6000~12000'},
+        {key:'公公',hint:'6000~12000'},
+      ]},
+      {title:'👨‍👩‍👧 兄弟姊妹家小孩 / 姪子外甥',items:[],customLbl:'小朋友姓名'},
+      {title:'👭 朋友同事',items:[],customLbl:'對象名稱'},
+      {title:'🎁 其他',items:[],customLbl:'項目名稱（如：員工紅包）'},
+    ];
+    // 將 existing 裡不在 default 的對象分配到「其他」區
+    const defaultKeys=new Set();
+    DEFAULT_GROUPS.forEach(g=>g.items.forEach(it=>defaultKeys.add(it.key)));
+    const extraByGroup={};
+    existing.forEach(it=>{
+      if(!defaultKeys.has(it.name)){
+        // 粗略分組：姪子/小朋友 → 第 4 組；朋友 → 第 5 組；其他 → 第 6 組
+        let gi=5;
+        if(/小朋友|姪|外甥|姪女|外甥女|兒|姊姊|哥哥|弟弟|妹妹/.test(it.name))gi=3;
+        else if(/朋友|同事|員工/.test(it.name))gi=4;
+        (extraByGroup[gi]=extraByGroup[gi]||[]).push(it.name);
+      }
+    });
+    // 預設日期：找下一個農曆新年（粗估 1/29/2027）
+    const existingDate=(S.data.ledgerTargetDates||{})[lid]||'';
+    const existingNote=(S.data.ledgerTargetNotes||{})[lid]||'';
+    const defaultDate=existingDate||'2027-01-29';
+    const defaultTitle=existingNote||'2027 春節紅包';
+    c=`<div class="mttl" style="color:#DC2626;">🧧 紅包規劃精靈</div>
+
+    <div style="margin-bottom:14px;padding:12px 14px;background:#FEE2E2;border-radius:10px;font-size:12px;color:#DC2626;line-height:1.7;">
+      💡 <b>一次設完要包給誰、每個多少</b><br>
+      按下方「套用」後，系統會自動：<br>
+      　· 寫入「年度事件清單」<br>
+      　· 設池子目標金額+到期日<br>
+      　· 算距期限剩幾天 + 每月該存多少
+    </div>
+
+    <!-- 📝 名稱 + 日期 -->
+    <div class="fg fg2" style="margin-bottom:12px;">
+      <div class="fgrp">
+        <label>📝 這個清單的名稱</label>
+        <input type="text" id="rw-title" value="${defaultTitle.replace(/"/g,'&quot;')}" placeholder="2027 春節紅包">
+      </div>
+      <div class="fgrp">
+        <label>📅 何時要用？</label>
+        <input type="date" id="rw-date" value="${defaultDate}" onchange="rwCalc()">
+      </div>
+    </div>
+
+    <!-- 👥 對象清單 -->
+    <div style="margin-bottom:6px;font-size:13px;color:var(--brown);font-weight:700;">👥 要發給誰？填金額即勾選，空白則不列</div>
+    <div id="rw-groups" style="max-height:60vh;overflow-y:auto;padding-right:4px;">
+    ${DEFAULT_GROUPS.map((g,gi)=>{
+      const extras=extraByGroup[gi]||[];
+      return`<div style="background:#FFF8E7;border:1.5px solid #FBBF24;border-radius:10px;padding:12px 14px;margin-bottom:10px;">
+        <div style="font-size:12.5px;color:#92400E;font-weight:700;margin-bottom:8px;">${g.title}</div>
+        ${g.items.map(it=>{
+          const v=existMap[it.key]||'';
+          return`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+            <span style="flex:1;min-width:120px;font-size:12.5px;color:var(--brown);">${it.key}</span>
+            <input type="number" class="rw-amt" data-name="${it.key}" value="${v}" placeholder="${it.hint}" oninput="rwCalc()" style="width:120px;padding:6px 10px;border:1.5px solid var(--bdr);border-radius:8px;font-size:13px;text-align:right;font-family:inherit;color:var(--brown);">
+          </div>`;
+        }).join('')}
+        ${extras.map((name,ei)=>{
+          const v=existMap[name]||'';
+          return`<div class="rw-custom-row" style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+            <input type="text" class="rw-name" data-group="${gi}" value="${name.replace(/"/g,'&quot;')}" placeholder="${g.customLbl||'對象名稱'}" style="flex:1;min-width:120px;padding:6px 10px;border:1.5px solid var(--bdr);border-radius:8px;font-size:12.5px;font-family:inherit;color:var(--brown);">
+            <input type="number" class="rw-amt" data-custom="1" value="${v}" placeholder="金額" oninput="rwCalc()" style="width:120px;padding:6px 10px;border:1.5px solid var(--bdr);border-radius:8px;font-size:13px;text-align:right;font-family:inherit;color:var(--brown);">
+            <button type="button" onclick="this.parentElement.remove();rwCalc();" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;padding:2px 6px;">×</button>
+          </div>`;
+        }).join('')}
+        <button type="button" data-gi="${gi}" data-lbl="${(g.customLbl||'對象名稱').replace(/"/g,'&quot;')}" onclick="rwAddCustomRow(parseInt(this.dataset.gi),this.dataset.lbl)" style="background:none;border:1px dashed #FBBF24;color:#92400E;padding:5px 12px;border-radius:8px;font-size:11.5px;cursor:pointer;margin-top:4px;">＋ ${g.customLbl?'加 '+g.customLbl:'加對象'}</button>
+      </div>`;
+    }).join('')}
+    </div>
+
+    <!-- 📊 即時試算卡 -->
+    <div id="rw-calc" style="margin-top:12px;padding:14px 16px;background:linear-gradient(135deg,#FEE2E2,#fff);border:2px solid #DC2626;border-radius:12px;">
+      <div style="font-size:11px;color:#DC2626;font-weight:700;letter-spacing:0.15em;margin-bottom:6px;">📊 試算</div>
+      <div id="rw-calc-body" data-pool-bal="${curBal}" style="font-size:12.5px;color:var(--brown);line-height:2;">
+        （填入金額後會自動更新）
+      </div>
+    </div>
+
+    <div class="mbtns">
+      <button class="btn btn-s" onclick="closeMod()">取消</button>
+      <button class="btn btn-p" onclick="saveRedEnvWizard('${lid}')" style="background:#DC2626;">💾 套用到紅包池</button>
+    </div>`;
+    // modal 開啟後初始化計算（因為 innerHTML 不會執行 <script>）
+    setTimeout(()=>{if(typeof window.rwCalc==='function')window.rwCalc();},80);
   }
 
   // 🔄 池子互轉（A → B 一鍵搬錢）
@@ -16031,6 +16180,98 @@ window.delSavingRecord=async(id)=>{
   await saveMain({savingRecords:list});
   toast('已刪除');
   render();
+};
+
+// 🧧 紅包規劃精靈 - 即時試算
+window.rwCalc=function(){
+  const rows=document.querySelectorAll('#rw-groups .rw-amt');
+  let count=0,total=0;
+  rows.forEach(inp=>{
+    const amt=Number(inp.value)||0;
+    if(amt>0){count++;total+=amt;}
+  });
+  const dateEl=document.getElementById('rw-date');
+  const date=dateEl?dateEl.value:'';
+  let daysLeft=-1,monthsLeft=1;
+  if(date){
+    daysLeft=Math.ceil((new Date(date).getTime()-Date.now())/86400000);
+    monthsLeft=Math.max(1,Math.ceil(daysLeft/30));
+  }
+  const body=document.getElementById('rw-calc-body');
+  if(!body)return;
+  const bal=Number(body.dataset.poolBal)||0;
+  const diff=total-bal;
+  const suggested=diff>0&&daysLeft>0?Math.ceil(diff/monthsLeft):0;
+  const fmtN=(n)=>(n||0).toLocaleString();
+  body.innerHTML=
+    '　👥 共 <b>'+count+'</b> 個對象<br>'+
+    '　💰 總額 <b style="color:#DC2626;font-size:16px;">$'+fmtN(total)+'</b><br>'+
+    '　🏦 池目前餘額 <b style="color:var(--gold);">$'+fmtN(bal)+'</b><br>'+
+    (diff>0?
+      '　🔴 還差 <b style="color:var(--red);font-size:16px;">$'+fmtN(diff)+'</b><br>'+
+      (daysLeft>=0?'　⏰ 距離 <b>'+date+'</b> 還有 <b>'+daysLeft+' 天</b>（約 '+monthsLeft+' 個月）<br>':'')+
+      (suggested>0?'　💡 <b style="color:#DC2626;font-size:16px;">建議每月存 $'+fmtN(suggested)+'</b>':'')
+    :total>0?
+      '　🟢 <b style="color:var(--grn);">池子已有 $'+fmtN(bal-total)+' 緩衝，可以安心包紅包！</b>'
+    :'　（還沒填金額）'
+    );
+};
+
+window.rwAddCustomRow=function(gi,lbl){
+  const groups=document.querySelectorAll('#rw-groups > div');
+  const g=groups[gi];if(!g)return;
+  const btn=g.querySelector('button[type="button"]');
+  const row=document.createElement('div');
+  row.className='rw-custom-row';
+  row.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;';
+  row.innerHTML=
+    '<input type="text" class="rw-name" data-group="'+gi+'" placeholder="'+lbl+'" style="flex:1;min-width:120px;padding:6px 10px;border:1.5px solid var(--bdr);border-radius:8px;font-size:12.5px;font-family:inherit;color:var(--brown);">'+
+    '<input type="number" class="rw-amt" data-custom="1" placeholder="金額" oninput="rwCalc()" style="width:120px;padding:6px 10px;border:1.5px solid var(--bdr);border-radius:8px;font-size:13px;text-align:right;font-family:inherit;color:var(--brown);">'+
+    '<button type="button" onclick="this.parentElement.remove();rwCalc();" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;padding:2px 6px;">×</button>';
+  btn.parentElement.insertBefore(row,btn);
+  row.querySelector('.rw-name').focus();
+};
+
+// 🧧 紅包規劃精靈儲存
+window.saveRedEnvWizard=async(lid)=>{
+  const title=g('rw-title')||'紅包清單';
+  const date=g('rw-date')||'';
+  // 收集所有有金額的對象
+  const items=[];
+  const rows=document.querySelectorAll('#rw-groups .rw-amt');
+  let idSeed=Date.now();
+  rows.forEach(inp=>{
+    const amt=toN(inp.value);
+    if(amt<=0)return;
+    let name='';
+    if(inp.dataset.custom==='1'){
+      // 自訂欄位：往前找同列的 rw-name
+      const row=inp.closest('.rw-custom-row');
+      const nameInp=row?row.querySelector('.rw-name'):null;
+      name=nameInp?nameInp.value.trim():'';
+      if(!name){name='自訂 '+(idSeed++);}
+    }else{
+      name=inp.dataset.name||'';
+    }
+    items.push({id:'re_'+(idSeed++)+'_'+Math.random().toString(36).slice(2,5),name,amount:amt});
+  });
+  if(items.length===0){alert('還沒填任何金額，請先填至少一個對象');return;}
+  const total=items.reduce((s,it)=>s+it.amount,0);
+  // 1. 寫入紅包池的年度事件清單
+  const reItems={...(S.data.redEnvelopeItems||{})};
+  reItems[lid]=items;
+  // 2. 設池子目標金額
+  const targets={...(S.data.ledgerTargets||{})};
+  targets[lid]=total;
+  // 3. 設目標到期日
+  const dates={...(S.data.ledgerTargetDates||{})};
+  if(date)dates[lid]=date;
+  // 4. 設目標說明
+  const notes={...(S.data.ledgerTargetNotes||{})};
+  if(title)notes[lid]=title;
+  await saveMain({redEnvelopeItems:reItems,ledgerTargets:targets,ledgerTargetDates:dates,ledgerTargetNotes:notes});
+  toast(`✅ 已套用「${title}」· ${items.length} 位 · 總額 $${fmt(total)}`);
+  closeMod();
 };
 
 // 🧹 單池重置（把累積餘額歸零，加一筆「期初重置」紀錄抵銷）
