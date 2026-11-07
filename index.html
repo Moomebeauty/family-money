@@ -2481,8 +2481,9 @@ function pgOverviewNew(){
           🚦 &lt;10% 健康 ✅　10-20% 正常 　20-30% 注意 ⚠️　&gt;30% 警戒 🚨
         </div>`:''}
         ${cardList.length>0?`<div style="padding-top:8px;border-top:1px dashed ${borderCol}66;display:flex;flex-wrap:wrap;gap:6px;">
-          ${cardList.map(([bank,amt])=>`<div style="padding:4px 10px;background:#fff;border:1px solid ${borderCol}66;border-radius:999px;font-size:11px;color:${col};font-weight:600;">💳 ${bank} <b>$${fmt(amt)}</b></div>`).join('')}
-        </div>`:`<div style="font-size:11px;color:var(--mut);text-align:center;padding:6px 0;">本月還沒有信用卡消費紀錄</div>`}
+          ${cardList.map(([bank,amt])=>`<button onclick="openM('ccBillDetail','${bank.replace(/'/g,"\\'")}')" style="padding:4px 10px;background:#fff;border:1px solid ${borderCol}66;border-radius:999px;font-size:11px;color:${col};font-weight:600;cursor:pointer;font-family:inherit;" title="點擊看明細">💳 ${bank} <b>$${fmt(amt)}</b> 🔍</button>`).join('')}
+        </div>
+        <div style="font-size:10px;color:var(--mut);text-align:center;margin-top:6px;">💡 點卡別可展開明細</div>`:`<div style="font-size:11px;color:var(--mut);text-align:center;padding:6px 0;">本月還沒有信用卡消費紀錄</div>`}
       </div>`;
     })()}
 
@@ -13788,6 +13789,96 @@ function modal(){
     <div class="mbtns">
       <button class="btn btn-s" onclick="closeMod()">取消</button>
       <button class="btn btn-p" onclick="saveAllocRatios()" style="background:var(--gold);">✓ 儲存比例</button>
+    </div>`;
+  }
+
+  // 🔍 信用卡帳單明細（點紅氣球卡別跳出）
+  if(m.t==='ccBillDetail'){
+    const bank=m.x||'';
+    const curYear=yr(),curMonth=S.month;
+    // 1. expenses 裡的信用卡紀錄
+    const exps=(S.data.expenses||[]).filter(e=>e.year===curYear&&e.month===curMonth&&e.paymentMethod==='credit'&&(e.cardBank||'未分卡')===bank);
+    // 2. ledgerEntries 裡 linkedCardBank 的紀錄（池明細記的時候選了信用卡）
+    const les=(S.data.ledgerEntries||[]).filter(e=>e.year===curYear&&e.month===curMonth&&toN(e.amount)<0&&(e.linkedCardBank||'')===bank);
+    // 3. 固定月繳如果用信用卡的
+    const monthKey=`${curYear}-${String(curMonth).padStart(2,'0')}`;
+    const fixedCC=(S.data.fixedItems||[]).filter(f=>f.paymentMethod==='credit'&&(f.cardBank||'')===bank&&(f.paidHistory||{})[monthKey]);
+    // 4. 年繳本期扣的
+    const amortCC=(S.data.amortizedItems||[]).filter(a=>{
+      const paid=(a.paidInstallments||[]).find(p=>p.paymentMethod==='credit'&&(p.cardBank||'')===bank&&p.period===monthKey);
+      return !!paid;
+    }).map(a=>{
+      const paid=a.paidInstallments.find(p=>p.period===monthKey);
+      return {name:a.name,amount:paid.amount,date:paid.paidDate||''};
+    });
+    // 加總（有可能和紅氣球顯示的對不上，表示紅氣球只算了 expenses）
+    const expTotal=exps.reduce((s,e)=>s+toN(e.amount),0);
+    const leTotal=les.reduce((s,e)=>s+Math.abs(toN(e.amount)),0);
+    const fixedTotal=fixedCC.reduce((s,f)=>s+toN(f.amount),0);
+    const amortTotal=amortCC.reduce((s,a)=>s+toN(a.amount),0);
+    const grandTotal=expTotal; // 紅氣球只算 expenses
+    const allSources=[
+      ...exps.map(e=>({type:'exp',id:e.id,date:e.date,amount:toN(e.amount),cat:e.category||'-',note:e.note||'',source:'💸 支出'})),
+      ...les.map(e=>({type:'le',id:e.id,date:e.date,amount:Math.abs(toN(e.amount)),cat:e.cat||'-',note:e.note||'',source:'🪣 池明細'})),
+      ...fixedCC.map(f=>({type:'fixed',id:f.id,date:(f.paidHistory||{})[monthKey]||'',amount:toN(f.amount),cat:f.name,note:'📌 固定月繳',source:'📌 月繳'})),
+      ...amortCC.map(a=>({type:'amort',id:a.name,date:a.date,amount:toN(a.amount),cat:a.name,note:'🏺 年繳本期',source:'🏺 年繳'})),
+    ].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    c=`<div class="mttl">💳 ${bank} · ${curMonth} 月帳單明細</div>
+
+    <div style="background:linear-gradient(135deg,#FEE2E2,#fff);border:2px solid var(--red);border-radius:12px;padding:14px 18px;margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <div>
+          <div style="font-size:11px;color:var(--red);letter-spacing:0.15em;font-weight:700;">紅氣球顯示金額</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:26px;font-weight:700;color:var(--red);">$${fmt(grandTotal)}</div>
+        </div>
+        <div style="font-size:11px;color:var(--brown);text-align:right;line-height:1.7;">
+          🧮 來自 <b>${exps.length}</b> 筆 expenses 紀錄<br>
+          （紅氣球只算 expenses 表）
+        </div>
+      </div>
+    </div>
+
+    ${allSources.length===0?`<div style="padding:30px;text-align:center;color:var(--mut);background:#F9FAFB;border-radius:12px;">
+      <div style="font-size:40px;">🤔</div>
+      <div style="margin-top:10px;font-size:13px;color:var(--brown);">找不到任何紀錄</div>
+      <div style="margin-top:6px;font-size:11px;line-height:1.7;">
+        可能原因：<br>
+        · 這筆錢記在別的月份（試切換 9 月/11 月看看）<br>
+        · 資料已被刪除但快取未更新（試重新整理頁面）<br>
+        · 紅氣球的統計邏輯和實際紀錄不一致（請把這張截圖給 Claude）
+      </div>
+    </div>`:`
+    <div style="margin-bottom:10px;font-size:12.5px;color:var(--brown);">
+      📋 <b>${allSources.length}</b> 筆紀錄 · 來源：
+      ${exps.length>0?`<span style="background:var(--red);color:#fff;padding:2px 8px;border-radius:999px;font-size:10.5px;margin-left:4px;">💸 支出 ${exps.length}</span>`:''}
+      ${les.length>0?`<span style="background:var(--gold);color:#fff;padding:2px 8px;border-radius:999px;font-size:10.5px;margin-left:4px;">🪣 池 ${les.length}</span>`:''}
+      ${fixedCC.length>0?`<span style="background:var(--blu);color:#fff;padding:2px 8px;border-radius:999px;font-size:10.5px;margin-left:4px;">📌 月繳 ${fixedCC.length}</span>`:''}
+      ${amortCC.length>0?`<span style="background:#A855F7;color:#fff;padding:2px 8px;border-radius:999px;font-size:10.5px;margin-left:4px;">🏺 年繳 ${amortCC.length}</span>`:''}
+    </div>
+
+    <div style="max-height:50vh;overflow-y:auto;border:1px solid var(--bdr);border-radius:10px;">
+      ${allSources.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px dashed var(--bdr);gap:10px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:12.5px;color:var(--brown);font-weight:600;">
+            ${r.date||'無日期'}　<span style="font-size:10.5px;color:var(--mut);background:var(--bg2);padding:1px 6px;border-radius:4px;font-weight:400;">${r.cat}</span>
+            <span style="background:var(--mut);color:#fff;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700;margin-left:4px;">${r.source}</span>
+          </div>
+          ${r.note?`<div style="font-size:11px;color:var(--mut);margin-top:2px;">${r.note}</div>`:''}
+        </div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--red);white-space:nowrap;">$${fmt(r.amount)}</div>
+        ${r.type==='exp'?`<button onclick="closeMod();openM('editExp','${r.id}');" style="background:none;border:1px solid var(--bdr);color:var(--mut);padding:3px 8px;border-radius:5px;font-size:11px;cursor:pointer;">✏️</button>`:''}
+      </div>`).join('')}
+    </div>
+
+    ${(leTotal>0||fixedTotal>0||amortTotal>0)?`<div style="margin-top:12px;padding:10px 14px;background:#FFF4D6;border-radius:10px;font-size:11.5px;color:var(--brown);line-height:1.7;">
+      ⚠️ 提醒：紅氣球統計只算「💸 支出」表（$${fmt(expTotal)}）<br>
+      其他來源加起來 <b>$${fmt(leTotal+fixedTotal+amortTotal)}</b> 沒進紅氣球統計
+    </div>`:''}
+    `}
+
+    <div class="mbtns" style="justify-content:space-between;">
+      <button class="btn btn-s" onclick="closeMod()">關閉</button>
+      <button class="btn btn-p" onclick="closeMod();openM('addExp','信用卡');" style="background:var(--red);">＋ 補一筆</button>
     </div>`;
   }
 
