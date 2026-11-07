@@ -4108,17 +4108,23 @@ function pgExpenseCalendar(){
         <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--goldDk);">📌 每個月都要繳 · 合計 $${fmt(fixedTotal)}/月</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:6px;">
-        ${fixedItems.map(f=>`<div style="padding:8px 12px;background:#FFF8E7;border:1px solid var(--gold);border-radius:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:13px;color:var(--brown);font-weight:700;">${f.name}</div>
-            <div style="font-size:11px;color:var(--mut);margin-top:1px;">${f.category||''}${f.payDay?` · 每月 ${f.payDay} 號扣款`:''}${f.installmentTotal&&f.installmentStart?` · 分期`:''}</div>
-          </div>
-          <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--red);">$${fmt(toN(f.amount))}</div>
-          <div style="display:flex;gap:4px;">
-            <button onclick="editFixed('${f.id}')" style="background:none;border:1px solid var(--gold);color:var(--goldDk);padding:4px 8px;border-radius:6px;font-size:12px;cursor:pointer;" title="編輯">✏️</button>
-            <button onclick="delFixed('${f.id}')" style="background:none;border:1px solid var(--bdr);color:var(--red);padding:4px 7px;border-radius:6px;font-size:13px;cursor:pointer;" title="刪除">×</button>
-          </div>
-        </div>`).join('')}
+        ${fixedItems.map(f=>{
+          const monthKey=`${curYear}-${String(curMonth).padStart(2,'0')}`;
+          const isPaid=!!((f.paidHistory||{})[monthKey]);
+          const poolName=f.poolId?((allLedgers.find(l=>l.id===f.poolId)||{}).name||''):'';
+          return`<div style="padding:8px 12px;background:${isPaid?'var(--grnl)':'#FFF8E7'};border:1px solid ${isPaid?'var(--grn)':'var(--gold)'};border-radius:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;color:var(--brown);font-weight:700;">${isPaid?'✅':''} ${f.name}</div>
+              <div style="font-size:11px;color:var(--mut);margin-top:1px;">${f.category||''}${f.payDay?` · 每月 ${f.payDay} 號`:''}${poolName?` · 🪣 ${poolName}`:' · ⚠️ 未綁池'}${f.installmentTotal&&f.installmentStart?` · 分期`:''}</div>
+            </div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:${isPaid?'var(--grn)':'var(--red)'};">$${fmt(toN(f.amount))}</div>
+            <div style="display:flex;gap:4px;">
+              ${isPaid?`<button onclick="unpayFixed('${f.id}')" style="background:var(--bg2);border:1px solid var(--bdr);color:var(--mut);padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;">取消</button>`:`<button onclick="openM('payFixed','${f.id}')" style="background:var(--grn);color:#fff;border:none;padding:4px 12px;border-radius:6px;font-size:11.5px;font-weight:700;cursor:pointer;">✓ 已繳</button>`}
+              <button onclick="editFixed('${f.id}')" style="background:none;border:1px solid var(--gold);color:var(--goldDk);padding:4px 8px;border-radius:6px;font-size:12px;cursor:pointer;" title="編輯">✏️</button>
+              <button onclick="delFixed('${f.id}')" style="background:none;border:1px solid var(--bdr);color:var(--red);padding:4px 7px;border-radius:6px;font-size:13px;cursor:pointer;" title="刪除">×</button>
+            </div>
+          </div>`;
+        }).join('')}
       </div>
     </div>`:''}
 
@@ -12675,6 +12681,27 @@ function modal(){
           ${banks.map(b=>`<option>${b}</option>`).join('')}
         </select>
       </div>
+      <!-- 🪣 從哪個池扣（如項目已綁池則預選） -->
+      <div style="margin-top:14px;padding:12px 14px;background:linear-gradient(135deg,#F0F9FF,#fff);border:2px dashed #0EA5E9;border-radius:12px;">
+        <label style="display:block;font-size:13px;font-weight:700;color:#0369A1;margin-bottom:6px;">🪣 從哪個池扣？</label>
+        <div style="font-size:11px;color:var(--mut);margin-bottom:8px;">這筆繳費會<b>同時產生一筆支出 + 扣池餘額</b></div>
+        <select id="pf-pool" style="width:100%;padding:10px 12px;border:1.5px solid #BAE6FD;border-radius:10px;background:#fff;">
+          <option value="">— 不扣池（繳費不碰池子）—</option>
+          ${(()=>{
+            const POOL_ORDER=['utility','traffic','union','home','gift','travel','beauty','food','muji'];
+            const sorted=[...getAllLedgers()].sort((a,b)=>{
+              const ia=POOL_ORDER.indexOf(a.id);const ib=POOL_ORDER.indexOf(b.id);
+              if(ia===-1&&ib===-1)return 0;if(ia===-1)return 1;if(ib===-1)return -1;
+              return ia-ib;
+            });
+            return sorted.map(l=>{
+              const bal=(S.data.ledgerEntries||[]).filter(e=>e.lid===l.id).reduce((s,e)=>s+toN(e.amount),0);
+              const selected=l.id===(item.poolId||'')?'selected':'';
+              return `<option value="${l.id}" ${selected}>${l.name}（餘額 $${fmt(bal)}）</option>`;
+            }).join('');
+          })()}
+        </select>
+      </div>
       <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="savePayFixed('${item.id}')" style="background:var(--grn);">✓ 確認已繳</button></div>`;
     }
   }
@@ -13203,6 +13230,21 @@ function modal(){
         </select>
       </div>
       <div class="fgrp"><label>付款日（每月）</label><input type="number" id="m_day" value="${p.payDay||''}" placeholder="如：15" min="1" max="31"></div>
+      <div class="fgrp" style="grid-column:1/-1">
+        <label>🪣 從哪個池扣款？（繳費時自動扣）</label>
+        <select id="m_pool" style="width:100%;padding:10px 12px;border:1.5px solid #0EA5E9;border-radius:10px;background:#fff;color:var(--brown);">
+          <option value="">— 不綁池（繳費時再選）—</option>
+          ${(()=>{
+            const POOL_ORDER=['utility','traffic','union','home','gift','travel','beauty','food','muji'];
+            const sorted=[...getAllLedgers()].sort((a,b)=>{
+              const ia=POOL_ORDER.indexOf(a.id);const ib=POOL_ORDER.indexOf(b.id);
+              if(ia===-1&&ib===-1)return 0;if(ia===-1)return 1;if(ib===-1)return -1;
+              return ia-ib;
+            });
+            return sorted.map(l=>`<option value="${l.id}" ${l.id===(p.poolId||'')?'selected':''}>${l.name}</option>`).join('');
+          })()}
+        </select>
+      </div>
       <div class="fgrp" style="grid-column:1/-1"><label>備註</label><input type="text" id="m2" value="${(p.note||'').replace(/"/g,'&quot;')}" placeholder="說明或備忘（選填）"></div>
     </div>
 
@@ -13226,6 +13268,21 @@ function modal(){
     <div class="fg fg2">
       <div class="fgrp"><label>項目名稱</label><input type="text" id="m0" value="${f.name||''}"></div>
       <div class="fgrp"><label>每月金額（元）</label><input type="number" id="m1" value="${f.amount||0}"></div>
+      <div class="fgrp" style="grid-column:1/-1">
+        <label>🪣 從哪個池扣款？</label>
+        <select id="m_pool" style="width:100%;padding:10px 12px;border:1.5px solid #0EA5E9;border-radius:10px;background:#fff;color:var(--brown);">
+          <option value="">— 不綁池（繳費時再選）—</option>
+          ${(()=>{
+            const POOL_ORDER=['utility','traffic','union','home','gift','travel','beauty','food','muji'];
+            const sorted=[...getAllLedgers()].sort((a,b)=>{
+              const ia=POOL_ORDER.indexOf(a.id);const ib=POOL_ORDER.indexOf(b.id);
+              if(ia===-1&&ib===-1)return 0;if(ia===-1)return 1;if(ib===-1)return -1;
+              return ia-ib;
+            });
+            return sorted.map(l=>`<option value="${l.id}" ${l.id===(f.poolId||'')?'selected':''}>${l.name}</option>`).join('');
+          })()}
+        </select>
+      </div>
       <div class="fgrp" style="grid-column:1/-1"><label>備註</label><input type="text" id="m2" value="${f.note||''}"></div>
     </div>
     <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="updateFixed('${f.id}')">✓ 更新</button></div>`;}
@@ -16462,18 +16519,20 @@ window.savePayFixed=async(itemId)=>{
   const paidDate=g('pf-date')||today();
   const paymentMethod=(document.querySelector('input[name="pf-pay"]:checked')||{}).value||'cash';
   const cardBank=paymentMethod==='credit'?(g('pf-card')||''):'';
+  const poolId=g('pf-pool')||''; // 🪣 從哪個池扣
   const monthKey=`${yr()}-${String(S.month).padStart(2,'0')}`;
   const list=[...(S.data.fixedItems||[])];
   const idx=list.findIndex(f=>f.id===itemId);
   if(idx<0){alert('找不到項目');return;}
   const item=list[idx];
+  const amount=toN(item.amount);
   // 儲存繳費紀錄
-  list[idx]={...item,paidHistory:{...(item.paidHistory||{}),[monthKey]:{paidDate,paymentMethod,cardBank}}};
+  list[idx]={...item,paidHistory:{...(item.paidHistory||{}),[monthKey]:{paidDate,paymentMethod,cardBank,poolId}}};
   // 同時產生一筆 expense（讓支出總覽看得到）
   const d=new Date(paidDate);
   const payTxt={cash:'現金',transfer:'轉帳',credit:'信用卡'}[paymentMethod]||'現金';
   const newExp={
-    date:paidDate,amount:toN(item.amount),item:item.name,
+    date:paidDate,amount,item:item.name,
     category:item.category||'固定',
     categoryId:item.categoryId||null,
     subCategoryId:item.subCategoryId||null,
@@ -16484,11 +16543,38 @@ window.savePayFixed=async(itemId)=>{
     _fromFixed:item.id, // 標記來源（避免重複記）
     _fixedMonthKey:monthKey,
     user:S.user||'',note:'固定支出繳費',
-    month:d.getMonth()+1,year:d.getFullYear()
+    month:d.getMonth()+1,year:d.getFullYear(),
+    // 🪣 池子相關
+    poolId:poolId||null,
+    linkedLedgerId:poolId||null, // 相容舊
+    fromLedger:!!poolId,
+    excludeFromBudget:false
   };
   await saveMain({fixedItems:list});
-  await addSub('expenses',newExp);
-  toast(`✅ 已繳「${item.name}」$${fmt(toN(item.amount))}`);
+  const expId=await addSub('expenses',newExp);
+  // 🪣 如果有扣池 → 寫入 ledgerEntry
+  let poolMsg='';
+  if(poolId&&expId){
+    await addSub('ledgerEntries',{
+      lid:poolId,
+      date:paidDate,
+      amount:-Math.abs(amount),
+      cat:item.category||'固定',
+      categoryId:item.categoryId||null,
+      subCategoryId:item.subCategoryId||null,
+      subCategoryName:item.subCategoryName||'',
+      note:`${item.name} ${monthKey} 繳費`,
+      paymentMethod,cardBank,
+      month:d.getMonth()+1,year:d.getFullYear(),
+      linkedExpenseId:expId,
+      linkedFixedId:item.id,
+      fromFixedPayment:true
+    });
+    const led=getAllLedgers().find(x=>x.id===poolId);
+    const bal=(S.data.ledgerEntries||[]).filter(e=>e.lid===poolId).reduce((s,e)=>s+toN(e.amount),0)-amount;
+    poolMsg=` · 從 ${led?led.name:''} 扣，剩 $${fmt(bal)}`;
+  }
+  toast(`✅ 已繳「${item.name}」$${fmt(amount)}${poolMsg}`,4500);
   closeMod();
 };
 
@@ -16499,15 +16585,26 @@ window.unpayFixed=async(itemId)=>{
   const idx=list.findIndex(f=>f.id===itemId);
   if(idx<0)return;
   const item=list[idx];
-  if(!confirm(`確定取消「${item.name}」${monthKey} 的繳費紀錄？\n\n（會同時刪除對應的支出紀錄）`))return;
+  if(!confirm(`確定取消「${item.name}」${monthKey} 的繳費紀錄？\n\n會同時刪除：\n· 對應的支出紀錄\n· 連動的池子扣款`))return;
   // 移除 paidHistory
   const hist={...(item.paidHistory||{})};
   delete hist[monthKey];
   list[idx]={...item,paidHistory:hist};
-  // 刪除對應的 expense
+  // 刪除對應的 expense (本地 state)
   const exps=(S.data.expenses||[]).filter(e=>!(e._fromFixed===itemId&&e._fixedMonthKey===monthKey));
-  await saveMain({fixedItems:list,expenses:exps});
-  toast('已取消繳費紀錄');
+  // 刪除連動的 ledgerEntry (本地 state)
+  const les=(S.data.ledgerEntries||[]).filter(e=>!(e.linkedFixedId===itemId&&e.fromFixedPayment));
+  // 從 Firebase 也要刪
+  const expsToDelete=(S.data.expenses||[]).filter(e=>e._fromFixed===itemId&&e._fixedMonthKey===monthKey);
+  const lesToDelete=(S.data.ledgerEntries||[]).filter(e=>e.linkedFixedId===itemId&&e.fromFixedPayment);
+  for(const e of expsToDelete){
+    if(e.id)await deleteDoc(doc(db,'families',FID,'expenses',e.id));
+  }
+  for(const e of lesToDelete){
+    if(e.id)await deleteDoc(doc(db,'families',FID,'ledgerEntries',e.id));
+  }
+  await saveMain({fixedItems:list});
+  toast('已取消繳費紀錄 + 還原池子');
   render();
 };
 
@@ -16797,23 +16894,25 @@ window.saveFixed=async(editId)=>{
   const note=g('m2')||'';
   const installmentTotal=n('m_total')||null;
   const installmentStart=g('m_start')||null;
+  const poolId=g('m_pool')||null; // 🪣 對應池
   const list=[...(S.data.fixedItems||[])];
   if(editId){
     const idx=list.findIndex(f=>f.id===editId);
     if(idx>=0){
-      list[idx]={...list[idx],name,amount,category,categoryId,subCategoryId,subCategoryName,payDay,note,installmentTotal,installmentStart};
+      list[idx]={...list[idx],name,amount,category,categoryId,subCategoryId,subCategoryName,payDay,note,installmentTotal,installmentStart,poolId};
       await saveMain({fixedItems:list});
       toast(`✅ 已更新「${name}」`);
     }
   }else{
-    list.push({id:uid(),name,amount,category,categoryId,subCategoryId,subCategoryName,payDay,note,installmentTotal,installmentStart});
+    list.push({id:uid(),name,amount,category,categoryId,subCategoryId,subCategoryName,payDay,note,installmentTotal,installmentStart,poolId});
     await saveMain({fixedItems:list});
     toast('✅ 固定支出已新增');
   }
   closeMod();
 };
 window.updateFixed=async(id)=>{
-  const fixedItems=(S.data.fixedItems||[]).map(f=>f.id===id?{...f,name:g('m0'),amount:n('m1'),note:g('m2')}:f);
+  const poolId=g('m_pool')||null;
+  const fixedItems=(S.data.fixedItems||[]).map(f=>f.id===id?{...f,name:g('m0'),amount:n('m1'),note:g('m2'),poolId}:f);
   await saveMain({fixedItems});toast('✅ 已更新');closeMod();
 };
 // 快速填入本月該存的金額（系統自動計算）
