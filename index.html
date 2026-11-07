@@ -1423,6 +1423,36 @@ function getExp(all){return(S.data.expenses||[]).filter(e=>e.month===S.month&&e.
 function getLedger(lid,mo){return(S.data.ledgerEntries||[]).filter(e=>e.lid===lid&&e.month===(mo||S.month)&&e.year===yr());}
 function getLedgerAll(lid){return(S.data.ledgerEntries||[]).filter(e=>e.lid===lid);}
 
+// 🎯 Stage 4: 池子餘額「單一真相」公式
+// 池餘額 = 池明細總和（已包含手動存入、支出扣款、固定繳費扣款、年繳扣款）
+// 設計理念：任何「扣池」動作都該自動建立對應 ledgerEntry（負數），
+//          所以池餘額的單一來源就是 ledgerEntries 的加總
+function getPoolBalance(lid){
+  return (S.data.ledgerEntries||[]).filter(e=>e.lid===lid).reduce((s,e)=>s+toN(e.amount),0);
+}
+// 分離式統計：入池 / 扣款（讓介面可以清楚顯示）
+function getPoolBreakdown(lid){
+  const entries=(S.data.ledgerEntries||[]).filter(e=>e.lid===lid);
+  const deposits=entries.filter(e=>toN(e.amount)>0).reduce((s,e)=>s+toN(e.amount),0);
+  const withdrawals=entries.filter(e=>toN(e.amount)<0).reduce((s,e)=>s+Math.abs(toN(e.amount)),0);
+  // 按扣款來源細分
+  const bySource={manual:0,fromExpense:0,fromFixed:0,fromAmort:0};
+  entries.filter(e=>toN(e.amount)<0).forEach(e=>{
+    const amt=Math.abs(toN(e.amount));
+    if(e.fromAmortPayment)bySource.fromAmort+=amt;
+    else if(e.fromFixedPayment)bySource.fromFixed+=amt;
+    else if(e.fromExpense||e.linkedExpenseId)bySource.fromExpense+=amt;
+    else bySource.manual+=amt;
+  });
+  return {
+    balance:deposits-withdrawals,
+    deposits,withdrawals,bySource,
+    entryCount:entries.length,
+    depositCount:entries.filter(e=>toN(e.amount)>0).length,
+    withdrawalCount:entries.filter(e=>toN(e.amount)<0).length
+  };
+}
+
 // ── RENDER ────────────────────────────────────────────────────
 // ⚡ 載入速度優化：render 防抖（避免 Firebase 多個 onSnapshot 同時觸發造成卡頓）
 let _renderTimer=null;
@@ -11133,6 +11163,52 @@ function pgLedger(){
       </div>
     </div>
 
+    <!-- 🎯 Stage 4: 池子公式明細（單一真相） -->
+    ${(()=>{
+      const bd=getPoolBreakdown(l.id);
+      return`<details style="background:#F0F9FF;border:1.5px dashed #0EA5E9;border-radius:12px;padding:0;margin-bottom:16px;overflow:hidden;">
+        <summary style="cursor:pointer;padding:12px 16px;list-style:none;display:flex;justify-content:space-between;align-items:center;">
+          <div style="font-size:12.5px;font-weight:700;color:#0369A1;">🧮 這個池的餘額公式（累積全部，單一真相）▼</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:${bd.balance>=0?'var(--grn)':'var(--red)'};">$${fmt(bd.balance)}</div>
+        </summary>
+        <div style="padding:0 16px 14px;">
+          <div style="background:#fff;border-radius:10px;padding:12px 14px;font-size:12px;line-height:2;color:var(--brown);">
+            <div style="display:flex;justify-content:space-between;">
+              <span>💰 累積存入（${bd.depositCount} 筆）</span>
+              <b style="color:var(--grn);">+$${fmt(bd.deposits)}</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;color:var(--mut);padding-top:4px;border-top:1px dashed var(--bdr);">
+              <span style="padding-left:12px;">${'　└─'} 💸 一般支出扣款</span>
+              <b style="color:var(--red);">-$${fmt(bd.bySource.fromExpense)}</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;color:var(--mut);">
+              <span style="padding-left:12px;">${'　└─'} 📌 固定月繳扣款</span>
+              <b style="color:var(--red);">-$${fmt(bd.bySource.fromFixed)}</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;color:var(--mut);">
+              <span style="padding-left:12px;">${'　└─'} 🏺 年繳本期扣款</span>
+              <b style="color:var(--red);">-$${fmt(bd.bySource.fromAmort)}</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;color:var(--mut);">
+              <span style="padding-left:12px;">${'　└─'} ✍️ 手動扣款</span>
+              <b style="color:var(--red);">-$${fmt(bd.bySource.manual)}</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding-top:6px;margin-top:4px;border-top:2px solid var(--brown);font-weight:700;">
+              <span>💸 累積扣款合計（${bd.withdrawalCount} 筆）</span>
+              <b style="color:var(--red);">-$${fmt(bd.withdrawals)}</b>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding-top:8px;margin-top:6px;border-top:2px solid var(--goldDk);font-size:14px;font-weight:700;">
+              <span style="color:var(--brown);">= 池子餘額</span>
+              <span style="font-family:'Noto Serif TC',serif;color:${bd.balance>=0?'var(--grn)':'var(--red)'};">$${fmt(bd.balance)}</span>
+            </div>
+          </div>
+          <div style="margin-top:8px;font-size:10.5px;color:var(--mut);line-height:1.6;">
+            💡 任何「扣池」動作（記支出扣池 / 固定月繳標已繳 / 年繳本期繳費）都會自動產生對應紀錄 → 這個公式永遠準。
+          </div>
+        </div>
+      </details>`;
+    })()}
+
     <!-- 💡 智能攤提建議 -->
     ${avgOut>0?`<div style="background:linear-gradient(135deg,var(--bluL),#fff);border-radius:14px;padding:16px 20px;border-left:4px solid var(--blu);margin-bottom:16px;">
       <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--blu);margin-bottom:8px;">💡 智能攤提建議</div>
@@ -11166,9 +11242,16 @@ function pgLedger(){
           // 📸 若有連動 expense 且該 expense 有收據 → 顯示 📷
           const linkedExp=r.linkedExpenseId?(S.data.expenses||[]).find(x=>x.id===r.linkedExpenseId):null;
           const hasReceipt=linkedExp&&linkedExp.receiptPhoto;
+          // 🏷️ 來源標籤（Stage 4）
+          let sourceBadge='';
+          if(r.fromAmortPayment)sourceBadge='<span style="background:#A855F7;color:#fff;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700;margin-left:4px;">🏺 年繳</span>';
+          else if(r.fromFixedPayment)sourceBadge='<span style="background:var(--gold);color:#fff;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700;margin-left:4px;">📌 月繳</span>';
+          else if(r.fromExpense||r.linkedExpenseId)sourceBadge='<span style="background:var(--red);color:#fff;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700;margin-left:4px;">💸 支出</span>';
+          else if(toN(r.amount)<0)sourceBadge='<span style="background:var(--mut);color:#fff;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700;margin-left:4px;">✍️ 手動</span>';
+          else sourceBadge='<span style="background:var(--grn);color:#fff;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700;margin-left:4px;">💰 存入</span>';
           return`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 4px;border-bottom:1px dashed var(--bdr);gap:10px;">
             <div style="flex:1;min-width:0;">
-              <div style="font-size:13.5px;color:var(--brown);font-weight:600;">${r.date||''}　<span style="font-size:11px;color:var(--mut);font-weight:400;background:var(--bg2);padding:1px 6px;border-radius:4px;">${getCatDisplay(r)}</span></div>
+              <div style="font-size:13.5px;color:var(--brown);font-weight:600;">${r.date||''}　<span style="font-size:11px;color:var(--mut);font-weight:400;background:var(--bg2);padding:1px 6px;border-radius:4px;">${getCatDisplay(r)}</span>${sourceBadge}</div>
               ${r.note?`<div class="tm" style="font-size:11px;margin-top:2px;">${r.note}</div>`:''}
             </div>
             ${hasReceipt?`<button onclick="viewExpenseReceipt('${linkedExp.id}')" style="background:var(--gold);color:#fff;border:none;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;" title="看收據">📷</button>`:''}
