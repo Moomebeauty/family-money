@@ -1110,6 +1110,9 @@ let S={
     amortizedItems:[],    // [{id,name,category,annualAmount,monthlyAmortize,dueMonth,paidThisYear,paidDate,note}]
     // 📒 預算儲水池目標金額（by ledger id）
     ledgerTargets:{},     // {ledger_id: target_amount}
+    // 📅 預算儲水池目標到期日 & 備註
+    ledgerTargetDates:{}, // {ledger_id: 'YYYY-MM-DD'}
+    ledgerTargetNotes:{}, // {ledger_id: '文字說明，如：日本賞櫻'}
     // 💳 常用信用卡銀行清單（讓下拉快選）
     cardBanks:['中信','玉山','國泰','聯邦','富邦','台新','星展','其他'],
     // 🛡️ 家庭保險簿
@@ -1235,6 +1238,8 @@ function startSync(){
       S.data.advisorChats=d.advisorChats||[];
       S.data.amortizedItems=d.amortizedItems||[];
       S.data.ledgerTargets=d.ledgerTargets||{};
+      S.data.ledgerTargetDates=d.ledgerTargetDates||{};
+      S.data.ledgerTargetNotes=d.ledgerTargetNotes||{};
       S.data.cardBanks=d.cardBanks||['中信','玉山','國泰','聯邦','富邦','台新','星展','其他'];
       S.data.insurancePolicies=d.insurancePolicies||[];
       S.data.familyMembers=d.familyMembers||['又權','于蜜','楷宸'];
@@ -1463,6 +1468,95 @@ function getLedgerAll(lid){return(S.data.ledgerEntries||[]).filter(e=>e.lid===li
 function getPoolBalance(lid){
   return (S.data.ledgerEntries||[]).filter(e=>e.lid===lid).reduce((s,e)=>s+toN(e.amount),0);
 }
+// 📈 池子每月底餘額（最近 12 個月，用於畫趨勢線）
+function getPoolMonthlyBalances(lid){
+  const entries=(S.data.ledgerEntries||[]).filter(e=>e.lid===lid);
+  // 按年月分組的「本月淨變動」
+  const byKey={};
+  entries.forEach(e=>{
+    const y=toN(e.year),mo=toN(e.month);
+    if(!y||!mo)return;
+    const k=`${y}-${String(mo).padStart(2,'0')}`;
+    byKey[k]=(byKey[k]||0)+toN(e.amount);
+  });
+  const now=new Date();
+  const months=[];
+  for(let i=11;i>=0;i--){
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    months.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+  }
+  const firstMonth=months[0];
+  // 先累積到 firstMonth 之前
+  let cum=0;
+  Object.entries(byKey).forEach(([k,v])=>{if(k<firstMonth)cum+=v;});
+  return months.map(k=>{cum+=byKey[k]||0;return{month:k,balance:cum};});
+}
+
+// SVG mini sparkline（餘額趨勢）
+function renderPoolSparkline(lid,col,w,h){
+  const pts=getPoolMonthlyBalances(lid);
+  if(pts.length<2)return'';
+  const vals=pts.map(p=>p.balance);
+  const minV=Math.min(...vals,0);
+  const maxV=Math.max(...vals,0);
+  const range=maxV-minV||1;
+  const xStep=w/(pts.length-1);
+  const svgPts=pts.map((p,i)=>`${(i*xStep).toFixed(1)},${(h-((p.balance-minV)/range)*h).toFixed(1)}`).join(' ');
+  // 零線
+  const zeroY=h-((0-minV)/range)*h;
+  // 最後一點
+  const last=pts[pts.length-1];
+  const lx=(pts.length-1)*xStep;
+  const ly=h-((last.balance-minV)/range)*h;
+  return`<svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="display:block;">
+    ${minV<0?`<line x1="0" y1="${zeroY.toFixed(1)}" x2="${w}" y2="${zeroY.toFixed(1)}" stroke="#ddd" stroke-width="0.5" stroke-dasharray="2,2"/>`:''}
+    <polyline points="${svgPts}" fill="none" stroke="${col}" stroke-width="1.8" stroke-linejoin="round"/>
+    <circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="2.5" fill="${col}"/>
+  </svg>`;
+}
+
+// 🚦 池子健康度（判斷下個月撐不撐得住）
+function getPoolHealth(lid){
+  const l=getAllLedgers().find(x=>x.id===lid);
+  if(!l)return null;
+  const balance=getPoolBalance(lid);
+  const mode=(S.data.ledgerBudgetMode||{})[lid]||'';
+  const now=new Date();
+  const curMonth=now.getMonth()+1;
+  const curYear=now.getFullYear();
+  const nextMonth=curMonth===12?1:curMonth+1;
+  // 下個月的年繳（這個池綁定的）
+  const amortItems=(S.data.amortizedItems||[]).filter(a=>a.linkedLedger===lid);
+  const amortNext=amortItems.filter(a=>{
+    const ms=a.dueMonths&&a.dueMonths.length?a.dueMonths:(a.dueMonth?[a.dueMonth]:[]);
+    return ms.includes(nextMonth);
+  }).reduce((s,a)=>s+toN(a.annualAmount),0);
+  // 下個月的固定月繳（這個池綁定的）
+  const fixedNext=(S.data.fixedItems||[]).filter(f=>f.poolId===lid).reduce((s,f)=>s+toN(f.amount),0);
+  // 過去 6 個月平均其他支出（這個池的非年繳非月繳）
+  const past6=[];
+  for(let i=1;i<=6;i++){
+    const d=new Date(curYear,curMonth-1-i,1);
+    const y=d.getFullYear(),m=d.getMonth()+1;
+    const spend=(S.data.ledgerEntries||[]).filter(e=>e.lid===lid&&e.year===y&&e.month===m&&toN(e.amount)<0&&!e.fromAmortPayment&&!e.fromFixedPayment).reduce((s,e)=>s+Math.abs(toN(e.amount)),0);
+    past6.push(spend);
+  }
+  const activeMonths=past6.filter(v=>v>0);
+  const avgSpend=activeMonths.length>0?Math.round(activeMonths.reduce((s,v)=>s+v,0)/activeMonths.length):0;
+  // 下個月預期用量 = 年繳 + 月繳 + 平均其他支出
+  const nextNeed=amortNext+fixedNext+avgSpend;
+  // 事件型池：不計算紅綠燈
+  if(mode==='event'){
+    return {status:'event',label:'✨ 事件型',col:'#A855F7',balance,nextNeed:0,amortNext:0,fixedNext:0,avgSpend:0,shortfall:0};
+  }
+  let status,label,col;
+  if(nextNeed<=0){status='na';label='—';col='var(--mut)';}
+  else if(balance>=nextNeed*1.2){status='green';label='✅ 夠繳';col='var(--grn)';}
+  else if(balance>=nextNeed){status='yellow';label='⚠️ 勉強';col='var(--goldDk)';}
+  else{status='red';label='🚨 不夠';col='var(--red)';}
+  return {status,label,col,balance,nextNeed,amortNext,fixedNext,avgSpend,shortfall:Math.max(0,nextNeed-balance)};
+}
+
 // 🏦 活存健康度計算（將來銀行活存 vs 所有池 + 投資預留 = 可自由動用）
 function getBankHealth(){
   const bt=S.data.bankTracking||{};
@@ -4664,6 +4758,43 @@ function pgLedgerHome(){
       <div class="tm" style="font-size:12.5px;margin-top:4px;">一頁完成 ${totalCount} 個池的設定　·　系統自動串聯回「總覽」階層扣除</div>
     </div>
 
+    <!-- ⚡ 月初分流提醒卡 -->
+    ${(()=>{
+      const curYear=yr(),curMonth=S.month;
+      // 應撥：所有非 event 池的 monthlyAmt 總和
+      const requiredFlow=totalMonthlyFlow;
+      // 已撥：本月所有池的「手動存入」+「收入分配來」= 正數的 ledgerEntries（排除轉入來源，其實這裡只看正數就好）
+      const monthDepositAll=(S.data.ledgerEntries||[]).filter(e=>e.year===curYear&&e.month===curMonth&&toN(e.amount)>0).reduce((s,e)=>s+toN(e.amount),0);
+      if(requiredFlow<=0)return'';
+      const pct=Math.min(100,Math.round(monthDepositAll/requiredFlow*100));
+      const diff=requiredFlow-monthDepositAll;
+      let col='var(--grn)',bg='linear-gradient(135deg,#f0fdf4,#fff)',borderCol='var(--grn)',label='✅ 本月分流已達標',emoji='✅';
+      if(diff>requiredFlow*0.5){col='var(--red)';bg='linear-gradient(135deg,#FEE2E2,#fff)';borderCol='var(--red)';label='🚨 本月還差一大截';emoji='🚨';}
+      else if(diff>0){col='var(--goldDk)';bg='linear-gradient(135deg,#FFF8E7,#fff)';borderCol='var(--gold)';label='⚡ 還差一些';emoji='⚡';}
+      return`<div style="background:${bg};border:2px solid ${borderCol};border-radius:16px;padding:16px 20px;margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="font-size:26px;">${emoji}</div>
+            <div>
+              <div style="font-size:10.5px;color:${col};letter-spacing:0.2em;font-weight:700;">${curMonth} 月分流進度</div>
+              <div style="font-size:13px;color:${col};font-weight:700;margin-top:2px;">${label}</div>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:10.5px;color:var(--mut);">${pct}%</div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:${col};">$${fmt(monthDepositAll)} <span style="font-size:13px;color:var(--mut);">/ $${fmt(requiredFlow)}</span></div>
+          </div>
+        </div>
+        <div style="height:10px;background:#F3F4F6;border-radius:5px;overflow:hidden;margin-bottom:8px;">
+          <div style="height:100%;width:${pct}%;background:${borderCol};border-radius:5px;transition:width 0.5s;"></div>
+        </div>
+        ${diff>0?`<div style="font-size:12px;color:${col};line-height:1.6;">
+          💡 本月還要再撥 <b>$${fmt(diff)}</b> 到各池才夠本月+下月扣用<br>
+          <button onclick="openM('quickInc','')" style="margin-top:6px;background:${col};color:#fff;border:none;padding:6px 14px;border-radius:999px;font-size:11.5px;font-weight:700;cursor:pointer;">💰 記一筆收入分配 →</button>
+        </div>`:`<div style="font-size:11.5px;color:${col};">💎 本月分流已達標，可以把剩餘收入轉去投資或緊急預備金</div>`}
+      </div>`;
+    })()}
+
     <!-- 📊 進度卡 -->
     <div style="background:linear-gradient(135deg,${pct===100?'var(--grn)':'var(--gold)'},${pct===100?'#5B9E7A':'var(--goldDk)'});color:#fff;border-radius:18px;padding:20px 24px;margin-bottom:16px;box-shadow:0 6px 20px rgba(196,164,107,0.25);">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
@@ -4709,17 +4840,40 @@ function pgLedgerHome(){
           :r.mode
           ?`<span style="background:var(--goldDk);color:#fff;padding:2px 10px;border-radius:999px;font-size:10.5px;font-weight:700;">⚠️ 差金額</span>`
           :`<span style="background:#999;color:#fff;padding:2px 10px;border-radius:999px;font-size:10.5px;font-weight:700;">○ 未設定</span>`;
+        // 🚦 紅綠燈 chip（只顯示已配置池的下月健康度）
+        let healthChip='';
+        if(r.isConfig){
+          const h=getPoolHealth(r.id);
+          if(h){
+            if(h.status==='event'){
+              healthChip=`<span style="background:${h.col}22;color:${h.col};padding:2px 10px;border-radius:999px;font-size:10.5px;font-weight:700;border:1px solid ${h.col};">✨ 事件型</span>`;
+            }else if(h.status==='red'){
+              healthChip=`<span style="background:${h.col};color:#fff;padding:2px 10px;border-radius:999px;font-size:10.5px;font-weight:700;">🚨 下月缺 $${fmt(h.shortfall)}</span>`;
+            }else if(h.status==='yellow'){
+              healthChip=`<span style="background:${h.col};color:#fff;padding:2px 10px;border-radius:999px;font-size:10.5px;font-weight:700;">⚠️ 勉強 · 需 $${fmt(h.nextNeed)}</span>`;
+            }else if(h.status==='green'&&h.nextNeed>0){
+              healthChip=`<span style="background:${h.col}22;color:${h.col};padding:2px 10px;border-radius:999px;font-size:10.5px;font-weight:700;border:1px solid ${h.col};">✅ 夠繳 · 下月需 $${fmt(h.nextNeed)}</span>`;
+            }
+          }
+        }
         return`<div style="padding:14px 18px;border-bottom:1px solid var(--bdr);background:${bgCol};border-left:4px solid ${borderCol};">
           <!-- 標題列 -->
           <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
-            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
               <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:var(--brown);">${r.name}</div>
               ${statusChip}
+              ${healthChip}
             </div>
             <div style="display:flex;gap:6px;">
               <button onclick="selLedger(${r.idx})" style="background:var(--rose);color:#fff;border:none;padding:4px 12px;border-radius:999px;font-size:11px;font-weight:600;cursor:pointer;">進入池 →</button>
             </div>
           </div>
+
+          <!-- 迷你趨勢線（最近 12 月） -->
+          ${(()=>{
+            const sv=renderPoolSparkline(r.id,r.balance>=0?'var(--gold)':'var(--red)',260,24);
+            return sv?`<div style="margin:-2px 0 8px;opacity:0.8;">${sv}</div>`:'';
+          })()}
 
           <!-- 設定列：模式 + 金額 + 餘額 -->
           <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:8px;align-items:end;">
@@ -4765,7 +4919,10 @@ function pgLedgerHome(){
       <div style="font-size:12px;color:var(--brown);">
         💡 設定好一個，另一個池會自動串到「總覽 → 階層扣除」裡 → 金額相加 = 本月預算池總流出
       </div>
-      <button onclick="setP('overview')" style="background:var(--gold);color:#fff;border:none;padding:8px 18px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">看總覽 →</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button onclick="openM('transferPool','')" style="background:#0EA5E9;color:#fff;border:none;padding:8px 14px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">🔄 池子互轉</button>
+        <button onclick="setP('overview')" style="background:var(--gold);color:#fff;border:none;padding:8px 18px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;">看總覽 →</button>
+      </div>
     </div>
   </div>`;
 }
@@ -11369,7 +11526,7 @@ function pgLedger(){
     })()}
 
     <!-- 3 大數字卡（本月支出、本月存入、餘額） -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px;">
       <div style="background:#fff;border-radius:16px;padding:16px 12px;text-align:center;box-shadow:0 4px 12px rgba(194,116,122,0.10);border-top:3px solid var(--red);">
         <div class="tm" style="font-size:11px;letter-spacing:0.1em;font-weight:600;color:var(--red);">💸 本月支出</div>
         <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--red);margin-top:4px;">$${fmt(mOut)}</div>
@@ -11383,6 +11540,53 @@ function pgLedger(){
         <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:${balance>=0?'var(--goldDk)':'var(--red)'};margin-top:4px;">$${fmt(balance)}</div>
       </div>
     </div>
+
+    <!-- 📈 池子趨勢曲線（最近 12 個月餘額變化） -->
+    ${(()=>{
+      const pts=getPoolMonthlyBalances(l.id);
+      if(pts.length<2)return'';
+      const vals=pts.map(p=>p.balance);
+      const minV=Math.min(...vals);
+      const maxV=Math.max(...vals);
+      const last=pts[pts.length-1].balance;
+      const first=pts[0].balance;
+      const trend=last-first;
+      const trendCol=trend>0?'var(--grn)':trend<0?'var(--red)':'var(--mut)';
+      const trendTxt=trend>0?`📈 近 12 月增 $${fmt(trend)}`:trend<0?`📉 近 12 月減 $${fmt(Math.abs(trend))}`:'➖ 持平';
+      return`<div style="background:#fff;border-radius:12px;padding:12px 16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(194,116,122,0.08);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span style="font-size:11px;color:var(--mut);font-weight:600;">📈 餘額趨勢（近 12 月）</span>
+          <span style="font-size:11.5px;color:${trendCol};font-weight:700;">${trendTxt}</span>
+        </div>
+        ${renderPoolSparkline(l.id,trendCol==='var(--mut)'?'var(--gold)':trendCol,400,50)}
+        <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--mut);margin-top:2px;">
+          <span>${pts[0].month}</span>
+          <span>低 $${fmt(minV)} · 高 $${fmt(maxV)}</span>
+          <span>${pts[pts.length-1].month}</span>
+        </div>
+      </div>`;
+    })()}
+
+    <!-- 🚦 下月撐不撐得住（紅綠燈細節） -->
+    ${(()=>{
+      const h=getPoolHealth(l.id);
+      if(!h||h.status==='event'||h.status==='na')return'';
+      const cm=new Date().getMonth()+1;
+      const nm=cm===12?1:cm+1;
+      return`<div style="background:${h.status==='red'?'linear-gradient(135deg,#FEE2E2,#fff)':h.status==='yellow'?'linear-gradient(135deg,#FFF8E7,#fff)':'linear-gradient(135deg,#f0fdf4,#fff)'};border:1.5px solid ${h.col};border-radius:12px;padding:12px 16px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+          <div style="font-size:12px;color:${h.col};font-weight:700;">🚦 ${nm} 月撐不撐得住？</div>
+          <div style="font-size:13px;color:${h.col};font-weight:700;">${h.label}</div>
+        </div>
+        <div style="margin-top:8px;font-size:11.5px;color:var(--brown);line-height:1.8;">
+          目前餘額 <b>$${fmt(h.balance)}</b> · ${nm} 月預計需用 <b style="color:${h.col};">$${fmt(h.nextNeed)}</b>
+          ${h.amortNext>0?`<br>　· 🏺 ${nm} 月年繳：<b>$${fmt(h.amortNext)}</b>`:''}
+          ${h.fixedNext>0?`<br>　· 📌 ${nm} 月固定月繳：<b>$${fmt(h.fixedNext)}</b>`:''}
+          ${h.avgSpend>0?`<br>　· 💸 平均其他支出：<b>$${fmt(h.avgSpend)}</b>`:''}
+          ${h.shortfall>0?`<br>　💡 <b style="color:${h.col};">本月至少再存 $${fmt(h.shortfall)} 才夠</b>`:''}
+        </div>
+      </div>`;
+    })()}
 
     <!-- 🎯 Stage 4: 池子公式明細（單一真相） -->
     ${(()=>{
@@ -11430,6 +11634,71 @@ function pgLedger(){
       </details>`;
     })()}
 
+    <!-- 🎯 池子目標進度卡 -->
+    ${(()=>{
+      const target=toN((S.data.ledgerTargets||{})[l.id]);
+      const targetDate=(S.data.ledgerTargetDates||{})[l.id]||'';
+      const targetNote=(S.data.ledgerTargetNotes||{})[l.id]||'';
+      const mode=(S.data.ledgerBudgetMode||{})[l.id]||'';
+      const isEvent=mode==='event';
+      // 事件型池：強調目標卡；其他型：只有有設目標才顯示
+      if(!target&&!isEvent)return`<div style="background:linear-gradient(135deg,#F0F9FF,#fff);border:1.5px dashed #0EA5E9;border-radius:12px;padding:12px 16px;margin-bottom:16px;text-align:center;">
+        <div style="font-size:12.5px;color:#0369A1;">🎯 想幫這個池設一個目標嗎？（例：日本旅遊 $80,000 / 2027/3）</div>
+        <button onclick="openM('editLedgerGoal','${l.id}')" style="margin-top:8px;background:#0EA5E9;color:#fff;border:none;padding:6px 16px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;">🎯 設目標</button>
+      </div>`;
+      if(!target&&isEvent)return`<div style="background:linear-gradient(135deg,#F3E8FF,#fff);border:2px dashed #A855F7;border-radius:14px;padding:16px 20px;margin-bottom:16px;text-align:center;">
+        <div style="font-size:24px;">✨</div>
+        <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:#7E22CE;margin-top:6px;">事件型池需要設目標才有意義</div>
+        <div style="font-size:12px;color:var(--brown);margin-top:4px;line-height:1.7;">
+          例如：「2027/3 日本賞櫻 $80,000」<br>
+          系統會算出距出發天數 + 每月該存多少 + 進度條
+        </div>
+        <button onclick="openM('editLedgerGoal','${l.id}')" style="margin-top:10px;background:linear-gradient(135deg,#A855F7,#7E22CE);color:#fff;border:none;padding:10px 20px;border-radius:999px;font-size:13px;font-weight:700;cursor:pointer;">✨ 設定目標</button>
+      </div>`;
+      // 有目標：進度條 + 倒數 + 建議月存
+      const pct=target>0?Math.min(100,Math.round(balance/target*100)):0;
+      const remain=Math.max(0,target-balance);
+      let daysLeft=-1, monthsLeft=-1, suggestedMonthly=0, dateInfo='';
+      if(targetDate){
+        const diff=new Date(targetDate).getTime()-Date.now();
+        daysLeft=Math.ceil(diff/86400000);
+        monthsLeft=Math.max(1,Math.ceil(daysLeft/30));
+        suggestedMonthly=remain>0&&daysLeft>0?Math.ceil(remain/monthsLeft):0;
+        if(daysLeft>=0){dateInfo=`距離 <b>${targetDate}</b> 還有 <b>${daysLeft} 天</b>`;}
+        else{dateInfo=`<b style="color:var(--red);">已過期（${-daysLeft} 天前）</b>`;}
+      }
+      const progCol=pct>=100?'var(--grn)':pct>=75?'var(--gold)':pct>=50?'#0EA5E9':pct>=25?'#A855F7':'var(--rose)';
+      const bgG=isEvent?'linear-gradient(135deg,#F3E8FF,#fff)':'linear-gradient(135deg,#FFF8E7,#fff)';
+      const borderG=isEvent?'#A855F7':'var(--goldDk)';
+      return`<div style="background:${bgG};border:2px solid ${borderG};border-radius:14px;padding:16px 20px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+          <div>
+            <div style="font-size:10.5px;color:${borderG};letter-spacing:0.2em;font-weight:700;">${isEvent?'✨ 事件目標':'🎯 池子目標'}</div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--brown);margin-top:2px;">
+              ${targetNote||'（未命名目標）'}　$${fmt(target)}
+            </div>
+            ${dateInfo?`<div style="font-size:11.5px;color:var(--mut);margin-top:3px;">${dateInfo}</div>`:''}
+          </div>
+          <button onclick="openM('editLedgerGoal','${l.id}')" style="background:${borderG};color:#fff;border:none;padding:6px 14px;border-radius:999px;font-size:11.5px;font-weight:700;cursor:pointer;">✏️ 編輯</button>
+        </div>
+        <div style="height:14px;background:#fff;border-radius:7px;overflow:hidden;position:relative;margin-bottom:6px;box-shadow:inset 0 1px 3px rgba(0,0,0,0.1);">
+          <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,${progCol},${progCol}dd);border-radius:7px;transition:width 0.6s;"></div>
+          <div style="position:absolute;top:0;left:0;right:0;height:100%;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:700;color:${pct>50?'#fff':'var(--brown)'};text-shadow:${pct>50?'0 1px 2px rgba(0,0,0,0.3)':'none'};">${pct}%</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--brown);">
+          <span>已存 <b style="color:${progCol};">$${fmt(balance)}</b></span>
+          <span>目標 <b>$${fmt(target)}</b></span>
+          <span>還差 <b style="color:${remain===0?'var(--grn)':'var(--red)'};">$${fmt(remain)}</b></span>
+        </div>
+        ${suggestedMonthly>0&&remain>0?`<div style="margin-top:10px;padding:10px 14px;background:#fff;border-radius:10px;border-left:3px solid ${borderG};">
+          <div style="font-size:11.5px;color:var(--brown);line-height:1.7;">
+            💡 <b>建議每月再存</b> <b style="color:${borderG};font-family:'Noto Serif TC',serif;font-size:18px;">$${fmt(suggestedMonthly)}</b> 才能在期限內達成<br>
+            <span style="font-size:10.5px;color:var(--mut);">剩 ${monthsLeft} 個月 × $${fmt(suggestedMonthly)} = $${fmt(suggestedMonthly*monthsLeft)}</span>
+          </div>
+        </div>`:pct>=100?`<div style="margin-top:10px;padding:10px 14px;background:var(--grnl);border-radius:10px;text-align:center;font-size:12.5px;color:var(--grn);font-weight:700;">🎉 恭喜達標！可以開始花這個池的錢了</div>`:''}
+      </div>`;
+    })()}
+
     <!-- 💡 智能攤提建議 -->
     ${avgOut>0?`<div style="background:linear-gradient(135deg,var(--bluL),#fff);border-radius:14px;padding:16px 20px;border-left:4px solid var(--blu);margin-bottom:16px;">
       <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--blu);margin-bottom:8px;">💡 智能攤提建議</div>
@@ -11443,8 +11712,9 @@ function pgLedger(){
     </div>`:''}
 
     <!-- 快速動作 -->
-    <div style="margin-bottom:16px;">
-      <button onclick="openM('addLE')" style="width:100%;padding:16px;background:linear-gradient(135deg,var(--rose),var(--roseDk));color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:700;letter-spacing:0.1em;cursor:pointer;box-shadow:0 4px 12px rgba(194,116,122,0.3);">＋ 新增一筆</button>
+    <div style="margin-bottom:16px;display:grid;grid-template-columns:2fr 1fr;gap:8px;">
+      <button onclick="openM('addLE')" style="padding:16px;background:linear-gradient(135deg,var(--rose),var(--roseDk));color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;letter-spacing:0.1em;cursor:pointer;box-shadow:0 4px 12px rgba(194,116,122,0.3);">＋ 新增一筆</button>
+      <button onclick="openM('transferPool','${l.id}')" style="padding:16px;background:linear-gradient(135deg,#0EA5E9,#0369A1);color:#fff;border:none;border-radius:14px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(14,165,233,0.3);">🔄 轉去<br>其他池</button>
     </div>
 
     <!-- 本月明細 -->
@@ -11463,9 +11733,11 @@ function pgLedger(){
           // 📸 若有連動 expense 且該 expense 有收據 → 顯示 📷
           const linkedExp=r.linkedExpenseId?(S.data.expenses||[]).find(x=>x.id===r.linkedExpenseId):null;
           const hasReceipt=linkedExp&&linkedExp.receiptPhoto;
-          // 🏷️ 來源標籤（Stage 4）
+          // 🏷️ 來源標籤（Stage 4 + 轉帳）
           let sourceBadge='';
-          if(r.fromAmortPayment)sourceBadge='<span style="background:#A855F7;color:#fff;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700;margin-left:4px;">🏺 年繳</span>';
+          if(r.transferId&&r.transferDirection==='out')sourceBadge='<span style="background:#0EA5E9;color:#fff;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700;margin-left:4px;">↗️ 轉出</span>';
+          else if(r.transferId&&r.transferDirection==='in')sourceBadge='<span style="background:#0369A1;color:#fff;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700;margin-left:4px;">↙️ 轉入</span>';
+          else if(r.fromAmortPayment)sourceBadge='<span style="background:#A855F7;color:#fff;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700;margin-left:4px;">🏺 年繳</span>';
           else if(r.fromFixedPayment)sourceBadge='<span style="background:var(--gold);color:#fff;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700;margin-left:4px;">📌 月繳</span>';
           else if(r.fromExpense||r.linkedExpenseId)sourceBadge='<span style="background:var(--red);color:#fff;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700;margin-left:4px;">💸 支出</span>';
           else if(toN(r.amount)<0)sourceBadge='<span style="background:var(--mut);color:#fff;padding:1px 6px;border-radius:4px;font-size:9.5px;font-weight:700;margin-left:4px;">✍️ 手動</span>';
@@ -13328,6 +13600,91 @@ function modal(){
     <div class="mbtns">
       <button class="btn btn-s" onclick="closeMod()">取消</button>
       <button class="btn btn-p" onclick="saveAllocRatios()" style="background:var(--gold);">✓ 儲存比例</button>
+    </div>`;
+  }
+
+  // 🔄 池子互轉（A → B 一鍵搬錢）
+  if(m.t==='transferPool'){
+    const defaultFrom=m.x||'';
+    const ALL=getAllLedgers();
+    const makeOpts=(selected)=>ALL.map(l=>{
+      const bal=getPoolBalance(l.id);
+      return `<option value="${l.id}" ${l.id===selected?'selected':''}>${l.name}（$${fmt(bal)}）</option>`;
+    }).join('');
+    c=`<div class="mttl">🔄 池子互轉</div>
+
+    <div style="margin-bottom:14px;padding:12px 14px;background:#F0F9FF;border-radius:10px;font-size:12px;color:#0369A1;line-height:1.7;">
+      💡 這個月某個池有剩？想挪去旅遊池？<br>
+      一鍵搬錢，系統會自動建立 <b>成對紀錄</b>（來源 −$X、目的 +$X），池子餘額會同步更新
+    </div>
+
+    <div class="fg" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="fgrp">
+        <label>📤 從哪個池扣</label>
+        <select id="tp-from" style="width:100%;padding:8px 10px;border:1.5px solid var(--bdr);border-radius:8px;font-size:13px;background:#fff;font-family:inherit;color:var(--brown);">${makeOpts(defaultFrom)}</select>
+      </div>
+      <div class="fgrp">
+        <label>📥 存到哪個池</label>
+        <select id="tp-to" style="width:100%;padding:8px 10px;border:1.5px solid var(--bdr);border-radius:8px;font-size:13px;background:#fff;font-family:inherit;color:var(--brown);">${makeOpts('')}</select>
+      </div>
+      <div class="fgrp">
+        <label>📅 日期</label>
+        <input type="date" id="tp-date" value="${today()}">
+      </div>
+      <div class="fgrp">
+        <label>💰 金額</label>
+        <input type="number" id="tp-amt" placeholder="0" class="amt-input" style="font-size:17px;font-weight:700;color:var(--brown);">
+      </div>
+      <div class="fgrp" style="grid-column:1/-1">
+        <label>📝 備註 <span style="font-size:10.5px;color:var(--mut);font-weight:400;">（可空）</span></label>
+        <input type="text" id="tp-note" placeholder="如：水電池本月有剩，挪去旅遊池">
+      </div>
+    </div>
+
+    <div class="mbtns">
+      <button class="btn btn-s" onclick="closeMod()">取消</button>
+      <button class="btn btn-p" onclick="saveTransferPool()" style="background:#0EA5E9;">🔄 執行互轉</button>
+    </div>`;
+  }
+
+  // 🎯 池子目標（金額 + 到期日 + 備註）
+  if(m.t==='editLedgerGoal'){
+    const lid=m.x;
+    const l=getAllLedgers().find(x=>x.id===lid)||{name:'未知'};
+    const target=toN((S.data.ledgerTargets||{})[lid]);
+    const targetDate=(S.data.ledgerTargetDates||{})[lid]||'';
+    const targetNote=(S.data.ledgerTargetNotes||{})[lid]||'';
+    const mode=(S.data.ledgerBudgetMode||{})[lid]||'';
+    const balance=getPoolBalance(lid);
+    c=`<div class="mttl">🎯 「${l.name}」的目標</div>
+
+    <div style="margin-bottom:14px;padding:12px 14px;background:${mode==='event'?'#F3E8FF':'#FFF8E7'};border-radius:10px;font-size:12px;color:${mode==='event'?'#7E22CE':'var(--goldDk)'};line-height:1.7;">
+      ${mode==='event'?`💡 <b>事件型池</b>最適合設目標（例：日本旅遊、生日 party、婚禮）<br>系統會算出：還差多少、距期限幾天、每月該存多少`:`💡 設一個目標，系統會幫妳算進度和建議月存金額`}
+    </div>
+
+    <div class="fg fg2">
+      <div class="fgrp" style="grid-column:1/-1">
+        <label>📝 目標名稱 <span style="font-size:10.5px;color:var(--mut);font-weight:400;">（例：2027/3 日本賞櫻 / 冬天買冷氣 / 過年紅包）</span></label>
+        <input type="text" id="lg-note" value="${(targetNote||'').replace(/"/g,'&quot;')}" placeholder="寫清楚一點，未來看才知道這錢是要幹嘛">
+      </div>
+      <div class="fgrp">
+        <label>💰 目標金額</label>
+        <input type="number" id="lg-target" value="${target||''}" placeholder="0" class="amt-input" style="font-size:17px;font-weight:700;color:var(--brown);">
+      </div>
+      <div class="fgrp">
+        <label>📅 期限日期 <span style="font-size:10.5px;color:var(--mut);font-weight:400;">（可空）</span></label>
+        <input type="date" id="lg-date" value="${targetDate}">
+      </div>
+    </div>
+
+    <div style="margin-top:12px;padding:10px 14px;background:#F9FAFB;border-radius:10px;font-size:11.5px;color:var(--mut);line-height:1.7;">
+      🏦 目前這個池餘額：<b style="color:var(--gold);">$${fmt(balance)}</b>
+    </div>
+
+    <div class="mbtns">
+      ${target>0?`<button class="btn btn-s" onclick="clearLedgerGoal('${lid}')" style="color:var(--red);">🗑 清除目標</button>`:''}
+      <button class="btn btn-s" onclick="closeMod()">取消</button>
+      <button class="btn btn-p" onclick="saveLedgerGoal('${lid}')" style="background:${mode==='event'?'#A855F7':'var(--goldDk)'};">✓ 儲存</button>
     </div>`;
   }
 
@@ -15637,6 +15994,81 @@ window.delSavingRecord=async(id)=>{
   await saveMain({savingRecords:list});
   toast('已刪除');
   render();
+};
+
+// 🔄 池子互轉（A → B）
+window.saveTransferPool=async()=>{
+  const from=g('tp-from');
+  const to=g('tp-to');
+  const amt=toN(g('tp-amt'));
+  const date=g('tp-date')||today();
+  const note=g('tp-note')||'';
+  if(!from||!to){alert('請選擇來源池和目的池');return;}
+  if(from===to){alert('來源和目的不能是同一個池');return;}
+  if(amt<=0){alert('金額要大於 0');return;}
+  const fromL=getAllLedgers().find(x=>x.id===from);
+  const toL=getAllLedgers().find(x=>x.id===to);
+  const fromBal=getPoolBalance(from);
+  if(fromBal<amt){
+    if(!confirm(`⚠️ 「${fromL.name}」目前只剩 $${fmt(fromBal)}，轉出 $${fmt(amt)} 後會變成負數餘額 $${fmt(fromBal-amt)}\n\n確定要繼續嗎？`))return;
+  }
+  const d=new Date(date);
+  const mo=d.getMonth()+1,yr2=d.getFullYear();
+  const transferId='tx_'+Date.now()+'_'+Math.random().toString(36).slice(2,5);
+  setSyncing('syncing');
+  try{
+    // 出：負數
+    await addSub('ledgerEntries',{
+      lid:from,date,amount:-amt,
+      cat:'池間互轉',categoryId:null,subCategoryName:'',
+      user:S.user||'',
+      note:`↗️ 轉到「${toL.name}」${note?' · '+note:''}`,
+      month:mo,year:yr2,
+      transferId,transferDirection:'out',linkedTransferPool:to
+    });
+    // 入：正數
+    await addSub('ledgerEntries',{
+      lid:to,date,amount:amt,
+      cat:'池間互轉',categoryId:null,subCategoryName:'',
+      user:S.user||'',
+      note:`↙️ 從「${fromL.name}」轉來${note?' · '+note:''}`,
+      month:mo,year:yr2,
+      transferId,transferDirection:'in',linkedTransferPool:from
+    });
+    toast(`✅ ${fromL.name} ↗️ ${toL.name} · $${fmt(amt)}`);
+    closeMod();
+  }catch(e){
+    setSyncing('error');
+    alert('轉帳失敗：'+e.message);
+  }
+};
+
+// 🎯 池子目標儲存
+window.saveLedgerGoal=async(lid)=>{
+  const target=toN(g('lg-target'));
+  const date=g('lg-date')||'';
+  const note=g('lg-note')||'';
+  if(target<=0&&!note){alert('至少填金額或目標名稱');return;}
+  const targets={...(S.data.ledgerTargets||{})};
+  const dates={...(S.data.ledgerTargetDates||{})};
+  const notes={...(S.data.ledgerTargetNotes||{})};
+  if(target>0)targets[lid]=target;else delete targets[lid];
+  if(date)dates[lid]=date;else delete dates[lid];
+  if(note)notes[lid]=note;else delete notes[lid];
+  await saveMain({ledgerTargets:targets,ledgerTargetDates:dates,ledgerTargetNotes:notes});
+  toast(`✅ 目標已儲存${target>0?` · $${fmt(target)}`:''}`);
+  closeMod();
+};
+
+window.clearLedgerGoal=async(lid)=>{
+  if(!confirm('確定要清除這個池的目標嗎？'))return;
+  const targets={...(S.data.ledgerTargets||{})};
+  const dates={...(S.data.ledgerTargetDates||{})};
+  const notes={...(S.data.ledgerTargetNotes||{})};
+  delete targets[lid];delete dates[lid];delete notes[lid];
+  await saveMain({ledgerTargets:targets,ledgerTargetDates:dates,ledgerTargetNotes:notes});
+  toast('目標已清除');
+  closeMod();
 };
 
 // 🏦 將來活存餘額更新
