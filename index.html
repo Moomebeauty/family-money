@@ -645,6 +645,16 @@ const DEF_MASTER_CATS=[
     {id:'sub_ny',name:'過年節慶'},
     {id:'sub_gift',name:'禮物'},
   ]},
+  {id:'cat_debt',name:'貸款/負債',icon:'💰',subs:[
+    {id:'sub_mortgage',name:'房貸'},
+    {id:'sub_rent',name:'房租'},
+    {id:'sub_car_loan',name:'車貸'},
+    {id:'sub_biz_loan',name:'創業貸款'},
+    {id:'sub_credit_install',name:'信用卡分期'},
+    {id:'sub_student_loan',name:'學貸'},
+    {id:'sub_personal_loan',name:'信用貸款'},
+    {id:'sub_other_loan',name:'其他貸款'},
+  ]},
   {id:'cat_other',name:'其他',icon:'📦',subs:[
     {id:'sub_misc',name:'雜項'},
   ]},
@@ -1221,6 +1231,19 @@ function startSync(){
       S.data.familyMembers=d.familyMembers||['又權','于蜜','楷宸'];
       S.data.customLedgerCats=d.customLedgerCats||{};
       S.data.masterCategories=d.masterCategories||DEF_MASTER_CATS.slice();
+      // 🪄 自動升級：若既有分類沒有「貸款/負債」→ 自動補上（插在「其他」之前）
+      if(S.data.masterCategories.length>0&&!S.data.masterCategories.find(c=>c.id==='cat_debt')){
+        const debtCat=DEF_MASTER_CATS.find(c=>c.id==='cat_debt');
+        if(debtCat){
+          const otherIdx=S.data.masterCategories.findIndex(c=>c.id==='cat_other');
+          if(otherIdx>=0){
+            S.data.masterCategories.splice(otherIdx,0,debtCat);
+          }else{
+            S.data.masterCategories.push(debtCat);
+          }
+          saveMain({masterCategories:S.data.masterCategories}).catch(()=>{});
+        }
+      }
       S.data.incomeSources=d.incomeSources||['薪資','股息','補助','獎金','兼職','獎學金','其他'];
       // 🎓 升級既有來源：加入「獎學金」如果沒有
       if(d.incomeSources&&!d.incomeSources.includes('獎學金')){
