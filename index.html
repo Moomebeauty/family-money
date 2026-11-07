@@ -3328,7 +3328,6 @@ function pgQuickExpense(){
   const total=allExps.filter(e=>!e.fromLedger&&!e.excludeFromBudget).reduce((s,e)=>s+toN(e.amount),0);
   const exps=allExps; // 用來顯示的全部清單
   const cats=S.data.cats||['飲食','交通','購物','美麗','家居','娛樂','醫療','教育','其他'];
-  const cats=S.data.cats||['飲食','交通','購物','美麗','家居','娛樂','醫療','教育','其他'];
 
   return`
   <div style="max-width:720px;margin:0 auto;">
