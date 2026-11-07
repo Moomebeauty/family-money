@@ -11577,98 +11577,7 @@ function pgLedger(){
       </div>
     </div>`:''}
 
-    <!-- 📈 池子趨勢曲線（最近 12 個月餘額變化） -->
-    ${(()=>{
-      const pts=getPoolMonthlyBalances(l.id);
-      if(pts.length<2)return'';
-      const vals=pts.map(p=>p.balance);
-      const minV=Math.min(...vals);
-      const maxV=Math.max(...vals);
-      const last=pts[pts.length-1].balance;
-      const first=pts[0].balance;
-      const trend=last-first;
-      const trendCol=trend>0?'var(--grn)':trend<0?'var(--red)':'var(--mut)';
-      const trendTxt=trend>0?`📈 近 12 月增 $${fmt(trend)}`:trend<0?`📉 近 12 月減 $${fmt(Math.abs(trend))}`:'➖ 持平';
-      return`<div style="background:#fff;border-radius:12px;padding:12px 16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(194,116,122,0.08);">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-          <span style="font-size:11px;color:var(--mut);font-weight:600;">📈 餘額趨勢（近 12 月）</span>
-          <span style="font-size:11.5px;color:${trendCol};font-weight:700;">${trendTxt}</span>
-        </div>
-        ${renderPoolSparkline(l.id,trendCol==='var(--mut)'?'var(--gold)':trendCol,400,50)}
-        <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--mut);margin-top:2px;">
-          <span>${pts[0].month}</span>
-          <span>低 $${fmt(minV)} · 高 $${fmt(maxV)}</span>
-          <span>${pts[pts.length-1].month}</span>
-        </div>
-      </div>`;
-    })()}
 
-    <!-- 🚦 下月撐不撐得住（紅綠燈細節） -->
-    ${(()=>{
-      const h=getPoolHealth(l.id);
-      if(!h||h.status==='event'||h.status==='na')return'';
-      const cm=new Date().getMonth()+1;
-      const nm=cm===12?1:cm+1;
-      return`<div style="background:${h.status==='red'?'linear-gradient(135deg,#FEE2E2,#fff)':h.status==='yellow'?'linear-gradient(135deg,#FFF8E7,#fff)':'linear-gradient(135deg,#f0fdf4,#fff)'};border:1.5px solid ${h.col};border-radius:12px;padding:12px 16px;margin-bottom:16px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-          <div style="font-size:12px;color:${h.col};font-weight:700;">🚦 ${nm} 月撐不撐得住？</div>
-          <div style="font-size:13px;color:${h.col};font-weight:700;">${h.label}</div>
-        </div>
-        <div style="margin-top:8px;font-size:11.5px;color:var(--brown);line-height:1.8;">
-          目前餘額 <b>$${fmt(h.balance)}</b> · ${nm} 月預計需用 <b style="color:${h.col};">$${fmt(h.nextNeed)}</b>
-          ${h.amortNext>0?`<br>　· 🏺 ${nm} 月年繳：<b>$${fmt(h.amortNext)}</b>`:''}
-          ${h.fixedNext>0?`<br>　· 📌 ${nm} 月固定月繳：<b>$${fmt(h.fixedNext)}</b>`:''}
-          ${h.avgSpend>0?`<br>　· 💸 平均其他支出：<b>$${fmt(h.avgSpend)}</b>`:''}
-          ${h.shortfall>0?`<br>　💡 <b style="color:${h.col};">本月至少再存 $${fmt(h.shortfall)} 才夠</b>`:''}
-        </div>
-      </div>`;
-    })()}
-
-    <!-- 🎯 Stage 4: 池子公式明細（單一真相） -->
-    ${(()=>{
-      const bd=getPoolBreakdown(l.id);
-      return`<details style="background:#F0F9FF;border:1.5px dashed #0EA5E9;border-radius:12px;padding:0;margin-bottom:16px;overflow:hidden;">
-        <summary style="cursor:pointer;padding:12px 16px;list-style:none;display:flex;justify-content:space-between;align-items:center;">
-          <div style="font-size:12.5px;font-weight:700;color:#0369A1;">🧮 這個池的餘額公式（累積全部，單一真相）▼</div>
-          <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:${bd.balance>=0?'var(--grn)':'var(--red)'};">$${fmt(bd.balance)}</div>
-        </summary>
-        <div style="padding:0 16px 14px;">
-          <div style="background:#fff;border-radius:10px;padding:12px 14px;font-size:12px;line-height:2;color:var(--brown);">
-            <div style="display:flex;justify-content:space-between;">
-              <span>💰 累積存入（${bd.depositCount} 筆）</span>
-              <b style="color:var(--grn);">+$${fmt(bd.deposits)}</b>
-            </div>
-            <div style="display:flex;justify-content:space-between;color:var(--mut);padding-top:4px;border-top:1px dashed var(--bdr);">
-              <span style="padding-left:12px;">${'　└─'} 💸 一般支出扣款</span>
-              <b style="color:var(--red);">-$${fmt(bd.bySource.fromExpense)}</b>
-            </div>
-            <div style="display:flex;justify-content:space-between;color:var(--mut);">
-              <span style="padding-left:12px;">${'　└─'} 📌 固定月繳扣款</span>
-              <b style="color:var(--red);">-$${fmt(bd.bySource.fromFixed)}</b>
-            </div>
-            <div style="display:flex;justify-content:space-between;color:var(--mut);">
-              <span style="padding-left:12px;">${'　└─'} 🏺 年繳本期扣款</span>
-              <b style="color:var(--red);">-$${fmt(bd.bySource.fromAmort)}</b>
-            </div>
-            <div style="display:flex;justify-content:space-between;color:var(--mut);">
-              <span style="padding-left:12px;">${'　└─'} ✍️ 手動扣款</span>
-              <b style="color:var(--red);">-$${fmt(bd.bySource.manual)}</b>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding-top:6px;margin-top:4px;border-top:2px solid var(--brown);font-weight:700;">
-              <span>💸 累積扣款合計（${bd.withdrawalCount} 筆）</span>
-              <b style="color:var(--red);">-$${fmt(bd.withdrawals)}</b>
-            </div>
-            <div style="display:flex;justify-content:space-between;padding-top:8px;margin-top:6px;border-top:2px solid var(--goldDk);font-size:14px;font-weight:700;">
-              <span style="color:var(--brown);">= 池子餘額</span>
-              <span style="font-family:'Noto Serif TC',serif;color:${bd.balance>=0?'var(--grn)':'var(--red)'};">$${fmt(bd.balance)}</span>
-            </div>
-          </div>
-          <div style="margin-top:8px;font-size:10.5px;color:var(--mut);line-height:1.6;">
-            💡 任何「扣池」動作（記支出扣池 / 固定月繳標已繳 / 年繳本期繳費）都會自動產生對應紀錄 → 這個公式永遠準。
-          </div>
-        </div>
-      </details>`;
-    })()}
 
     <!-- 🎯 池子目標進度卡 -->
     ${(()=>{
@@ -11677,11 +11586,8 @@ function pgLedger(){
       const targetNote=(S.data.ledgerTargetNotes||{})[l.id]||'';
       const mode=(S.data.ledgerBudgetMode||{})[l.id]||'';
       const isEvent=mode==='event';
-      // 事件型池：強調目標卡；其他型：只有有設目標才顯示
-      if(!target&&!isEvent)return`<div style="background:linear-gradient(135deg,#F0F9FF,#fff);border:1.5px dashed #0EA5E9;border-radius:12px;padding:12px 16px;margin-bottom:16px;text-align:center;">
-        <div style="font-size:12.5px;color:#0369A1;">🎯 想幫這個池設一個目標嗎？（例：日本旅遊 $80,000 / 2027/3）</div>
-        <button onclick="openM('editLedgerGoal','${l.id}')" style="margin-top:8px;background:#0EA5E9;color:#fff;border:none;padding:6px 16px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;">🎯 設目標</button>
-      </div>`;
+      // 事件型池：強調目標卡；其他型：只有有設目標才顯示（不再有誘導卡）
+      if(!target&&!isEvent)return'';
       if(!target&&isEvent)return`<div style="background:linear-gradient(135deg,#F3E8FF,#fff);border:2px dashed #A855F7;border-radius:14px;padding:16px 20px;margin-bottom:16px;text-align:center;">
         <div style="font-size:24px;">✨</div>
         <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:#7E22CE;margin-top:6px;">事件型池需要設目標才有意義</div>
@@ -11735,18 +11641,6 @@ function pgLedger(){
       </div>`;
     })()}
 
-    <!-- 💡 智能攤提建議 -->
-    ${avgOut>0?`<div style="background:linear-gradient(135deg,var(--bluL),#fff);border-radius:14px;padding:16px 20px;border-left:4px solid var(--blu);margin-bottom:16px;">
-      <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;color:var(--blu);margin-bottom:8px;">💡 智能攤提建議</div>
-      <div style="font-size:13px;color:var(--brown);line-height:1.9;">
-        <div>· 本月存入：<b style="color:var(--grn);">$${fmt(mIn)}</b></div>
-        <div>· 過去 ${avgMonthsCount>=12?'12':avgMonthsCount} 個月平均花：<b style="color:var(--red);">$${fmt(avgOut)}</b> ${avgMonthsCount<3?`<span class="tm" style="font-size:11px;">（資料少，僅供參考）</span>`:''}</div>
-        <div style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--bdr);">
-          ${mIn>=avgOut?'✅ <b style="color:var(--grn);">存款符合支出，很好！</b>':mIn>0?`⚠️ <b style="color:var(--yelb);">存款不夠，建議每月多存 $${fmt(avgOut-mIn)}</b>`:'⛔ <b style="color:var(--red);">本月還沒存入，記得撥錢！</b>'}
-        </div>
-      </div>
-    </div>`:''}
-
     <!-- 快速動作 -->
     <div style="margin-bottom:16px;display:grid;grid-template-columns:2fr 1fr;gap:8px;">
       <button onclick="openM('addLE')" style="padding:16px;background:linear-gradient(135deg,var(--rose),var(--roseDk));color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;letter-spacing:0.1em;cursor:pointer;box-shadow:0 4px 12px rgba(194,116,122,0.3);">＋ 新增一筆</button>
@@ -11792,6 +11686,93 @@ function pgLedger(){
         }).join('')}
       </div>`}
     </div>
+
+    <!-- 🔧 進階分析（預設收合，想看時展開） -->
+    <details style="background:#F9FAFB;border:1px solid var(--bdr);border-radius:12px;padding:0;margin-bottom:16px;overflow:hidden;">
+      <summary style="cursor:pointer;padding:12px 16px;list-style:none;font-size:12.5px;color:var(--mut);font-weight:600;">
+        🔧 進階分析（紅綠燈 / 餘額趨勢 / 智能攤提 / 餘額公式）<span style="float:right;">▼</span>
+      </summary>
+      <div style="padding:4px 14px 14px;">
+
+        ${(()=>{
+          // 🚦 下月撐不撐得住
+          const h=getPoolHealth(l.id);
+          if(!h||h.status==='event'||h.status==='na')return'';
+          const cm=new Date().getMonth()+1;
+          const nm=cm===12?1:cm+1;
+          return`<div style="background:${h.status==='red'?'linear-gradient(135deg,#FEE2E2,#fff)':h.status==='yellow'?'linear-gradient(135deg,#FFF8E7,#fff)':'linear-gradient(135deg,#f0fdf4,#fff)'};border:1.5px solid ${h.col};border-radius:10px;padding:12px 14px;margin-bottom:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+              <div style="font-size:12px;color:${h.col};font-weight:700;">🚦 ${nm} 月撐不撐得住？</div>
+              <div style="font-size:13px;color:${h.col};font-weight:700;">${h.label}</div>
+            </div>
+            <div style="margin-top:6px;font-size:11.5px;color:var(--brown);line-height:1.8;">
+              目前餘額 <b>$${fmt(h.balance)}</b> · ${nm} 月預計需用 <b style="color:${h.col};">$${fmt(h.nextNeed)}</b>
+              ${h.amortNext>0?`<br>　· 🏺 ${nm} 月年繳：<b>$${fmt(h.amortNext)}</b>`:''}
+              ${h.fixedNext>0?`<br>　· 📌 ${nm} 月固定月繳：<b>$${fmt(h.fixedNext)}</b>`:''}
+              ${h.avgSpend>0?`<br>　· 💸 平均其他支出：<b>$${fmt(h.avgSpend)}</b>`:''}
+              ${h.shortfall>0?`<br>　💡 <b style="color:${h.col};">本月至少再存 $${fmt(h.shortfall)} 才夠</b>`:''}
+            </div>
+          </div>`;
+        })()}
+
+        ${(()=>{
+          // 📈 餘額趨勢
+          const pts=getPoolMonthlyBalances(l.id);
+          if(pts.length<2)return'';
+          const vals=pts.map(p=>p.balance);
+          const minV=Math.min(...vals);
+          const maxV=Math.max(...vals);
+          const last=pts[pts.length-1].balance;
+          const first=pts[0].balance;
+          const trend=last-first;
+          const trendCol=trend>0?'var(--grn)':trend<0?'var(--red)':'var(--mut)';
+          const trendTxt=trend>0?`📈 近 12 月增 $${fmt(trend)}`:trend<0?`📉 近 12 月減 $${fmt(Math.abs(trend))}`:'➖ 持平';
+          return`<div style="background:#fff;border-radius:10px;padding:10px 14px;margin-bottom:10px;border:1px solid var(--bdr);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span style="font-size:11px;color:var(--mut);font-weight:600;">📈 餘額趨勢（近 12 月）</span>
+              <span style="font-size:11.5px;color:${trendCol};font-weight:700;">${trendTxt}</span>
+            </div>
+            ${renderPoolSparkline(l.id,trendCol==='var(--mut)'?'var(--gold)':trendCol,400,50)}
+            <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--mut);margin-top:2px;">
+              <span>${pts[0].month}</span>
+              <span>低 $${fmt(minV)} · 高 $${fmt(maxV)}</span>
+              <span>${pts[pts.length-1].month}</span>
+            </div>
+          </div>`;
+        })()}
+
+        ${avgOut>0?`<div style="background:linear-gradient(135deg,var(--bluL),#fff);border-radius:10px;padding:12px 14px;border-left:3px solid var(--blu);margin-bottom:10px;">
+          <div style="font-size:12.5px;font-weight:700;color:var(--blu);margin-bottom:4px;">💡 智能攤提建議</div>
+          <div style="font-size:12px;color:var(--brown);line-height:1.8;">
+            本月存入 <b style="color:var(--grn);">$${fmt(mIn)}</b> · 過去 ${avgMonthsCount>=12?'12':avgMonthsCount} 個月平均花 <b style="color:var(--red);">$${fmt(avgOut)}</b>
+            <div style="margin-top:4px;padding-top:4px;border-top:1px dashed var(--bdr);">
+              ${mIn>=avgOut?'✅ <b style="color:var(--grn);">存款符合支出，很好！</b>':mIn>0?`⚠️ <b style="color:var(--yelb);">存款不夠，建議每月多存 $${fmt(avgOut-mIn)}</b>`:'⛔ <b style="color:var(--red);">本月還沒存入，記得撥錢！</b>'}
+            </div>
+          </div>
+        </div>`:''}
+
+        ${(()=>{
+          // 🧮 Stage 4 池子餘額公式
+          const bd=getPoolBreakdown(l.id);
+          return`<div style="background:#F0F9FF;border-radius:10px;padding:12px 14px;border:1px dashed #0EA5E9;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+              <div style="font-size:12px;font-weight:700;color:#0369A1;">🧮 這個池的餘額公式</div>
+              <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:${bd.balance>=0?'var(--grn)':'var(--red)'};">$${fmt(bd.balance)}</div>
+            </div>
+            <div style="background:#fff;border-radius:8px;padding:10px 12px;font-size:11.5px;line-height:1.9;color:var(--brown);">
+              <div style="display:flex;justify-content:space-between;"><span>💰 累積存入（${bd.depositCount} 筆）</span><b style="color:var(--grn);">+$${fmt(bd.deposits)}</b></div>
+              <div style="display:flex;justify-content:space-between;color:var(--mut);padding-top:3px;border-top:1px dashed var(--bdr);"><span style="padding-left:12px;">　└─ 💸 一般支出扣款</span><b style="color:var(--red);">-$${fmt(bd.bySource.fromExpense)}</b></div>
+              <div style="display:flex;justify-content:space-between;color:var(--mut);"><span style="padding-left:12px;">　└─ 📌 固定月繳扣款</span><b style="color:var(--red);">-$${fmt(bd.bySource.fromFixed)}</b></div>
+              <div style="display:flex;justify-content:space-between;color:var(--mut);"><span style="padding-left:12px;">　└─ 🏺 年繳本期扣款</span><b style="color:var(--red);">-$${fmt(bd.bySource.fromAmort)}</b></div>
+              <div style="display:flex;justify-content:space-between;color:var(--mut);"><span style="padding-left:12px;">　└─ ✍️ 手動扣款</span><b style="color:var(--red);">-$${fmt(bd.bySource.manual)}</b></div>
+              <div style="display:flex;justify-content:space-between;padding-top:4px;margin-top:3px;border-top:1.5px solid var(--brown);font-weight:700;"><span>💸 累積扣款合計（${bd.withdrawalCount} 筆）</span><b style="color:var(--red);">-$${fmt(bd.withdrawals)}</b></div>
+              <div style="display:flex;justify-content:space-between;padding-top:6px;margin-top:4px;border-top:2px solid var(--goldDk);font-size:13px;font-weight:700;"><span>= 池子餘額</span><span style="font-family:'Noto Serif TC',serif;color:${bd.balance>=0?'var(--grn)':'var(--red)'};">$${fmt(bd.balance)}</span></div>
+            </div>
+          </div>`;
+        })()}
+
+      </div>
+    </details>
 
     <!-- 🧮 預算計算器（依帳本的「預算模式」顯示不同計算工具） -->
     ${(()=>{
@@ -11943,40 +11924,22 @@ function pgLedger(){
         </div>`;
       }
 
-      // 📅 每月固定（monthly）
+      // 📅 每月固定（monthly）— 簡化為一行狀態
       if(budgetMode==='monthly'){
         const budget=toN((S.data.ledgerBudgets||{})[l.id])||0;
-        const balance=getLedgerAll(l.id).reduce((s,e)=>s+toN(e.amount),0);
         const needSetup=budget<=0;
-        return`<div style="background:${needSetup?'linear-gradient(135deg,#FFF8E7,#fff)':'linear-gradient(135deg,#f0fdf4,#fff)'};border-radius:14px;padding:18px 22px;margin-bottom:16px;border:${needSetup?'2px dashed var(--gold)':'none'};border-top:4px solid ${needSetup?'var(--gold)':'var(--grn)'};box-shadow:0 4px 16px rgba(194,116,122,0.08);">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
-            <div>
-              <span style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:${needSetup?'var(--goldDk)':'var(--grn)'};">📅 每月固定預算模式</span>
-              <div class="tm" style="font-size:11.5px;margin-top:2px;">適用：水電、瓦斯、通訊、交通油錢等每月變動不大的開銷</div>
-            </div>
-            <button onclick="setLedgerBudgetMode('${l.id}')" style="background:none;border:1px solid var(--bdr);color:var(--mut);padding:5px 12px;border-radius:8px;font-size:11px;cursor:pointer;">切換模式</button>
+        if(needSetup){
+          return`<div style="background:#FFF4D6;border:1.5px dashed var(--goldDk);border-radius:10px;padding:10px 14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+            <div style="font-size:12px;color:var(--brown);flex:1;min-width:200px;">⚠️ 這個池還沒設每月預算金額 → 系統無法自動算每月該存多少</div>
+            <button onclick="editLedgerBudget('${l.id}','${(l.name||'').replace(/'/g,"\\'")}')" style="background:var(--goldDk);color:#fff;border:none;padding:6px 14px;border-radius:999px;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;">💰 設定金額</button>
+          </div>`;
+        }
+        return`<div style="background:#F9FAFB;border:1px solid var(--bdr);border-radius:10px;padding:10px 14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+          <span style="font-size:12px;color:var(--brown);">📅 每月固定預算 <b style="color:var(--grn);font-size:14px;">$${fmt(budget)}</b></span>
+          <div style="display:flex;gap:6px;">
+            <button onclick="editLedgerBudget('${l.id}','${(l.name||'').replace(/'/g,"\\'")}')" style="background:none;border:1px solid var(--grn);color:var(--grn);padding:3px 10px;border-radius:999px;font-size:11px;cursor:pointer;font-weight:600;">✏️ 改金額</button>
+            <button onclick="setLedgerBudgetMode('${l.id}')" style="background:none;border:1px solid var(--bdr);color:var(--mut);padding:3px 10px;border-radius:999px;font-size:11px;cursor:pointer;">切換模式</button>
           </div>
-
-          <!-- 預算 + 餘額 卡 -->
-          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:${needSetup?'12':'0'}px;">
-            <div style="background:${needSetup?'#FFF4D6':'var(--grnl)'};padding:14px;border-radius:10px;text-align:center;">
-              <div class="tm" style="font-size:11px;">每月預算</div>
-              <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:${needSetup?'var(--goldDk)':'var(--grn)'};margin-top:3px;">$${fmt(budget)}</div>
-            </div>
-            <div style="background:${balance>=budget?'var(--grnl)':'var(--yel)'};padding:14px;border-radius:10px;text-align:center;">
-              <div class="tm" style="font-size:11px;">目前餘額</div>
-              <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:${balance>=budget?'var(--grn)':'var(--goldDk)'};margin-top:3px;">$${fmt(balance)}</div>
-            </div>
-          </div>
-
-          <!-- 編輯預算 -->
-          ${needSetup?`<div style="background:#FFF4D6;border:1.5px dashed var(--goldDk);border-radius:10px;padding:12px 14px;margin-bottom:10px;">
-            <div style="font-size:12.5px;color:var(--brown);font-weight:600;margin-bottom:8px;">💡 這個池還沒設預算金額 → 填一下才會進總覽計算</div>
-            <button onclick="editLedgerBudget('${l.id}','${(l.name||'').replace(/'/g,"\\'")}')" style="background:var(--goldDk);color:#fff;border:none;padding:10px 20px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;width:100%;">💰 設定每月預算金額</button>
-          </div>`:`<div style="display:flex;justify-content:space-between;align-items:center;background:#F9FAFB;border-radius:10px;padding:10px 14px;margin-top:12px;">
-            <span style="font-size:12px;color:var(--mut);">每月預算 $${fmt(budget)}</span>
-            <button onclick="editLedgerBudget('${l.id}','${(l.name||'').replace(/'/g,"\\'")}')" style="background:none;border:1px solid var(--grn);color:var(--grn);padding:4px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600;">✏️ 修改金額</button>
-          </div>`}
         </div>`;
       }
 
