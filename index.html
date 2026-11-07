@@ -349,7 +349,7 @@ input.yinp{background:var(--yel);border-color:var(--yelb);font-weight:700;}
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import{getFirestore,doc,setDoc,onSnapshot,collection,addDoc,deleteDoc,query}
+import{getFirestore,doc,setDoc,onSnapshot,collection,addDoc,deleteDoc,query,getDoc,getDocs}
   from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // ── CONFIG ──────────────────────────────────────────────────
@@ -8414,6 +8414,7 @@ function pgSettings(){
         <button onclick="setP('reports')" style="padding:14px;border:1.5px solid var(--bdr);border-radius:12px;background:#fff;cursor:pointer;text-align:center;font-family:inherit;"><div style="font-size:26px;margin-bottom:4px;">📈</div><div style="font-weight:700;color:var(--brown);font-size:12px;">年報</div></button>
         <button onclick="setP('dreams')" style="padding:14px;border:1.5px solid var(--bdr);border-radius:12px;background:#fff;cursor:pointer;text-align:center;font-family:inherit;"><div style="font-size:26px;margin-bottom:4px;">🌟</div><div style="font-weight:700;color:var(--brown);font-size:12px;">夢想計畫</div></button>
         <button onclick="exportCSV()" style="padding:14px;border:1.5px solid var(--gold);border-radius:12px;background:linear-gradient(135deg,var(--goldL),#fff);cursor:pointer;text-align:center;font-family:inherit;"><div style="font-size:26px;margin-bottom:4px;">⬇️</div><div style="font-weight:700;color:var(--goldDk);font-size:12px;">匯出 Excel</div></button>
+        <button onclick="exportFullBackup()" style="padding:14px;border:2px solid var(--red);border-radius:12px;background:linear-gradient(135deg,#FEE2E2,#fff);cursor:pointer;text-align:center;font-family:inherit;"><div style="font-size:26px;margin-bottom:4px;">💾</div><div style="font-weight:700;color:var(--red);font-size:12px;">全資料備份<br><span style="font-size:10px;font-weight:500;">(JSON · Migration 前)</span></div></button>
       </div>
     </div>
   </div>`;
@@ -18456,6 +18457,55 @@ window.saveCardPay=async(bank,field,val)=>{
 };
 
 // ─── EXPORT XLSX ─────────────────────────────────────────────
+// 💾 一鍵全資料 JSON 備份（最完整 · 給 Migration 前備份用）
+window.exportFullBackup=async()=>{
+  try{
+    toast('⏳ 正在打包全部資料...',3000);
+    // 收集主文件（families/{FID}）
+    const mainRef=doc(db,'families',FID);
+    const mainSnap=await getDoc(mainRef);
+    const mainData=mainSnap.exists()?mainSnap.data():{};
+    // 收集 3 個 subcollection
+    const subs={};
+    for(const col of ['expenses','incomes','ledgerEntries']){
+      const q=collection(db,'families',FID,col);
+      const snap=await getDocs(q);
+      subs[col]=snap.docs.map(d=>({id:d.id,...d.data()}));
+    }
+    const backup={
+      _backupDate:new Date().toISOString(),
+      _backupVersion:'v6-pre-migration',
+      _familyId:FID,
+      _counts:{
+        expenses:subs.expenses.length,
+        incomes:subs.incomes.length,
+        ledgerEntries:subs.ledgerEntries.length,
+        main:Object.keys(mainData).length
+      },
+      main:mainData,
+      expenses:subs.expenses,
+      incomes:subs.incomes,
+      ledgerEntries:subs.ledgerEntries
+    };
+    const json=JSON.stringify(backup,null,2);
+    const blob=new Blob([json],{type:'application/json'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    const dateStr=new Date().toISOString().replace(/[:T]/g,'-').slice(0,19);
+    a.download=`家庭財務系統_完整備份_${dateStr}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    const sizeKB=Math.round(json.length/1024);
+    toast(`✅ 備份完成！${sizeKB} KB · ${subs.expenses.length} 筆支出 + ${subs.incomes.length} 筆收入 + ${subs.ledgerEntries.length} 筆池明細`,8000);
+  }catch(err){
+    alert('備份失敗：'+err.message);
+    console.error(err);
+  }
+};
+
 window.exportCSV=()=>{
   if(typeof XLSX==='undefined'){toast('⏳ 函式庫載入中，請稍候再試');return;}
   const wb=XLSX.utils.book_new();
