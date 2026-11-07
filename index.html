@@ -1147,6 +1147,15 @@ let S={
     advanceInvoices:[],  // [{id,invoiceMonth,periodFrom,periodTo,expenseIds,totalAmount,receivedAmount,writeOffAmount,writeOffExpenseId,status,createdAt,closedAt,note}]
     // 📅 上次自動開單檢查到的月份（避免重複開）
     lastAdvanceCheckMonth:'',
+    // 🏦 活存健康度追蹤（將來銀行活存）
+    bankTracking:{
+      mainBalance:0,            // 當前活存金額（手動更新）
+      mainBalanceDate:'',       // 上次更新日期
+      mainBalanceHistory:[],    // [{date, amount, note}] 歷史紀錄
+      investReserved:0,         // 投資專款已預留（例如還沒下單的 ETF 款）
+      investReservedNote:'',    // 投資專款說明
+      alertThreshold:0.2        // 安全墊比例（預設 20%：活存要是池總和的 1.2 倍以上才算綠燈）
+    },
     // 🚨 緊急預備金紀錄（放了多少 + 存在哪）
     emgRecords:[],  // [{id,date,member,amount,bank,note}]
     // 📅 累積起算日
@@ -1272,6 +1281,7 @@ function startSync(){
       S.data.creditCards=d.creditCards||[];
       S.data.advanceInvoices=d.advanceInvoices||[];
       S.data.lastAdvanceCheckMonth=d.lastAdvanceCheckMonth||'';
+      S.data.bankTracking=d.bankTracking||{mainBalance:0,mainBalanceDate:'',mainBalanceHistory:[],investReserved:0,investReservedNote:'',alertThreshold:0.2};
       S.data._migrationStatus=d._migrationStatus||{};
       // 🎁 卡片詳細回饋預設（2026 舊戶權益，到 2026/12/31）
       const CARD_PRESETS={
@@ -1452,6 +1462,49 @@ function getLedgerAll(lid){return(S.data.ledgerEntries||[]).filter(e=>e.lid===li
 //          所以池餘額的單一來源就是 ledgerEntries 的加總
 function getPoolBalance(lid){
   return (S.data.ledgerEntries||[]).filter(e=>e.lid===lid).reduce((s,e)=>s+toN(e.amount),0);
+}
+// 🏦 活存健康度計算（將來銀行活存 vs 所有池 + 投資預留 = 可自由動用）
+function getBankHealth(){
+  const bt=S.data.bankTracking||{};
+  const mainBalance=toN(bt.mainBalance)||0;
+  const mainBalanceDate=bt.mainBalanceDate||'';
+  const investReserved=toN(bt.investReserved)||0;
+  const alertThreshold=(typeof bt.alertThreshold==='number'?bt.alertThreshold:0.2);
+  // 所有池的「正餘額」總和（只算還有錢的池 — 透支的池視為 0，否則會低估）
+  const allLedgers=getAllLedgers()||[];
+  let poolTotal=0;
+  allLedgers.forEach(l=>{
+    const bal=(S.data.ledgerEntries||[]).filter(e=>e.lid===l.id).reduce((s,e)=>s+toN(e.amount),0);
+    if(bal>0)poolTotal+=bal;
+  });
+  // 可自由動用 = 活存 - 池總 - 投資預留
+  const freeAmount=mainBalance-poolTotal-investReserved;
+  // 距上次更新天數
+  let daysSinceUpdate=-1;
+  if(mainBalanceDate){
+    daysSinceUpdate=Math.floor((Date.now()-new Date(mainBalanceDate).getTime())/86400000);
+  }
+  // 狀態判定
+  let status='unset',col='var(--mut)',bg='#F9FAFB',borderCol='var(--bdr)',label='還沒設定',emoji='🏦',advice='';
+  if(mainBalance===0&&!mainBalanceDate){
+    status='unset';advice='點「設定餘額」把現在的活存金額填進來，系統就會幫你算安全線';
+  }else if(freeAmount<0){
+    status='red';col='var(--red)';bg='linear-gradient(135deg,#FEE2E2,#fff)';borderCol='var(--red)';label='🚨 池子超載';
+    advice=`活存不夠撐所有池子，缺 $${fmt(Math.abs(freeAmount))}。<br>→ 不要再從活存拿去投資，也別大額刷卡`;
+  }else if(mainBalance<poolTotal*(1+alertThreshold)){
+    status='yellow';col='var(--goldDk)';bg='linear-gradient(135deg,#FFF8E7,#fff)';borderCol='var(--gold)';label='⚠️ 安全墊薄';
+    advice=`池子撐得住但沒緩衝，$${fmt(freeAmount)} 建議保留當預備。<br>→ 這陣子別做新投資，先補活存`;
+  }else{
+    status='green';col='var(--grn)';bg='linear-gradient(135deg,#f0fdf4,#fff)';borderCol='var(--grn)';label='✅ 健康';
+    if(freeAmount>=50000){
+      advice=`可動用 $${fmt(freeAmount)} 綽綽有餘。<br>→ 考慮多轉一些去投資／加碼 ETF（Cardone：Pay Yourself First）`;
+    }else if(freeAmount>=10000){
+      advice=`可動用 $${fmt(freeAmount)} 是健康水位。<br>→ 維持現在節奏即可`;
+    }else{
+      advice=`可動用 $${fmt(freeAmount)} 剛好夠花。<br>→ 這幾天別大額支出`;
+    }
+  }
+  return {mainBalance,mainBalanceDate,poolTotal,investReserved,freeAmount,daysSinceUpdate,status,col,bg,borderCol,label,emoji,advice,alertThreshold};
 }
 // 分離式統計：入池 / 扣款（讓介面可以清楚顯示）
 function getPoolBreakdown(lid){
@@ -2292,6 +2345,87 @@ function pgOverviewNew(){
       </div>`;
     })()}
 
+    <!-- 🏦 將來活存健康度（最重要狀態卡） -->
+    ${(()=>{
+      const bh=getBankHealth();
+      const hist=(S.data.bankTracking&&S.data.bankTracking.mainBalanceHistory)||[];
+      // 歷史曲線（最近 12 次）
+      let sparkline='';
+      if(hist.length>=2){
+        const pts=hist.slice(-12);
+        const vals=pts.map(p=>toN(p.amount));
+        const minV=Math.min(...vals);
+        const maxV=Math.max(...vals);
+        const range=maxV-minV||1;
+        const w=280,h=42;
+        const xStep=w/(pts.length-1);
+        const svgPts=pts.map((p,i)=>{
+          const x=i*xStep;
+          const y=h-((toN(p.amount)-minV)/range)*h;
+          return `${x.toFixed(1)},${y.toFixed(1)}`;
+        }).join(' ');
+        const lastX=(pts.length-1)*xStep;
+        const lastY=h-((toN(pts[pts.length-1].amount)-minV)/range)*h;
+        sparkline=`<div style="margin-top:10px;padding-top:10px;border-top:1px dashed ${bh.borderCol}66;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <span style="font-size:10.5px;color:var(--mut);">📈 最近 ${pts.length} 次更新</span>
+            <span style="font-size:10px;color:var(--mut);">$${fmt(minV)} ~ $${fmt(maxV)}</span>
+          </div>
+          <svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="display:block;">
+            <polyline points="${svgPts}" fill="none" stroke="${bh.col}" stroke-width="1.8" stroke-linejoin="round"/>
+            <circle cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="3" fill="${bh.col}"/>
+          </svg>
+        </div>`;
+      }
+      // 從未設定狀態 — 顯示誘導卡
+      if(bh.status==='unset'){
+        return`<div style="background:linear-gradient(135deg,#F0F9FF,#fff);border:2px dashed #0EA5E9;border-radius:16px;padding:16px 20px;margin-bottom:14px;text-align:center;">
+          <div style="font-size:30px;">🏦</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:15px;font-weight:700;color:#0369A1;margin-top:6px;">設定將來活存餘額</div>
+          <div style="font-size:12px;color:var(--brown);margin-top:4px;line-height:1.6;">
+            打開將來 APP 看現在活存多少 → 填進來<br>
+            系統會幫你算：活存 − 所有池 − 投資預留 = 可自由動用
+          </div>
+          <button onclick="openM('updateBankBalance','')" style="margin-top:12px;background:#0EA5E9;color:#fff;border:none;padding:10px 20px;border-radius:999px;font-size:13px;font-weight:700;cursor:pointer;">🏦 設定餘額</button>
+        </div>`;
+      }
+      // 正常顯示
+      const staleWarn=bh.daysSinceUpdate>=7?`<span style="background:var(--goldDk);color:#fff;padding:1px 8px;border-radius:999px;font-size:10px;margin-left:6px;">${bh.daysSinceUpdate} 天沒更新</span>`:'';
+      return`<div style="background:${bh.bg};border:2px solid ${bh.borderCol};border-radius:16px;padding:16px 20px;margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="font-size:28px;">🏦</div>
+            <div>
+              <div style="font-size:11px;color:${bh.col};letter-spacing:0.2em;font-weight:700;">將來活存健康度</div>
+              <div style="font-size:12px;color:${bh.col};font-weight:700;margin-top:2px;">${bh.label}${staleWarn}</div>
+            </div>
+          </div>
+          <button onclick="openM('updateBankBalance','')" style="background:${bh.col};color:#fff;border:none;padding:6px 14px;border-radius:999px;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;">✏️ 更新餘額</button>
+        </div>
+        <!-- 三行計算 -->
+        <div style="background:#fff;border-radius:12px;padding:12px 14px;font-size:12.5px;color:var(--brown);">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;">
+            <span>💰 活存目前　<span style="font-size:10.5px;color:var(--mut);">${bh.mainBalanceDate||''}</span></span>
+            <b style="font-family:'Noto Serif TC',serif;font-size:18px;color:var(--brown);">$${fmt(bh.mainBalance)}</b>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-top:1px dashed var(--bdr);">
+            <span>🪣 所有池總預訂</span>
+            <b style="font-family:'Noto Serif TC',serif;font-size:18px;color:var(--rose);">−$${fmt(bh.poolTotal)}</b>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-top:1px dashed var(--bdr);">
+            <span>💎 投資專款預留</span>
+            <b style="font-family:'Noto Serif TC',serif;font-size:18px;color:var(--goldDk);">−$${fmt(bh.investReserved)}</b>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;padding:8px 0 2px;border-top:2px solid ${bh.col}44;margin-top:4px;">
+            <span style="font-weight:700;color:${bh.col};">💵 可自由動用</span>
+            <b style="font-family:'Noto Serif TC',serif;font-size:24px;color:${bh.col};">${bh.freeAmount<0?'−':''}$${fmt(Math.abs(bh.freeAmount))}</b>
+          </div>
+        </div>
+        ${bh.advice?`<div style="margin-top:10px;font-size:11.5px;color:${bh.col};line-height:1.7;padding:0 4px;">💡 ${bh.advice}</div>`:''}
+        ${sparkline}
+      </div>`;
+    })()}
+
     <!-- 📋 本月待辦清單（置頂提醒） -->
     ${(()=>{
       const todos=[];
@@ -2402,6 +2536,47 @@ function pgOverviewNew(){
           col:'#7E22CE'
         });
       });
+      // 🏦 10a. 活存健康度相關（小助理提醒）
+      const bh2=getBankHealth();
+      if(bh2.status==='unset'){
+        todos.push({
+          emoji:'🏦',
+          text:`設定將來活存餘額 · 讓系統幫你抓安全線`,
+          sub:`避免「池子看起來有錢，但戶頭不夠撐」`,
+          action:`openM('updateBankBalance','')`,
+          actionLbl:'去設定',
+          col:'#0EA5E9'
+        });
+      }else if(bh2.daysSinceUpdate>=7){
+        todos.push({
+          emoji:'🔄',
+          text:`活存餘額 ${bh2.daysSinceUpdate} 天沒更新了`,
+          sub:`上次更新 ${bh2.mainBalanceDate} · 打開將來 APP 看一下目前數字`,
+          action:`openM('updateBankBalance','')`,
+          actionLbl:'去更新',
+          col:'#0EA5E9'
+        });
+      }
+      if(bh2.status==='red'){
+        todos.push({
+          emoji:'🚨',
+          text:`活存不夠撐池子！缺口 $${fmt(Math.abs(bh2.freeAmount))}`,
+          sub:`活存 $${fmt(bh2.mainBalance)} < 池總 $${fmt(bh2.poolTotal)} + 投資預留 $${fmt(bh2.investReserved)} · 這陣子別大額刷卡/投資`,
+          action:`openM('updateBankBalance','')`,
+          actionLbl:'檢視',
+          col:'var(--red)'
+        });
+      }else if(bh2.status==='green'&&bh2.freeAmount>=50000){
+        todos.push({
+          emoji:'💎',
+          text:`可自由動用 $${fmt(bh2.freeAmount)} · 考慮加碼投資`,
+          sub:`活存有安全墊，可以多轉一些去 ETF/股票（Pay Yourself First）`,
+          action:`openM('addSavingRecord','invest')`,
+          actionLbl:'去投資',
+          col:'var(--gold)'
+        });
+      }
+
       // 10. 👧 本月有墊付未結算（未開單的）
       const curPendingAdvances=(S.data.expenses||[]).filter(e=>e.isAdvance&&(!e.advanceStatus||e.advanceStatus==='pending'));
       const pendingByMonth={};
@@ -13156,6 +13331,62 @@ function modal(){
     </div>`;
   }
 
+  // 🏦 更新將來活存餘額
+  if(m.t==='updateBankBalance'){
+    const bt=S.data.bankTracking||{};
+    const bh=getBankHealth();
+    const hist=(bt.mainBalanceHistory||[]).slice(-6).reverse();
+    c=`<div class="mttl">🏦 更新將來活存餘額</div>
+
+    <div style="margin-bottom:14px;padding:12px 14px;background:#F0F9FF;border-radius:10px;font-size:12px;color:#0369A1;line-height:1.7;">
+      💡 <b>怎麼用</b>：<br>
+      1. 打開將來銀行 APP，看活存帳戶現在多少錢<br>
+      2. 填進下面，系統會自動算出「可自由動用」<br>
+      3. <b>建議每週更新一次</b>，太久沒更新小助理會提醒你
+    </div>
+
+    <div class="fg fg2">
+      <div class="fgrp">
+        <label>📅 更新日期</label>
+        <input type="date" id="bb-date" value="${today()}">
+      </div>
+      <div class="fgrp">
+        <label>💰 活存目前金額</label>
+        <input type="number" id="bb-main" value="${bt.mainBalance||''}" placeholder="0" class="amt-input" style="font-size:18px;font-weight:700;color:#0369A1;">
+      </div>
+      <div class="fgrp" style="grid-column:1/-1">
+        <label>💎 投資專款預留 <span style="font-size:10.5px;color:var(--mut);font-weight:400;">（可空 · 準備下單但還沒下的錢）</span></label>
+        <input type="number" id="bb-invest" value="${bt.investReserved||''}" placeholder="0">
+      </div>
+      <div class="fgrp" style="grid-column:1/-1">
+        <label>📝 備註 <span style="font-size:10.5px;color:var(--mut);font-weight:400;">（可空）</span></label>
+        <input type="text" id="bb-note" value="" placeholder="如：月底發薪、剛轉入 ETF 本金">
+      </div>
+    </div>
+
+    <!-- 預覽計算結果 -->
+    <div id="bb-preview" style="margin-top:14px;padding:12px 14px;background:${bh.bg};border:1.5px solid ${bh.borderCol};border-radius:12px;font-size:12px;color:var(--brown);">
+      <div style="font-size:11px;color:${bh.col};font-weight:700;margin-bottom:6px;">👀 預覽</div>
+      <div style="display:flex;justify-content:space-between;padding:2px 0;">活存目前 <b>$${fmt(bh.mainBalance)}</b></div>
+      <div style="display:flex;justify-content:space-between;padding:2px 0;">池總預訂 <b>−$${fmt(bh.poolTotal)}</b></div>
+      <div style="display:flex;justify-content:space-between;padding:2px 0;">投資預留 <b>−$${fmt(bh.investReserved)}</b></div>
+      <div style="display:flex;justify-content:space-between;padding:4px 0;border-top:1px dashed ${bh.borderCol};margin-top:4px;color:${bh.col};font-weight:700;">可自由動用 <b style="font-size:16px;">${bh.freeAmount<0?'−':''}$${fmt(Math.abs(bh.freeAmount))}</b></div>
+    </div>
+
+    ${hist.length>0?`<div style="margin-top:12px;padding:10px 14px;background:#F9FAFB;border-radius:10px;">
+      <div style="font-size:11px;color:var(--mut);font-weight:700;margin-bottom:6px;">📜 最近 ${hist.length} 次紀錄</div>
+      ${hist.map(h=>`<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:11.5px;color:var(--brown);">
+        <span>${h.date||'—'}${h.note?`　<span style="color:var(--mut);">· ${h.note}</span>`:''}</span>
+        <b>$${fmt(toN(h.amount))}</b>
+      </div>`).join('')}
+    </div>`:''}
+
+    <div class="mbtns">
+      <button class="btn btn-s" onclick="closeMod()">取消</button>
+      <button class="btn btn-p" onclick="saveBankBalance()" style="background:#0EA5E9;">✓ 儲存並更新</button>
+    </div>`;
+  }
+
   // 🚨 新增/編輯緊急預備金紀錄
   if(m.t==='addEmgRecord'||m.t==='editEmgRecord'){
     const isEdit=m.t==='editEmgRecord';
@@ -15406,6 +15637,42 @@ window.delSavingRecord=async(id)=>{
   await saveMain({savingRecords:list});
   toast('已刪除');
   render();
+};
+
+// 🏦 將來活存餘額更新
+window.saveBankBalance=async()=>{
+  const date=g('bb-date')||today();
+  const mainBalance=toN(g('bb-main'));
+  const investReserved=toN(g('bb-invest'));
+  const note=g('bb-note')||'';
+  if(mainBalance<=0){alert('請填活存目前的正數金額');return;}
+  const bt=S.data.bankTracking||{mainBalance:0,mainBalanceDate:'',mainBalanceHistory:[],investReserved:0,investReservedNote:'',alertThreshold:0.2};
+  const newHist=[...(bt.mainBalanceHistory||[])];
+  // 同一天的覆蓋，不同天就新增
+  const existIdx=newHist.findIndex(h=>h.date===date);
+  const histEntry={date,amount:mainBalance,investReserved,note};
+  if(existIdx>=0)newHist[existIdx]=histEntry;
+  else newHist.push(histEntry);
+  // 只保留最近 60 筆（半年多）
+  while(newHist.length>60)newHist.shift();
+  const updated={
+    ...bt,
+    mainBalance,
+    mainBalanceDate:date,
+    mainBalanceHistory:newHist,
+    investReserved,
+    alertThreshold:(typeof bt.alertThreshold==='number'?bt.alertThreshold:0.2)
+  };
+  await saveMain({bankTracking:updated});
+  // 預覽計算剛更新的健康度
+  S.data.bankTracking=updated;
+  const bh=getBankHealth();
+  let msg=`✅ 已更新 · 可自由動用 $${fmt(bh.freeAmount)}`;
+  if(bh.status==='red')msg=`🚨 活存不夠撐池子！缺 $${fmt(Math.abs(bh.freeAmount))}`;
+  else if(bh.status==='yellow')msg=`⚠️ 安全墊薄 · 可動用 $${fmt(bh.freeAmount)}`;
+  else if(bh.status==='green'&&bh.freeAmount>=50000)msg=`✅ 健康 · 可動用 $${fmt(bh.freeAmount)}（可以考慮加碼投資）`;
+  toast(msg);
+  closeMod();
 };
 
 // 🚨 緊急預備金紀錄
