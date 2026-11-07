@@ -13645,6 +13645,33 @@ function modal(){
         <select id="m_cb">${banks.map(b=>`<option${b===(exp.cardBank||'')?' selected':''}>${b}</option>`).join('')}</select>
       </div>
       <div class="fgrp" style="grid-column:1/-1"><label>備註</label><input type="text" id="m5" value="${exp.note||''}"></div>
+      <!-- 🪣 從哪個池扣（Stage 4 連動） -->
+      <div class="fgrp" style="grid-column:1/-1">
+        <label>🪣 從哪個池扣？（編輯後池子會跟著調整）</label>
+        <select id="m_pool" style="width:100%;padding:10px 12px;border:1.5px solid #0EA5E9;border-radius:10px;background:#fff;color:var(--brown);">
+          <option value="">— 不扣池 —</option>
+          ${(()=>{
+            const POOL_ORDER=['utility','traffic','union','home','gift','travel','beauty','food','muji'];
+            const sorted=[...getAllLedgers()].sort((a,b)=>{
+              const ia=POOL_ORDER.indexOf(a.id);const ib=POOL_ORDER.indexOf(b.id);
+              if(ia===-1&&ib===-1)return 0;if(ia===-1)return 1;if(ib===-1)return -1;
+              return ia-ib;
+            });
+            const curPool=exp.poolId||exp.linkedLedgerId||'';
+            return sorted.map(l=>{
+              const bal=(S.data.ledgerEntries||[]).filter(e=>e.lid===l.id).reduce((s,e)=>s+toN(e.amount),0);
+              return `<option value="${l.id}" ${l.id===curPool?'selected':''}>${l.name}（餘額 $${fmt(bal)}）</option>`;
+            }).join('');
+          })()}
+        </select>
+      </div>
+      <!-- 👧 墊付勾選 -->
+      <div class="fgrp" style="grid-column:1/-1">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 12px;background:${exp.isAdvance?'#FDF4FF':'#fff'};border:1.5px dashed ${exp.isAdvance?'#A855F7':'var(--bdr)'};border-radius:10px;">
+          <input type="checkbox" id="m_advance" ${exp.isAdvance?'checked':''} style="width:18px;height:18px;accent-color:#A855F7;cursor:pointer;">
+          <span style="font-size:12.5px;color:var(--brown);">👧 這是墊付前夫的（不算本月支出）</span>
+        </label>
+      </div>
       <!-- 📸 收據照片 -->
       <div class="fgrp" style="grid-column:1/-1">
         <label>📸 收據照片</label>
@@ -17233,40 +17260,106 @@ window.updExp=async(id)=>{
   const newNote=g('m5')||'';
   const newReceipt=g('m_receipt')||''; // 📸 收據照片
   const newMonth=d.getMonth()+1,newYear=d.getFullYear();
+  // 🪣 新池選擇
+  const newPoolId=g('m_pool')||null;
+  const oldPoolId=oldExp.poolId||oldExp.linkedLedgerId||null;
+  // 👧 墊付選擇
+  const isAdvanceEl=document.getElementById('m_advance');
+  const newIsAdvance=isAdvanceEl&&isAdvanceEl.checked;
+  // 轉成 paymentMethod code
+  const pmCode=method==='現金'?'cash':method==='轉帳'?'transfer':method==='信用卡'?'credit':'other';
+
   setSyncing('syncing');
   try{
-    const newData={...oldExp,date,amount,category:newCat,categoryId:newCatId,subCategoryId:newSubCatId,subCategoryName:newSubCatName,payMethod:method,cardBank,note:newNote,receiptPhoto:newReceipt||null,month:newMonth,year:newYear};
+    const newData={
+      ...oldExp,
+      date,amount,
+      category:newCat,categoryId:newCatId,
+      subCategoryId:newSubCatId,subCategoryName:newSubCatName,
+      payMethod:method,paymentMethod:pmCode,cardBank,
+      note:newNote,receiptPhoto:newReceipt||null,
+      month:newMonth,year:newYear,
+      // 🪣 新池欄位
+      poolId:newPoolId,
+      linkedLedgerId:newPoolId, // 相容
+      fromLedger:!!newPoolId,
+      // 👧 墊付
+      isAdvance:newIsAdvance,
+      advanceStatus:newIsAdvance?(oldExp.advanceStatus||'pending'):null,
+      excludeFromBudget:newIsAdvance
+    };
     delete newData.id;
     Object.keys(newData).forEach(k=>{if(newData[k]===undefined)newData[k]=null;});
     await setDoc(doc(db,'families',FID,'expenses',id),newData);
 
-    // ⛓️ 雙向同步：如果這筆有 linkId（連動到預備金），同步更新對應的 ledgerEntries
-    if(oldExp.linkId){
-      const linkedLEs=(S.data.ledgerEntries||[]).filter(le=>le.linkId===oldExp.linkId);
+    // 🪣 Stage 4 連動：處理池子的 ledgerEntry 變化
+    let poolMsg='';
+    // Case 1: 原本有池 → 現在改成無池 或 換不同池 → 刪掉舊的 ledgerEntry
+    if(oldPoolId&&(oldPoolId!==newPoolId||newIsAdvance)){
+      const linkedLEs=(S.data.ledgerEntries||[]).filter(le=>le.linkedExpenseId===id&&le.fromExpense);
       for(const le of linkedLEs){
-        // 預備金那邊的金額是負的（消費），信用卡是正的金額
-        // 同步：保留原本 lid 和 user，更新金額/日期/類別/備註
-        const newLE={
-          ...le,
-          date,
-          amount:-Math.abs(amount),  // 預備金為負
+        if(le.id)await deleteDoc(doc(db,'families',FID,'ledgerEntries',le.id));
+      }
+      poolMsg=` · 已從舊池還原`;
+    }
+    // Case 2: 新池存在且不是墊付 → 建立或更新 ledgerEntry
+    if(newPoolId&&!newIsAdvance){
+      // 找同一筆的 ledgerEntry
+      const existingLE=(S.data.ledgerEntries||[]).find(le=>le.linkedExpenseId===id&&le.fromExpense&&le.lid===newPoolId);
+      if(existingLE&&existingLE.id){
+        // 更新現有的
+        const updatedLE={
+          ...existingLE,
+          date,amount:-Math.abs(amount),
           cat:newCat,
           categoryId:newCatId,
           subCategoryId:newSubCatId,
           subCategoryName:newSubCatName,
+          note:oldExp.item||newNote||'',
+          paymentMethod:pmCode,cardBank,
+          month:newMonth,year:newYear
+        };
+        delete updatedLE.id;
+        await setDoc(doc(db,'families',FID,'ledgerEntries',existingLE.id),cleanUndef(updatedLE));
+      }else{
+        // 建立新的
+        await addSub('ledgerEntries',{
+          lid:newPoolId,
+          date,amount:-Math.abs(amount),
+          cat:newCat,
+          categoryId:newCatId,
+          subCategoryId:newSubCatId,
+          subCategoryName:newSubCatName,
+          note:oldExp.item||newNote||'',
+          paymentMethod:pmCode,cardBank,
+          month:newMonth,year:newYear,
+          linkedExpenseId:id,
+          fromExpense:true
+        });
+      }
+      const led=getAllLedgers().find(x=>x.id===newPoolId);
+      poolMsg=` · 從 ${led?led.name:'池'} 扣 $${fmt(amount)}`;
+    }
+
+    // ⛓️ 舊的 linkId 雙向同步機制保留
+    if(oldExp.linkId){
+      const linkedLEs=(S.data.ledgerEntries||[]).filter(le=>le.linkId===oldExp.linkId);
+      for(const le of linkedLEs){
+        const newLE={
+          ...le,date,
+          amount:-Math.abs(amount),
+          cat:newCat,categoryId:newCatId,
+          subCategoryId:newSubCatId,subCategoryName:newSubCatName,
           note:(oldExp.item||'')+(newNote?' '+newNote:''),
-          month:newMonth,
-          year:newYear,
+          month:newMonth,year:newYear,
           linkedCardBank:cardBank||le.linkedCardBank
         };
         delete newLE.id;
         await setDoc(doc(db,'families',FID,'ledgerEntries',le.id),newLE);
       }
-      if(linkedLEs.length>0)toast(`✅ 已更新（同步 ${linkedLEs.length} 筆預備金）`);
-      else toast('✅ 已更新');
-    }else{
-      toast('✅ 已更新');
     }
+
+    toast(`✅ 已更新${poolMsg}`,4500);
     setSyncing('synced');
   }catch(err){
     console.error(err);setSyncing('error');
@@ -17596,9 +17689,12 @@ window.delInc=async id=>{if(!confirm('確認刪除？'))return;await delSub('inc
 window.delExp=async id=>{
   const exp=(S.data.expenses||[]).find(e=>e.id===id);
   if(!exp){alert('找不到記錄');return;}
-  // 檢查是否有連動的預備金記錄
+  // 檢查是否有連動的預備金記錄 (舊的 linkId 機制)
   const linkedLEs=exp.linkId?(S.data.ledgerEntries||[]).filter(le=>le.linkId===exp.linkId):[];
-  const msg=linkedLEs.length>0?`確認刪除？\n⛓️ 同時會刪除連動的 ${linkedLEs.length} 筆預備金記錄`:'確認刪除？';
+  // 🪣 Stage 4: 檢查是否有連動的 pool ledger entries (新的 linkedExpenseId 機制)
+  const poolLEs=(S.data.ledgerEntries||[]).filter(le=>le.linkedExpenseId===id&&le.fromExpense);
+  const totalLinked=linkedLEs.length+poolLEs.length;
+  const msg=totalLinked>0?`確認刪除？\n⛓️ 同時會刪除連動的 ${totalLinked} 筆池扣款紀錄`:'確認刪除？';
   if(!confirm(msg))return;
   setSyncing('syncing');
   try{
@@ -17606,8 +17702,11 @@ window.delExp=async id=>{
     for(const le of linkedLEs){
       await delSub('ledgerEntries',le.id);
     }
+    for(const le of poolLEs){
+      await delSub('ledgerEntries',le.id);
+    }
     setSyncing('synced');
-    toast(linkedLEs.length>0?`✅ 已刪除（同步刪除 ${linkedLEs.length} 筆預備金）`:'已刪除');
+    toast(totalLinked>0?`✅ 已刪除（同步刪除 ${totalLinked} 筆池扣款紀錄）`:'已刪除');
   }catch(err){
     console.error(err);setSyncing('error');
     alert('刪除失敗：'+(err.message||err));
