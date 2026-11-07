@@ -1150,6 +1150,13 @@ let S={
     advanceInvoices:[],  // [{id,invoiceMonth,periodFrom,periodTo,expenseIds,totalAmount,receivedAmount,writeOffAmount,writeOffExpenseId,status,createdAt,closedAt,note}]
     // 📅 上次自動開單檢查到的月份（避免重複開）
     lastAdvanceCheckMonth:'',
+    // 💎 Cardone 理財設定
+    cardone:{
+      strictMode:false,            // 嚴格模式開關（開啟後享受池需被動收入解鎖）
+      passiveIncomeGoalMonthly:0,  // 月被動收入目標
+    },
+    // 池子的 Cardone 層級分類（essential / accumulation / luxury）
+    poolCardoneLevel:{},   // {lid: 'essential'|'accumulation'|'luxury'}
     // 🏦 活存健康度追蹤（將來銀行活存）
     bankTracking:{
       mainBalance:0,            // 當前活存金額（手動更新）
@@ -1287,6 +1294,8 @@ function startSync(){
       S.data.advanceInvoices=d.advanceInvoices||[];
       S.data.lastAdvanceCheckMonth=d.lastAdvanceCheckMonth||'';
       S.data.bankTracking=d.bankTracking||{mainBalance:0,mainBalanceDate:'',mainBalanceHistory:[],investReserved:0,investReservedNote:'',alertThreshold:0.2};
+      S.data.cardone=d.cardone||{strictMode:false,passiveIncomeGoalMonthly:0};
+      S.data.poolCardoneLevel=d.poolCardoneLevel||{};
       S.data._migrationStatus=d._migrationStatus||{};
       // 🎁 卡片詳細回饋預設（2026 舊戶權益，到 2026/12/31）
       const CARD_PRESETS={
@@ -1468,6 +1477,44 @@ function getLedgerAll(lid){return(S.data.ledgerEntries||[]).filter(e=>e.lid===li
 function getPoolBalance(lid){
   return (S.data.ledgerEntries||[]).filter(e=>e.lid===lid).reduce((s,e)=>s+toN(e.amount),0);
 }
+// 💎 Cardone 財務自由度計算（本月被動收入 vs 本月支出覆蓋率）
+function getCardoneStatus(year,month){
+  const incs=(S.data.incomes||[]).filter(i=>i.year===year&&i.month===month);
+  const activeInc=incs.filter(i=>!i.isPassive).reduce((s,i)=>s+toN(i.amount),0);
+  const passiveInc=incs.filter(i=>i.isPassive).reduce((s,i)=>s+toN(i.amount),0);
+  const totalInc=activeInc+passiveInc;
+  // 本月總支出（排除 fromLedger，排除排除項）
+  const exps=(S.data.expenses||[]).filter(e=>e.year===year&&e.month===month&&!e.fromLedger&&!e.excludeFromBudget).reduce((s,e)=>s+toN(e.amount),0);
+  // 固定月繳
+  const monthKey=`${year}-${String(month).padStart(2,'0')}`;
+  const fixedPaid=(S.data.fixedItems||[]).filter(f=>(f.paidHistory||{})[monthKey]).reduce((s,f)=>s+toN(f.amount),0);
+  const totalOut=exps+fixedPaid;
+  const coverage=totalOut>0?Math.round(passiveInc/totalOut*100):0;
+  const goal=toN((S.data.cardone||{}).passiveIncomeGoalMonthly)||0;
+  const goalPct=goal>0?Math.round(passiveInc/goal*100):0;
+  // 階段判定
+  let stage,stageLabel,stageCol;
+  if(coverage>=100){stage='free';stageLabel='🎉 財務自由';stageCol='var(--grn)';}
+  else if(coverage>=50){stage='progressing';stageLabel='🚀 半自由中';stageCol='var(--goldDk)';}
+  else if(coverage>=20){stage='building';stageLabel='💪 累積期';stageCol='#0369A1';}
+  else if(passiveInc>0){stage='starting';stageLabel='🌱 起步期';stageCol='var(--rose)';}
+  else{stage='noPassive';stageLabel='⏸️ 還沒被動收入';stageCol='var(--mut)';}
+  return {activeInc,passiveInc,totalInc,totalOut,coverage,goal,goalPct,stage,stageLabel,stageCol};
+}
+
+// 💎 池子 Cardone 層級（預設推斷）
+function getPoolCardoneLevel(lid){
+  const explicit=(S.data.poolCardoneLevel||{})[lid];
+  if(explicit)return explicit;
+  // 預設推斷
+  const DEFAULTS={
+    utility:'essential',traffic:'essential',food:'essential',
+    union:'accumulation',home:'accumulation',gift:'accumulation',
+    beauty:'luxury',travel:'luxury',muji:'accumulation'
+  };
+  return DEFAULTS[lid]||'accumulation';
+}
+
 // 📈 池子每月底餘額（最近 12 個月，用於畫趨勢線）
 function getPoolMonthlyBalances(lid){
   const entries=(S.data.ledgerEntries||[]).filter(e=>e.lid===lid);
@@ -2749,13 +2796,58 @@ function pgOverviewNew(){
       </div>
     </div>
 
-    <!-- 💡 分配比例設定（直接可調） -->
-    <div style="background:linear-gradient(135deg,#FFF8E7,#fff);border:1.5px solid var(--gold);border-radius:12px;padding:12px 16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-      <div style="font-size:12px;color:var(--brown);line-height:1.5;">
-        💡 <b>目前分配比例</b>：花費 <b style="color:var(--rose);">${ratios.spend}%</b> · 儲蓄 <b style="color:#0EA5E9;">${ratios.save}%</b> · 投資 <b style="color:var(--gold);">${ratios.invest}%</b>
-      </div>
-      <button onclick="openM('allocRatios','')" style="background:var(--gold);color:#fff;border:none;padding:7px 14px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;">⚙️ 調整比例</button>
-    </div>
+    <!-- 💎 Cardone 財務自由進度 -->
+    ${(()=>{
+      const cs=getCardoneStatus(curYear,curMonth);
+      const strict=((S.data.cardone||{}).strictMode);
+      // 進度條顏色
+      const pct=Math.min(100,cs.coverage);
+      return`<div style="background:linear-gradient(135deg,#2C1810,#4A2C1F);color:#fff;border-radius:16px;padding:16px 20px;margin-bottom:14px;box-shadow:0 6px 20px rgba(44,24,16,0.25);">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="font-size:26px;">💎</div>
+            <div>
+              <div style="font-size:10.5px;color:#C4A46B;letter-spacing:0.2em;font-weight:700;">CARDONE · 財務自由進度</div>
+              <div style="font-size:13px;color:${cs.stageCol};font-weight:700;margin-top:2px;">${cs.stageLabel}${strict?` <span style="background:#991B1B;color:#fff;padding:1px 8px;border-radius:999px;font-size:10px;margin-left:4px;">嚴格模式</span>`:''}</div>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:10.5px;color:#aaa;">本月被動收入覆蓋</div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:26px;font-weight:700;color:${cs.stageCol};">${cs.coverage}%</div>
+          </div>
+        </div>
+        <!-- 進度條 -->
+        <div style="height:10px;background:rgba(255,255,255,0.15);border-radius:5px;overflow:hidden;margin-bottom:10px;">
+          <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#C4A46B,#F5E6C8);border-radius:5px;transition:width 0.6s;"></div>
+        </div>
+        <!-- 3 數字對照 -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:11px;">
+          <div style="background:rgba(255,255,255,0.08);padding:8px 10px;border-radius:8px;">
+            <div style="color:#999;font-size:10px;">💪 主動收入</div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:#fff;">$${fmt(cs.activeInc)}</div>
+          </div>
+          <div style="background:rgba(196,164,107,0.15);padding:8px 10px;border-radius:8px;border:1px solid #C4A46B;">
+            <div style="color:#C4A46B;font-size:10px;">💎 被動收入</div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:#F5E6C8;">$${fmt(cs.passiveInc)}</div>
+          </div>
+          <div style="background:rgba(255,255,255,0.08);padding:8px 10px;border-radius:8px;">
+            <div style="color:#999;font-size:10px;">💸 本月支出</div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:#fff;">$${fmt(cs.totalOut)}</div>
+          </div>
+        </div>
+        <div style="margin-top:10px;font-size:11px;color:#C4A46B;line-height:1.7;">
+          ${cs.stage==='free'?'🎉 你的被動收入已覆蓋全部支出 · 這就是 Cardone 說的「真正財務自由」':
+            cs.stage==='progressing'?`🚀 已達 ${cs.coverage}% · 距財務自由還差 $${fmt(cs.totalOut-cs.passiveInc)}/月`:
+            cs.stage==='building'?`💪 累積期 · 持續擴大被動收入，先把 40% 收入轉進投資帳戶`:
+            cs.stage==='starting'?`🌱 起步期 · 有被動收入是第一步！目標是用它覆蓋至少 1 個池`:
+            '⏸️ 還沒被動收入 · Cardone 的建議：先把每筆主動收入 40% 轉去投資帳戶，長出利息/股利/租金'}
+        </div>
+        <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
+          <button onclick="openM('cardoneSettings','')" style="background:rgba(196,164,107,0.2);border:1px solid #C4A46B;color:#C4A46B;padding:5px 12px;border-radius:999px;font-size:11px;cursor:pointer;font-weight:600;">⚙️ Cardone 設定</button>
+          <button onclick="openM('allocRatios','')" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.3);color:#fff;padding:5px 12px;border-radius:999px;font-size:11px;cursor:pointer;">分配比例 ${ratios.spend}/${ratios.save}/${ratios.invest}</button>
+        </div>
+      </div>`;
+    })()}
 
     <!-- ━━━ 💵 本月收入 詳細 ━━━ -->
     <div id="sec-income" style="background:linear-gradient(135deg,#fff,var(--grnl));border-radius:18px;padding:20px 24px;margin-bottom:14px;box-shadow:0 4px 16px rgba(125,184,154,0.12);border:1.5px solid var(--grn);">
@@ -11484,6 +11576,53 @@ function pgLedger(){
       <div class="tm" style="font-size:12px;margin-top:2px;">${yr()} 年 ${S.month} 月</div>
     </div>
 
+    <!-- 💎 Cardone 層級 chip + 嚴格模式解鎖狀態 -->
+    ${(()=>{
+      const lvl=getPoolCardoneLevel(l.id);
+      const strict=((S.data.cardone||{}).strictMode);
+      const LEVEL_INFO={
+        essential:{lbl:'🟢 必要池',col:'var(--grn)',bg:'var(--grnl)',hint:'Cardone：主動收入付 OK'},
+        accumulation:{lbl:'🟡 累積期池',col:'var(--goldDk)',bg:'#FFF8E7',hint:'Cardone：節制但不禁止'},
+        luxury:{lbl:'💎 享受池',col:'#A855F7',bg:'#F3E8FF',hint:'Cardone：被動收入覆蓋才解鎖享受'}
+      };
+      const info=LEVEL_INFO[lvl];
+      if(!strict){
+        // 溫和模式：只顯示小 chip
+        return`<div style="text-align:center;margin:-6px 0 8px;">
+          <span style="background:${info.bg};color:${info.col};padding:3px 10px;border-radius:999px;font-size:10.5px;font-weight:600;border:1px solid ${info.col};cursor:pointer;" onclick="openM('cardoneSettings','')" title="點擊調整 Cardone 層級">${info.lbl} · ${info.hint}</span>
+        </div>`;
+      }
+      // 嚴格模式：享受池顯示解鎖狀態
+      if(lvl!=='luxury'){
+        return`<div style="text-align:center;margin:-6px 0 8px;">
+          <span style="background:${info.bg};color:${info.col};padding:3px 10px;border-radius:999px;font-size:10.5px;font-weight:600;border:1px solid ${info.col};">${info.lbl} · ${info.hint}</span>
+        </div>`;
+      }
+      // luxury 池在嚴格模式：計算解鎖狀態
+      const cstat=getCardoneStatus(yr(),S.month);
+      const poolHealth=getPoolHealth(l.id);
+      // 若池沒 monthlyNeed，用一個最小建議值（池餘額的 10%）
+      const need=(poolHealth&&poolHealth.nextNeed)||Math.max(5000,Math.round(balance*0.1));
+      const unlocked=cstat.passiveInc>=need;
+      if(unlocked){
+        return`<div style="background:linear-gradient(135deg,#f0fdf4,#fff);border:2px solid var(--grn);border-radius:12px;padding:10px 14px;margin-bottom:10px;text-align:center;">
+          <div style="font-size:12.5px;color:var(--grn);font-weight:700;">🔓 ${info.lbl} · 已解鎖享受</div>
+          <div style="font-size:11px;color:var(--brown);margin-top:3px;">本月被動收入 $${fmt(cstat.passiveInc)} ≥ 建議 $${fmt(need)}，盡情享受 ✨</div>
+        </div>`;
+      }
+      const diff=need-cstat.passiveInc;
+      return`<div style="background:linear-gradient(135deg,#FEF3F2,#fff);border:2px solid var(--red);border-radius:12px;padding:10px 14px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
+          <div style="font-size:12.5px;color:var(--red);font-weight:700;">🔒 ${info.lbl} · 建議暫緩</div>
+          <div style="font-size:11px;color:var(--brown);">本月被動收入 $${fmt(cstat.passiveInc)} / 建議 $${fmt(need)}</div>
+        </div>
+        <div style="font-size:11px;color:var(--brown);margin-top:5px;line-height:1.6;">
+          💡 Cardone 原則：被動收入覆蓋享受消費，本金才不會縮水<br>
+          距離解鎖還差月被動收入 <b style="color:var(--red);">$${fmt(diff)}</b>（⚠️ 這是提醒，妳仍可自由決定）
+        </div>
+      </div>`;
+    })()}
+
     <!-- 📝 記錄說明標籤（可編輯） -->
     ${(()=>{
       const defaultDesc={
@@ -13639,6 +13778,76 @@ function modal(){
     <div class="mbtns">
       <button class="btn btn-s" onclick="closeMod()">取消</button>
       <button class="btn btn-p" onclick="saveAllocRatios()" style="background:var(--gold);">✓ 儲存比例</button>
+    </div>`;
+  }
+
+  // 💎 Cardone 設定（嚴格模式 + 被動收入目標 + 池三層指派）
+  if(m.t==='cardoneSettings'){
+    const cs=S.data.cardone||{strictMode:false,passiveIncomeGoalMonthly:0};
+    const curPassive=getCardoneStatus(yr(),S.month).passiveInc;
+    const ALL=getAllLedgers();
+    const curLevels=S.data.poolCardoneLevel||{};
+    const LEVEL_INFO={
+      essential:{lbl:'🟢 必要',col:'var(--grn)',desc:'水電/飲食/交通 · 主動收入付 OK'},
+      accumulation:{lbl:'🟡 累積',col:'var(--goldDk)',desc:'工會保險/紅包/家庭設備 · 節制但不禁'},
+      luxury:{lbl:'💎 享受',col:'#A855F7',desc:'旅遊/美麗/升級 · 嚴格模式下需被動覆蓋才解鎖'}
+    };
+    c=`<div class="mttl" style="color:#C4A46B;">💎 Cardone 理財設定</div>
+
+    <div style="background:linear-gradient(135deg,#2C1810,#4A2C1F);color:#fff;border-radius:12px;padding:14px 18px;margin-bottom:14px;">
+      <div style="font-size:11px;color:#C4A46B;letter-spacing:0.15em;font-weight:600;">THE MILLIONAIRE BOOKLET</div>
+      <div style="font-family:'Noto Serif TC',serif;font-size:14px;font-weight:700;margin-top:4px;line-height:1.6;">Pay Yourself First · 用被動收入支付享受型消費<br>讓本金持續長大</div>
+    </div>
+
+    <!-- 嚴格模式開關 -->
+    <div style="background:${cs.strictMode?'linear-gradient(135deg,#FEE2E2,#fff)':'#F9FAFB'};border:1.5px solid ${cs.strictMode?'#991B1B':'var(--bdr)'};border-radius:12px;padding:14px 16px;margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <div style="flex:1;min-width:200px;">
+          <div style="font-size:13px;color:${cs.strictMode?'#991B1B':'var(--brown)'};font-weight:700;">🔒 嚴格模式</div>
+          <div style="font-size:11.5px;color:var(--mut);margin-top:3px;line-height:1.7;">
+            開啟後：享受池（旅遊/美麗等）會顯示「🔒 建議暫緩」直到被動收入達標<br>
+            <b>只是提醒，不會禁止妳花錢</b>
+          </div>
+        </div>
+        <button onclick="toggleCardoneStrict()" style="background:${cs.strictMode?'#991B1B':'var(--grn)'};color:#fff;border:none;padding:8px 18px;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">${cs.strictMode?'✓ 已開啟':'關閉中'}</button>
+      </div>
+    </div>
+
+    <!-- 被動收入目標 -->
+    <div class="fg" style="margin-bottom:14px;">
+      <div class="fgrp">
+        <label>🎯 月被動收入目標 <span style="font-size:10.5px;color:var(--mut);font-weight:400;">（妳希望每月被動收入達到多少？目前 $${fmt(curPassive)}）</span></label>
+        <input type="number" id="cd-goal" value="${cs.passiveIncomeGoalMonthly||''}" placeholder="例如：30000" class="amt-input" style="font-size:16px;font-weight:700;color:#C4A46B;">
+      </div>
+    </div>
+
+    <!-- 池三層指派 -->
+    <div style="margin-bottom:10px;font-size:13px;color:var(--brown);font-weight:700;">🪣 每個池屬於哪一層？</div>
+    <div style="background:#F9FAFB;border-radius:10px;padding:12px;margin-bottom:14px;">
+      <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;font-size:10.5px;">
+        ${Object.entries(LEVEL_INFO).map(([k,v])=>`<span style="background:${v.col}22;color:${v.col};padding:3px 10px;border-radius:999px;border:1px solid ${v.col};font-weight:600;">${v.lbl}</span>`).join('')}
+      </div>
+      ${ALL.map(l=>{
+        const lvl=getPoolCardoneLevel(l.id);
+        return`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;background:#fff;border-radius:8px;margin-bottom:5px;">
+          <span style="flex:1;font-size:12.5px;color:var(--brown);font-weight:600;">${l.name}</span>
+          <select onchange="setPoolLevel('${l.id}',this.value)" style="padding:4px 10px;border:1.5px solid ${LEVEL_INFO[lvl].col};border-radius:6px;font-size:11.5px;background:#fff;font-family:inherit;color:${LEVEL_INFO[lvl].col};font-weight:600;">
+            <option value="essential" ${lvl==='essential'?'selected':''}>🟢 必要</option>
+            <option value="accumulation" ${lvl==='accumulation'?'selected':''}>🟡 累積</option>
+            <option value="luxury" ${lvl==='luxury'?'selected':''}>💎 享受</option>
+          </select>
+        </div>`;
+      }).join('')}
+    </div>
+
+    <div style="padding:10px 14px;background:#FEF3F2;border-radius:10px;font-size:11px;color:var(--brown);line-height:1.7;margin-bottom:10px;">
+      💡 <b>層級自動設定：</b> 水電/交通/飲食 → 必要 · 工會/紅包/家庭 → 累積 · 美麗/旅遊 → 享受<br>
+      妳可以隨時手動調整
+    </div>
+
+    <div class="mbtns">
+      <button class="btn btn-s" onclick="closeMod()">取消</button>
+      <button class="btn btn-p" onclick="saveCardoneSettings()" style="background:#C4A46B;">✓ 儲存</button>
     </div>`;
   }
 
@@ -15981,10 +16190,14 @@ window.quickSaveIncome=async()=>{
   const item=(document.querySelector('input[name="qi-source"]:checked')||{}).value||S.incSource||'薪資';
   if(!date||!amount){alert('請填日期和金額');return;}
   const d=new Date(date);
+  // 💎 自動推斷主動/被動（依來源名稱）
+  const PASSIVE_KEYWORDS=['股息','股利','租金','利息','配息','被動','投資收益','ETF 配','YouTube 廣告','廣告分潤','版稅','聯盟行銷'];
+  const isPassive=PASSIVE_KEYWORDS.some(k=>item.includes(k));
   try{
     await addSub('incomes',{
       date,amount,item,category:item,
       member,note,
+      isPassive,
       user:S.user||'',
       month:d.getMonth()+1,year:d.getFullYear()
     });
@@ -16143,6 +16356,34 @@ window.delSavingRecord=async(id)=>{
   await saveMain({savingRecords:list});
   toast('已刪除');
   render();
+};
+
+// 💎 Cardone 設定 - 嚴格模式切換
+window.toggleCardoneStrict=async()=>{
+  const cur=((S.data.cardone||{}).strictMode)||false;
+  const next=!cur;
+  const cs={...(S.data.cardone||{}),strictMode:next};
+  await saveMain({cardone:cs});
+  toast(next?'🔒 已開啟嚴格模式 · 享受池會顯示解鎖狀態':'✅ 已關閉嚴格模式');
+  render();
+};
+
+// 💎 Cardone 設定 - 池層級指派
+window.setPoolLevel=async(lid,lvl)=>{
+  const map={...(S.data.poolCardoneLevel||{})};
+  map[lid]=lvl;
+  await saveMain({poolCardoneLevel:map});
+  // 不關閉 modal，持續編輯
+  render();
+};
+
+// 💎 Cardone 設定 - 儲存被動收入目標
+window.saveCardoneSettings=async()=>{
+  const goal=toN(g('cd-goal'));
+  const cs={...(S.data.cardone||{}),passiveIncomeGoalMonthly:goal};
+  await saveMain({cardone:cs});
+  toast(`✅ 已設定月被動收入目標 $${fmt(goal)}`);
+  closeMod();
 };
 
 // 🧧 紅包規劃精靈 - 即時試算
