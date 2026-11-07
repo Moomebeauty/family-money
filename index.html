@@ -12855,6 +12855,16 @@ function modal(){
       </div>
       <div class="fgrp"><label>備註</label><input type="text" id="m5" placeholder="選填"></div>
     </div>
+    <!-- ⚡ 連續記卡模式 -->
+    <div style="background:linear-gradient(135deg,#F0F9FF,#fff);border:1.5px dashed #0EA5E9;border-radius:10px;padding:10px 14px;margin-top:10px;">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12.5px;color:#0369A1;">
+        <input type="checkbox" id="m_continue" style="width:18px;height:18px;cursor:pointer;">
+        <span>⚡ <b>連續記卡模式</b>：儲存後不關閉，保留卡別/類別/日期，只清空金額備註</span>
+      </label>
+      <div style="font-size:10.5px;color:var(--mut);margin-top:4px;margin-left:26px;line-height:1.6;">
+        💡 要連續對帳一張卡時勾這個，可以一直打一直打，最後按取消關閉
+      </div>
+    </div>
     <div class="mbtns"><button class="btn btn-s" onclick="closeMod()">取消</button><button class="btn btn-p" onclick="saveExp()">✓ 確認</button></div>`;}
 
   if(m.t==='addBank'){c=`<div class="mttl">🏦 新增信用卡銀行</div>
@@ -16167,7 +16177,7 @@ window.showCatDetail=(mainKey)=>{
   S.modal={t:'catDetail',mainKey};
   render();
 };
-window.closeMod=()=>{S.modal=null;render();};
+window.closeMod=()=>{S.modal=null;window._ccSessionCount=0;window._ccSessionSum=0;render();};
 window.bkClose=e=>{if(e.target===e.currentTarget)closeMod();};
 window.tglCard=()=>{const v=document.getElementById('m3')?.value==='信用卡';const bg=document.getElementById('cBG');if(bg)bg.style.display=v?'':'none';};
 
@@ -18292,7 +18302,20 @@ window.saveExp=async()=>{
       toast('✅ 支出已記帳');
     }
     setSyncing('synced');
-    closeMod();
+    // ⚡ 連續記卡模式：只清金額+備註，其他保留，不關閉 modal
+    const continueEl=document.getElementById('m_continue');
+    if(continueEl&&continueEl.checked){
+      const amtEl=document.getElementById('m1');if(amtEl){amtEl.value='';amtEl.focus();}
+      const noteEl=document.getElementById('m5');if(noteEl)noteEl.value='';
+      // 顯示小小的「已記 N 筆 · $X」計數（累計這波連續輸入）
+      window._ccSessionCount=(window._ccSessionCount||0)+1;
+      window._ccSessionSum=(window._ccSessionSum||0)+amount;
+      const btn=document.querySelector('.mbtns .btn-p');
+      if(btn)btn.textContent=`✓ 繼續（已記 ${window._ccSessionCount} 筆 · $${fmt(window._ccSessionSum)}）`;
+    }else{
+      window._ccSessionCount=0;window._ccSessionSum=0;
+      closeMod();
+    }
   }catch(err){
     console.error('saveExp 失敗:',err);
     setSyncing('error');
