@@ -1150,6 +1150,16 @@ let S={
     advanceInvoices:[],  // [{id,invoiceMonth,periodFrom,periodTo,expenseIds,totalAmount,receivedAmount,writeOffAmount,writeOffExpenseId,status,createdAt,closedAt,note}]
     // 📅 上次自動開單檢查到的月份（避免重複開）
     lastAdvanceCheckMonth:'',
+    // 🌟 財富能量 / 顯化系統
+    manifest:{
+      customAffirmations:[],      // 用戶自訂肯定語 [{zh,en}]
+      currentIndex:0,             // 當前顯示第幾句
+      todayChanted:'',            // YYYY-MM-DD 今天有沒有唸
+      streak:0,                   // 連續唸誦天數
+      lastChantDate:'',           // 上次唸誦日期
+      gratitudes:[],              // [{id,date,text}] 感恩紀錄
+      milestones:[]               // [{id,date,name,note,auto}] 財富里程碑
+    },
     // 💎 Cardone 理財設定
     cardone:{
       strictMode:false,            // 嚴格模式開關（開啟後享受池需被動收入解鎖）
@@ -1294,6 +1304,7 @@ function startSync(){
       S.data.advanceInvoices=d.advanceInvoices||[];
       S.data.lastAdvanceCheckMonth=d.lastAdvanceCheckMonth||'';
       S.data.bankTracking=d.bankTracking||{mainBalance:0,mainBalanceDate:'',mainBalanceHistory:[],investReserved:0,investReservedNote:'',alertThreshold:0.2};
+      S.data.manifest=d.manifest||{customAffirmations:[],currentIndex:0,todayChanted:'',streak:0,lastChantDate:'',gratitudes:[],milestones:[]};
       S.data.cardone=d.cardone||{strictMode:false,passiveIncomeGoalMonthly:0};
       S.data.poolCardoneLevel=d.poolCardoneLevel||{};
       S.data._migrationStatus=d._migrationStatus||{};
@@ -1477,6 +1488,56 @@ function getLedgerAll(lid){return(S.data.ledgerEntries||[]).filter(e=>e.lid===li
 function getPoolBalance(lid){
   return (S.data.ledgerEntries||[]).filter(e=>e.lid===lid).reduce((s,e)=>s+toN(e.amount),0);
 }
+// 🌟 財富能量 - 金姐黃金九句（預設肯定語）
+const AFFIRMATIONS=[
+  {zh:'我就是愛今天完美的自己',en:"I love the person I'm today."},
+  {zh:'我的潛能無限',en:"I have limitless potential."},
+  {zh:'我感激我所擁有的一切',en:"I'm grateful for all that I have."},
+  {zh:'我熱愛我的人生',en:"I love my life."},
+  {zh:'我感到平靜和安寧',en:"I feel calm and at peace."},
+  {zh:'我釋放我的活力與能量',en:"I radiate vitality and energy."},
+  {zh:'我能顯化的東西無窮無盡',en:"I have infinite power to manifest anything I desire."},
+  {zh:'我能吸引的財富無休無止',en:"I'm consistently attracting abundance into my life."},
+  {zh:'我招人愛，足夠好，絕對值得！',en:"I'm loveable, I'm good enough, I'm worth it."}
+];
+
+// 獲取全部可用肯定語（預設 + 自訂）
+function getAllAffirmations(){
+  const custom=((S.data.manifest||{}).customAffirmations)||[];
+  return [...AFFIRMATIONS,...custom];
+}
+
+// 🏆 自動偵測財富里程碑（活存金額、連續記帳、首次被動收入…）
+function detectMilestones(){
+  const existing=((S.data.manifest||{}).milestones)||[];
+  const existingAutoKeys=new Set(existing.filter(m=>m.auto).map(m=>m.autoKey));
+  const newOnes=[];
+  const today_=today();
+  // 1. 活存金額首次破關
+  const mb=toN(((S.data.bankTracking||{}).mainBalance))||0;
+  [100000,300000,500000,1000000,2000000,5000000,10000000].forEach(threshold=>{
+    const key=`balance_${threshold}`;
+    if(mb>=threshold&&!existingAutoKeys.has(key)){
+      newOnes.push({id:'ms_'+Date.now()+'_'+Math.random().toString(36).slice(2,5),date:today_,name:`活存首次突破 $${fmt(threshold)}`,note:'🎉 恭喜達成新高',auto:true,autoKey:key});
+    }
+  });
+  // 2. 首次有被動收入
+  const hasPassive=(S.data.incomes||[]).some(i=>i.isPassive);
+  if(hasPassive&&!existingAutoKeys.has('first_passive')){
+    const firstPassive=(S.data.incomes||[]).filter(i=>i.isPassive).sort((a,b)=>(a.date||'').localeCompare(b.date||''))[0];
+    newOnes.push({id:'ms_'+Date.now()+'_fp',date:firstPassive.date||today_,name:`🎊 第一筆被動收入 +$${fmt(toN(firstPassive.amount))}`,note:'Pay Yourself First 開始奏效',auto:true,autoKey:'first_passive'});
+  }
+  // 3. 連續記帳里程碑
+  const streak=((S.data.manifest||{}).streak)||0;
+  [7,30,60,90,180,365].forEach(d=>{
+    const key=`streak_${d}`;
+    if(streak>=d&&!existingAutoKeys.has(key)){
+      newOnes.push({id:'ms_'+Date.now()+'_s'+d,date:today_,name:`連續唸肯定語 ${d} 天 🔥`,note:'儀式感累積中',auto:true,autoKey:key});
+    }
+  });
+  return newOnes;
+}
+
 // 💎 Cardone 財務自由度計算（本月被動收入 vs 本月支出覆蓋率）
 function getCardoneStatus(year,month){
   const incs=(S.data.incomes||[]).filter(i=>i.year===year&&i.month===month);
@@ -2846,6 +2907,81 @@ function pgOverviewNew(){
         <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
           <button onclick="openM('cardoneSettings','')" style="background:rgba(196,164,107,0.2);border:1px solid #C4A46B;color:#C4A46B;padding:5px 12px;border-radius:999px;font-size:11px;cursor:pointer;font-weight:600;">⚙️ Cardone 設定</button>
           <button onclick="openM('allocRatios','')" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.3);color:#fff;padding:5px 12px;border-radius:999px;font-size:11px;cursor:pointer;">分配比例 ${ratios.spend}/${ratios.save}/${ratios.invest}</button>
+        </div>
+      </div>`;
+    })()}
+
+    <!-- 🌟 今日財富能量（肯定語 + 感恩 + 里程碑） -->
+    ${(()=>{
+      const mf=S.data.manifest||{};
+      const all=getAllAffirmations();
+      const idx=(mf.currentIndex||0)%all.length;
+      const cur=all[idx];
+      const streak=mf.streak||0;
+      const today_=today();
+      const alreadyChanted=mf.todayChanted===today_;
+      const gratitudes=(mf.gratitudes||[]).slice(-5).reverse();
+      const milestones=(mf.milestones||[]).slice(-8).reverse();
+      const flame=streak>=100?'💎':streak>=30?'🔥🔥🔥':streak>=7?'🔥🔥':streak>=3?'🔥':streak>=1?'✨':'';
+      return`<div style="background:linear-gradient(135deg,#1A1033,#2D1B4E,#4A2C6D);color:#fff;border-radius:18px;padding:18px 22px;margin-bottom:14px;box-shadow:0 8px 24px rgba(74,44,109,0.35);position:relative;overflow:hidden;">
+        <div style="position:absolute;top:-20px;right:-20px;font-size:100px;opacity:0.08;">✨</div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:12px;position:relative;">
+          <div>
+            <div style="font-size:10.5px;color:#C4A46B;letter-spacing:0.25em;font-weight:700;">🌟 TODAY'S WEALTH ENERGY</div>
+            <div style="font-size:13.5px;color:#fff;font-weight:700;margin-top:3px;">今日財富能量 ${flame?`<span style="color:#F5E6C8;">· Day ${streak} ${flame}</span>`:''}</div>
+          </div>
+          <button onclick="openManifestSettings()" style="background:rgba(196,164,107,0.2);border:1px solid #C4A46B;color:#C4A46B;padding:4px 10px;border-radius:999px;font-size:10.5px;cursor:pointer;font-weight:600;">⚙️ 肯定語庫</button>
+        </div>
+
+        <div style="background:rgba(255,255,255,0.08);border-radius:14px;padding:16px 18px;margin-bottom:12px;border-left:3px solid #C4A46B;">
+          <div style="font-family:'Noto Serif TC',serif;font-size:18px;font-weight:700;color:#F5E6C8;line-height:1.6;">${cur.zh}</div>
+          ${cur.en?`<div style="font-size:11.5px;color:#C4A46B;font-style:italic;margin-top:6px;line-height:1.5;">${cur.en}</div>`:''}
+        </div>
+
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button onclick="markChanted()" style="flex:1;min-width:120px;background:${alreadyChanted?'rgba(125,184,154,0.3)':'linear-gradient(135deg,#C4A46B,#8B7355)'};color:#fff;border:${alreadyChanted?'1px solid #7DB89A':'none'};padding:10px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">
+            ${alreadyChanted?`✅ 今日已唸（連勝 ${streak} 天）`:`🙏 唸完這句 · 標記已唸`}
+          </button>
+          <button onclick="nextAffirmation()" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.3);color:#fff;padding:10px 14px;border-radius:10px;font-size:12px;cursor:pointer;" title="換下一句">🔄</button>
+        </div>
+
+        <div style="margin-top:14px;padding-top:14px;border-top:1px dashed rgba(196,164,107,0.3);">
+          <div style="font-size:11px;color:#C4A46B;font-weight:700;letter-spacing:0.15em;margin-bottom:8px;">📝 GRATITUDE · 今日感恩</div>
+          <div style="display:flex;gap:6px;margin-bottom:8px;">
+            <input type="text" id="gr-text" placeholder="寫一件今天讓妳感謝的事（可大可小）" style="flex:1;padding:8px 12px;background:rgba(255,255,255,0.1);border:1px solid rgba(196,164,107,0.4);border-radius:8px;font-size:12px;color:#fff;font-family:inherit;" onkeydown="if(event.key==='Enter')addGratitude();">
+            <button onclick="addGratitude()" style="background:#C4A46B;color:#fff;border:none;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">+ 記下</button>
+          </div>
+          ${gratitudes.length>0?`<div style="display:flex;flex-direction:column;gap:4px;max-height:120px;overflow-y:auto;">
+            ${gratitudes.map(gi=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 10px;background:rgba(255,255,255,0.05);border-radius:6px;font-size:11.5px;color:#F5E6C8;gap:6px;">
+              <span style="flex:1;line-height:1.5;">🙏 ${gi.text}</span>
+              <span style="font-size:10px;color:#999;white-space:nowrap;">${gi.date||''}</span>
+              <button onclick="delGratitude('${gi.id}')" style="background:none;border:none;color:#aaa;font-size:12px;cursor:pointer;padding:0 4px;">×</button>
+            </div>`).join('')}
+          </div>`:`<div style="font-size:11px;color:rgba(255,255,255,0.4);text-align:center;padding:8px;font-style:italic;">還沒記 · 試著一天一則，累積富足腦</div>`}
+        </div>
+
+        <div style="margin-top:14px;padding-top:14px;border-top:1px dashed rgba(196,164,107,0.3);">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <div style="font-size:11px;color:#C4A46B;font-weight:700;letter-spacing:0.15em;">🏆 MILESTONES · 財富里程碑（${milestones.length}）</div>
+            <button onclick="openM('addMilestone','')" style="background:rgba(196,164,107,0.2);border:1px solid #C4A46B;color:#C4A46B;padding:3px 10px;border-radius:999px;font-size:10.5px;cursor:pointer;font-weight:600;">+ 記一個</button>
+          </div>
+          ${milestones.length>0?`<div style="display:flex;flex-direction:column;gap:4px;max-height:140px;overflow-y:auto;">
+            ${milestones.map(ms=>`<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:6px 10px;background:${ms.auto?'rgba(245,230,200,0.1)':'rgba(196,164,107,0.15)'};border-radius:6px;font-size:11.5px;color:#F5E6C8;gap:6px;border-left:2px solid ${ms.auto?'#F5E6C8':'#C4A46B'};">
+              <div style="flex:1;line-height:1.5;">
+                <div><b>${ms.name}</b></div>
+                ${ms.note?`<div style="font-size:10.5px;color:#C4A46B;opacity:0.8;margin-top:2px;">${ms.note}</div>`:''}
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;">
+                <span style="font-size:10px;color:#999;white-space:nowrap;">${ms.date||''}</span>
+                ${ms.auto?'<span style="font-size:9px;color:#C4A46B;background:rgba(196,164,107,0.2);padding:1px 5px;border-radius:999px;">auto</span>':''}
+              </div>
+              <button onclick="delMilestone('${ms.id}')" style="background:none;border:none;color:#aaa;font-size:12px;cursor:pointer;padding:0 4px;">×</button>
+            </div>`).join('')}
+          </div>`:`<div style="font-size:11px;color:rgba(255,255,255,0.4);text-align:center;padding:8px;font-style:italic;">系統會自動偵測（活存破關、首次被動收入…）<br>也可以手動記下對妳有意義的任何時刻</div>`}
+        </div>
+
+        <div style="margin-top:12px;padding:8px 12px;background:rgba(0,0,0,0.2);border-radius:8px;font-size:10.5px;color:#C4A46B;line-height:1.6;text-align:center;">
+          💫 肯定語是心態引擎 · 唸完要配合 Cardone 40% 執行力才真的致富
         </div>
       </div>`;
     })()}
@@ -13792,6 +13928,76 @@ function modal(){
     </div>`;
   }
 
+  // 🌟 自訂肯定語 + 編輯列表
+  if(m.t==='manifestSettings'){
+    const customs=((S.data.manifest||{}).customAffirmations)||[];
+    c=`<div class="mttl" style="color:#C4A46B;">🌟 我的肯定語庫</div>
+
+    <div style="margin-bottom:14px;padding:12px 14px;background:linear-gradient(135deg,#FEF3F2,#fff);border-radius:10px;font-size:12px;color:var(--brown);line-height:1.7;">
+      💡 <b>怎麼用</b>：這些句子會每天輪流出現在總覽的「🌟 今日財富能量」卡<br>
+      妳可以加任何對妳有共鳴的句子（中英都行，英文選填）
+    </div>
+
+    <!-- 預設九句（唯讀） -->
+    <div style="margin-bottom:10px;font-size:13px;color:var(--brown);font-weight:700;">📜 預設 9 句（金姐黃金九句）</div>
+    <div style="max-height:220px;overflow-y:auto;background:#F9FAFB;border-radius:10px;padding:10px;margin-bottom:14px;">
+      ${AFFIRMATIONS.map((a,i)=>`<div style="padding:8px 10px;background:#fff;border-radius:8px;margin-bottom:4px;">
+        <div style="font-size:12.5px;color:var(--brown);font-weight:600;">${i+1}. ${a.zh}</div>
+        <div style="font-size:10.5px;color:var(--mut);font-style:italic;">${a.en}</div>
+      </div>`).join('')}
+    </div>
+
+    <!-- 自訂句子 -->
+    <div style="margin-bottom:10px;font-size:13px;color:var(--brown);font-weight:700;">✨ 我的自訂句（${customs.length}）</div>
+    ${customs.length>0?`<div style="background:#FFF8E7;border-radius:10px;padding:10px;margin-bottom:14px;">
+      ${customs.map((a,i)=>`<div style="padding:8px 10px;background:#fff;border-radius:8px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+        <div style="flex:1;">
+          <div style="font-size:12.5px;color:var(--brown);font-weight:600;">${a.zh}</div>
+          ${a.en?`<div style="font-size:10.5px;color:var(--mut);font-style:italic;">${a.en}</div>`:''}
+        </div>
+        <button onclick="delCustomAffirmation(${i})" style="background:none;border:1px solid var(--bdr);color:var(--red);padding:3px 8px;border-radius:5px;font-size:11px;cursor:pointer;">×</button>
+      </div>`).join('')}
+    </div>`:''}
+
+    <!-- 新增 -->
+    <div style="background:linear-gradient(135deg,#F3E8FF,#fff);border:1.5px dashed #A855F7;border-radius:10px;padding:12px;margin-bottom:10px;">
+      <div style="font-size:12.5px;color:#7E22CE;font-weight:700;margin-bottom:8px;">➕ 加新句子</div>
+      <input type="text" id="ma-zh" placeholder="中文（必填）例：沐蜜美學越做越旺" style="width:100%;padding:8px 10px;border:1.5px solid var(--bdr);border-radius:8px;font-size:13px;font-family:inherit;color:var(--brown);margin-bottom:6px;box-sizing:border-box;">
+      <input type="text" id="ma-en" placeholder="English (optional)" style="width:100%;padding:8px 10px;border:1.5px solid var(--bdr);border-radius:8px;font-size:12px;font-family:inherit;color:var(--brown);margin-bottom:6px;box-sizing:border-box;">
+      <button onclick="addCustomAffirmation()" style="width:100%;background:#A855F7;color:#fff;border:none;padding:8px;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer;">✨ 加入我的句子</button>
+    </div>
+
+    <div class="mbtns">
+      <button class="btn btn-p" onclick="closeMod()" style="background:#C4A46B;">完成</button>
+    </div>`;
+  }
+
+  // 🏆 新增里程碑
+  if(m.t==='addMilestone'){
+    c=`<div class="mttl">🏆 記一個里程碑</div>
+
+    <div style="margin-bottom:14px;padding:12px 14px;background:linear-gradient(135deg,#FFF8E7,#fff);border-radius:10px;font-size:12px;color:var(--brown);line-height:1.7;">
+      💡 把值得紀念的財富成就寫下來<br>
+      例如：第一次有客人加 LINE 自動預約、工作室月營收破 $100K、存到第一個 $200K
+    </div>
+
+    <div class="fg fg2">
+      <div class="fgrp" style="grid-column:1/-1">
+        <label>🏆 里程碑名稱</label>
+        <input type="text" id="ms-name" placeholder="例：第一個客人送我禮物">
+      </div>
+      <div class="fgrp" style="grid-column:1/-1">
+        <label>📝 當時的感覺 / 細節 <span style="font-size:10.5px;color:var(--mut);font-weight:400;">（可空）</span></label>
+        <input type="text" id="ms-note" placeholder="例：很感動，覺得自己走對路了">
+      </div>
+    </div>
+
+    <div class="mbtns">
+      <button class="btn btn-s" onclick="closeMod()">取消</button>
+      <button class="btn btn-p" onclick="addMilestone()" style="background:var(--gold);">🏆 記下來</button>
+    </div>`;
+  }
+
   // 🔍 信用卡帳單明細（點紅氣球卡別跳出）
   if(m.t==='ccBillDetail'){
     const bank=m.x||'';
@@ -16457,6 +16663,103 @@ window.delSavingRecord=async(id)=>{
   await saveMain({savingRecords:list});
   toast('已刪除');
   render();
+};
+
+// 🌟 財富能量 - 今日唸誦標記（含連續天數計算）
+window.markChanted=async()=>{
+  const m=S.data.manifest||{};
+  const today_=today();
+  if(m.todayChanted===today_){toast('✨ 今天已經唸過囉');return;}
+  // 計算連續
+  let streak=m.streak||0;
+  if(m.lastChantDate){
+    const lastD=new Date(m.lastChantDate);
+    const nowD=new Date(today_);
+    const diffDays=Math.round((nowD-lastD)/86400000);
+    if(diffDays===1)streak+=1;      // 昨天唸過，連勝 +1
+    else if(diffDays===0)streak=streak;  // 同天重複（理論不會到這）
+    else streak=1;                   // 中斷了，重新算 1
+  }else{
+    streak=1;
+  }
+  const updated={...m,todayChanted:today_,streak,lastChantDate:today_};
+  // 自動偵測里程碑
+  const newMs=detectMilestones();
+  if(newMs.length>0)updated.milestones=[...(m.milestones||[]),...newMs];
+  await saveMain({manifest:updated});
+  if(newMs.length>0){
+    toast(`🔥 連勝 ${streak} 天！解鎖 ${newMs.length} 個新里程碑 🏆`);
+  }else{
+    toast(`🔥 唸誦完成 · 連勝 ${streak} 天`);
+  }
+};
+
+// 🌟 換下一句肯定語
+window.nextAffirmation=async()=>{
+  const m=S.data.manifest||{};
+  const all=getAllAffirmations();
+  const next=((m.currentIndex||0)+1)%all.length;
+  await saveMain({manifest:{...m,currentIndex:next}});
+};
+
+// 🌟 自訂肯定語（開啟 modal）
+window.openManifestSettings=()=>{openM('manifestSettings','');};
+
+// 🌟 新增/刪除自訂肯定語
+window.addCustomAffirmation=async()=>{
+  const zh=g('ma-zh');
+  const en=g('ma-en');
+  if(!zh){alert('請填中文版本');return;}
+  const m=S.data.manifest||{};
+  const list=[...(m.customAffirmations||[]),{zh,en:en||''}];
+  await saveMain({manifest:{...m,customAffirmations:list}});
+  toast(`✅ 已加入自訂句：${zh}`);
+  const el1=document.getElementById('ma-zh'),el2=document.getElementById('ma-en');
+  if(el1)el1.value='';if(el2)el2.value='';
+  render();
+};
+
+window.delCustomAffirmation=async(idx)=>{
+  const m=S.data.manifest||{};
+  const list=(m.customAffirmations||[]).filter((_,i)=>i!==idx);
+  await saveMain({manifest:{...m,customAffirmations:list,currentIndex:0}});
+};
+
+// 🌟 新增感恩紀錄
+window.addGratitude=async()=>{
+  const text=g('gr-text');
+  if(!text||!text.trim()){alert('寫一句話吧，不管多小的事都可以');return;}
+  const m=S.data.manifest||{};
+  const list=[...(m.gratitudes||[]),{id:'gr_'+Date.now(),date:today(),text:text.trim()}];
+  await saveMain({manifest:{...m,gratitudes:list}});
+  toast('🙏 已記下，宇宙聽見了');
+  const el=document.getElementById('gr-text');if(el)el.value='';
+  render();
+};
+
+window.delGratitude=async(id)=>{
+  const m=S.data.manifest||{};
+  const list=(m.gratitudes||[]).filter(g=>g.id!==id);
+  await saveMain({manifest:{...m,gratitudes:list}});
+};
+
+// 🏆 新增手動里程碑
+window.addMilestone=async()=>{
+  const name=g('ms-name');
+  const note=g('ms-note')||'';
+  if(!name){alert('寫一下這個里程碑是什麼');return;}
+  const m=S.data.manifest||{};
+  const list=[...(m.milestones||[]),{id:'ms_'+Date.now(),date:today(),name,note,auto:false}];
+  await saveMain({manifest:{...m,milestones:list}});
+  toast('🏆 新里程碑已記下，繼續前進！');
+  closeMod();
+};
+
+window.delMilestone=async(id)=>{
+  if(!confirm('確定要刪除這個里程碑嗎？'))return;
+  const m=S.data.manifest||{};
+  const list=(m.milestones||[]).filter(x=>x.id!==id);
+  await saveMain({manifest:{...m,milestones:list}});
 };
 
 // 💎 Cardone 設定 - 嚴格模式切換
