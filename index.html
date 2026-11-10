@@ -1774,7 +1774,7 @@ function renderLogin(){
   app.innerHTML=`<div class="login-wrap"><div class="login-box">
     <div class="login-ico">🏡</div>
     <div class="login-ttl">家庭財務系統</div>
-    <div class="login-sub">請輸入家庭密碼</div>
+    <div class="login-sub">請輸入家庭密碼<br><span style="font-size:11px;color:var(--grn);">🔒 這台裝置會記住，下次不用再輸</span></div>
     <input class="login-inp" type="password" id="pw" placeholder="••••••" maxlength="10"
       onkeydown="if(event.key==='Enter')doLogin()">
     <button class="login-btn" onclick="doLogin()">進入 →</button>
@@ -15818,8 +15818,8 @@ function modal(){
 }
 
 // ═══ ACTIONS ══════════════════════════════════════════════════
-window.doLogin=()=>{const pw=document.getElementById('pw')?.value;if(pw===PW){S.auth=true;sessionStorage.setItem('hfa','1');render();}else{document.getElementById('pwerr').textContent='密碼錯誤，請再試一次';document.getElementById('pw').value='';document.getElementById('pw').focus();}};
-window.doOut=()=>{S.auth=false;sessionStorage.removeItem('hfa');render();};
+window.doLogin=()=>{const pw=document.getElementById('pw')?.value;if(pw===PW){S.auth=true;try{localStorage.setItem('hfa','1');localStorage.setItem('hfa_at',String(Date.now()));}catch(e){sessionStorage.setItem('hfa','1');}render();}else{document.getElementById('pwerr').textContent='密碼錯誤，請再試一次';document.getElementById('pw').value='';document.getElementById('pw').focus();}};
+window.doOut=()=>{S.auth=false;try{localStorage.removeItem('hfa');localStorage.removeItem('hfa_at');}catch(e){}sessionStorage.removeItem('hfa');render();};
 // 🌸 切換背景浮水印
 window.toggleWatermark=()=>{
   const cur=localStorage.getItem('wmOff')==='1';
@@ -21035,7 +21035,15 @@ window.exportCSV=()=>{
 
 // ─── INIT ────────────────────────────────────────────────────
 (async()=>{
-  if(sessionStorage.getItem('hfa')==='1')S.auth=true;
+  // 🔐 持久化登入：優先 localStorage（永久記住），fallback sessionStorage（相容舊 session）
+  try{
+    if(localStorage.getItem('hfa')==='1')S.auth=true;
+  }catch(e){}
+  if(!S.auth&&sessionStorage.getItem('hfa')==='1'){
+    S.auth=true;
+    // 把舊的 session 認證升級成永久
+    try{localStorage.setItem('hfa','1');localStorage.setItem('hfa_at',String(Date.now()));}catch(e){}
+  }
   startSync();
   if(!S.auth){(document.getElementById('LS')||{style:{}}).style.display='none';document.getElementById('APP').style.display='block';renderLogin();}
 })();
