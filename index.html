@@ -13421,18 +13421,28 @@ function modal(){
     const editItem=m.editId?(S.data.insurancePolicies||[]).find(p=>p.id===m.editId):null;
     const isEdit=!!editItem;
     const members=S.data.familyMembers||['又權','于蜜','楷宸'];
-    const p=editItem||{};
-    const curCat=m.category||p.category||'medical'; // 當前選的分類
+    // 合併 editItem 和暫存的 tempData（切換類型時用）
+    let p=editItem||{};
+    if(m.tempData){p={...p,...m.tempData};}
+    if(m.tempFields){p={...p,fields:{...(p.fields||{}),...m.tempFields}};}
+    const curCat=m.category||p.category||'medical';
     const catCfg=INS_CATEGORIES[curCat]||INS_CATEGORIES.other;
     const F=p.fields||{};
+    // 使用者是否已經切換過類型？若否，顯示明顯提示
+    const hasSwitched=!!m.category||isEdit;
     c=`<div class="mttl">📋 ${isEdit?'編輯':'新增'}保單</div>
     <div style="max-height:calc(80vh - 100px);overflow-y:auto;padding-right:8px;">
 
     <!-- 步驟 1：選保單類型 -->
-    <div style="background:var(--roseL);padding:12px 16px;border-radius:10px;margin-bottom:14px;">
-      <div style="font-size:13px;font-weight:700;color:var(--roseDk);margin-bottom:8px;">Step 1 · 先選保單類型（不同類型欄位不同）</div>
+    <div style="background:${hasSwitched?'var(--roseL)':'linear-gradient(135deg,#FEF3F2,#FFF8E7)'};padding:14px 16px;border-radius:12px;margin-bottom:14px;${hasSwitched?'':'border:2px dashed var(--red);'}">
+      <div style="font-size:13.5px;font-weight:700;color:${hasSwitched?'var(--roseDk)':'var(--red)'};margin-bottom:4px;">
+        ${hasSwitched?'Step 1 · 保單類型':'👇 Step 1 · 請先點妳的保單類型！'}
+      </div>
+      <div style="font-size:11px;color:${hasSwitched?'var(--mut)':'var(--brown)'};margin-bottom:10px;line-height:1.6;">
+        ${hasSwitched?`目前選的是 <b style="color:var(--rose);">${catCfg.ico} ${catCfg.lbl}</b> · Step 3 的欄位會跟著變`:'不同類型要填的欄位不一樣 · 選錯會看不到該保單的欄位'}
+      </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        ${Object.entries(INS_CATEGORIES).map(([k,v])=>`<button type="button" onclick="switchInsCategory('${k}')" style="padding:8px 12px;background:${curCat===k?'var(--rose)':'#fff'};color:${curCat===k?'#fff':'var(--brown)'};border:2px solid ${curCat===k?'var(--rose)':'var(--bdr)'};border-radius:10px;font-size:12.5px;font-weight:600;cursor:pointer;">${v.ico} ${v.lbl}</button>`).join('')}
+        ${Object.entries(INS_CATEGORIES).map(([k,v])=>`<button type="button" onclick="switchInsCategory('${k}')" style="padding:9px 14px;background:${curCat===k?'var(--rose)':'#fff'};color:${curCat===k?'#fff':'var(--brown)'};border:2px solid ${curCat===k?'var(--rose)':'var(--bdr)'};border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;${curCat===k?'box-shadow:0 2px 6px rgba(194,116,122,0.3);':''}">${v.ico} ${v.lbl}</button>`).join('')}
       </div>
     </div>
 
@@ -16531,10 +16541,35 @@ window.setInsCat=(c)=>{S.insCat=c;render();};
 
 // 新增保單 modal 切換分類（保留已填的欄位）
 window.switchInsCategory=(cat)=>{
-  // 先讀取現有欄位（暫存到 modal state）
   const cur=S.modal||{};
-  // 儲存目前輸入的 category
-  S.modal={...cur,category:cat,editId:cur.editId};
+  // 讀取當前已填的基本資料，切換類型時不會清空
+  const g=(id)=>document.getElementById(id);
+  const tempData={
+    member:g('ins-member')?.value,
+    company:g('ins-company')?.value,
+    name:g('ins-name')?.value,
+    policyNo:g('ins-policyNo')?.value,
+    expireDate:g('ins-expireDate')?.value,
+    agent:g('ins-agent')?.value,
+    agentPhone:g('ins-agentPhone')?.value,
+    advantages:g('ins-advantages')?.value,
+    weaknesses:g('ins-weaknesses')?.value,
+    redlines:g('ins-redlines')?.value,
+    suggestions:g('ins-suggestions')?.value,
+    otherInfo:g('ins-otherInfo')?.value,
+    photo:g('ins-photo')?.value,
+  };
+  // 保留舊類型的欄位值（跨類型可能有共用欄位 key）
+  const oldCat=cur.category||'medical';
+  const oldCfg=INS_CATEGORIES[oldCat];
+  const tempFields={...(cur.tempFields||{})};
+  if(oldCfg){
+    oldCfg.fields.forEach(f=>{
+      const el=g(`ins-f-${f.k}`);
+      if(el&&el.value)tempFields[f.k]=el.value;
+    });
+  }
+  S.modal={...cur,category:cat,tempData,tempFields,editId:cur.editId};
   render();
 };
 
