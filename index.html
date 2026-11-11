@@ -16581,12 +16581,55 @@ window.showInsScenario=(scenario,title)=>{
 window.handleInsPhoto=(input)=>{
   const file=input.files[0];
   if(!file)return;
-  if(file.size>2*1024*1024){alert('圖片太大！請壓縮或選小於 2MB 的圖');return;}
+  const origSize=file.size;
+  // 最大接受 20MB 原始檔（手機拍照通常 3-5MB，給足空間）
+  if(origSize>20*1024*1024){alert('圖片太大（超過 20MB）！請用別張');return;}
+  const preview=document.getElementById('ins-photo-preview');
+  const hidden=document.getElementById('ins-photo');
+  if(preview)preview.innerHTML=`<div style="padding:10px;background:#F0F9FF;border-radius:8px;font-size:12px;color:#0369A1;">⏳ 處理中，請稍候...</div>`;
   const reader=new FileReader();
   reader.onload=(e)=>{
-    document.getElementById('ins-photo').value=e.target.result;
-    document.getElementById('ins-photo-preview').innerHTML=`<img src="${e.target.result}" style="max-width:100%;max-height:120px;border-radius:8px;border:1px solid var(--bdr);">`;
+    const img=new Image();
+    img.onload=()=>{
+      // 自動 resize 到最長邊 1200px
+      const MAX=1200;
+      let w=img.width,h=img.height;
+      if(w>MAX||h>MAX){
+        if(w>h){h=Math.round(h*MAX/w);w=MAX;}
+        else{w=Math.round(w*MAX/h);h=MAX;}
+      }
+      const canvas=document.createElement('canvas');
+      canvas.width=w;canvas.height=h;
+      const ctx=canvas.getContext('2d');
+      ctx.fillStyle='#fff';ctx.fillRect(0,0,w,h); // 白底（透明圖轉 JPEG 用）
+      ctx.drawImage(img,0,0,w,h);
+      // 從 quality 0.8 開始降，目標 < 400KB
+      let quality=0.8,dataURL='',tries=0;
+      do{
+        dataURL=canvas.toDataURL('image/jpeg',quality);
+        quality-=0.1;tries++;
+      }while(dataURL.length>400*1024&&quality>=0.3&&tries<6);
+      // 最後還是太大 → resize 再降
+      if(dataURL.length>400*1024){
+        const smCanvas=document.createElement('canvas');
+        smCanvas.width=Math.round(w*0.7);smCanvas.height=Math.round(h*0.7);
+        const sctx=smCanvas.getContext('2d');
+        sctx.fillStyle='#fff';sctx.fillRect(0,0,smCanvas.width,smCanvas.height);
+        sctx.drawImage(img,0,0,smCanvas.width,smCanvas.height);
+        dataURL=smCanvas.toDataURL('image/jpeg',0.6);
+      }
+      if(hidden)hidden.value=dataURL;
+      if(preview){
+        const kb=Math.round(dataURL.length/1024);
+        const origKB=Math.round(origSize/1024);
+        preview.innerHTML=`<div style="margin-bottom:6px;font-size:11px;color:var(--grn);">✅ 壓縮完成：${origKB} KB → ${kb} KB（${w}×${h}）</div>
+          <img src="${dataURL}" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid var(--bdr);">`;
+      }
+    };
+    img.onerror=()=>{if(preview)preview.innerHTML=`<div style="color:var(--red);font-size:12px;">❌ 圖片讀取失敗，請換一張</div>`;};
+    img.src=e.target.result;
   };
+  reader.onerror=()=>{if(preview)preview.innerHTML=`<div style="color:var(--red);font-size:12px;">❌ 檔案讀取失敗</div>`;};
   reader.readAsDataURL(file);
 };
 
@@ -16615,25 +16658,38 @@ window.saveIns=async(editId)=>{
     if(v>0)fields[f.k]=v;
   });
   const list=[...(S.data.insurancePolicies||[])];
-  if(editId){
-    const idx=list.findIndex(p=>p.id===editId);
-    if(idx>=0){
-      list[idx]={...list[idx],member,category,company,name,policyNo,expireDate,fields,otherNotes,advantages,weaknesses,redlines,suggestions,otherInfo,agent,agentPhone,photo};
-      await saveMain({insurancePolicies:list});
-      toast(`✅ 已更新「${name}」`);
+  // 檢查總大小，避免 Firestore 文件超過 1MB
+  try{
+    const testStr=JSON.stringify([...list,{photo,fields,advantages,weaknesses,redlines,suggestions,otherInfo}]);
+    if(testStr.length>900*1024){
+      alert('⚠️ 所有保單資料總共快超過 1MB，建議：\n1. 刪除舊保單裡的照片\n2. 或先存不含照片的版本');
+      return;
     }
-  }else{
-    const newItem={
-      id:'ins_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
-      member,category,company,name,policyNo,expireDate,
-      fields,otherNotes,advantages,weaknesses,redlines,suggestions,otherInfo,agent,agentPhone,photo,
-      addedDate:today()
-    };
-    list.push(newItem);
-    await saveMain({insurancePolicies:list});
-    toast(`✅ 已新增「${name}」`);
+  }catch(e){}
+  try{
+    if(editId){
+      const idx=list.findIndex(p=>p.id===editId);
+      if(idx>=0){
+        list[idx]={...list[idx],member,category,company,name,policyNo,expireDate,fields,otherNotes,advantages,weaknesses,redlines,suggestions,otherInfo,agent,agentPhone,photo};
+        await saveMain({insurancePolicies:list});
+        toast(`✅ 已更新「${name}」`);
+      }
+    }else{
+      const newItem={
+        id:'ins_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+        member,category,company,name,policyNo,expireDate,
+        fields,otherNotes,advantages,weaknesses,redlines,suggestions,otherInfo,agent,agentPhone,photo,
+        addedDate:today()
+      };
+      list.push(newItem);
+      await saveMain({insurancePolicies:list});
+      toast(`✅ 已新增「${name}」`);
+    }
+    closeMod();
+  }catch(err){
+    console.error('saveIns 失敗:',err);
+    alert('儲存失敗：'+(err.message||err)+'\n\n可能原因：\n· 照片太大超過雲端容量\n· 網路不穩\n請重試或先存不含照片的版本');
   }
-  closeMod();
 };
 
 window.editIns=(id)=>{
