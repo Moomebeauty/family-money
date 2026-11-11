@@ -6332,10 +6332,100 @@ function pgCatMigrate(){
   </div>`;
 }
 
+// 🚨 人生事件 → 相關保單類別+欄位 對照表（用於事件保障加總）
+const INS_EVENTS=[
+  {id:'hospital',ico:'🏥',name:'住院一天',desc:'生病/意外住院，每天能拿多少？',unit:'/日',sources:[
+    {cat:'medical',field:'hospitalDaily',label:'醫療日額'},
+    {cat:'accident',field:'accidentHospital',label:'意外住院日額'},
+    {cat:'student',field:'accidentHospital',label:'學平險日額'},
+  ]},
+  {id:'surgery',ico:'🩺',name:'開刀手術',desc:'手術費上限（視項目不同）',unit:'上限',sources:[
+    {cat:'medical',field:'surgeryMax',label:'手術理賠上限'},
+  ]},
+  {id:'death',ico:'💀',name:'身故（留給家人）',desc:'我走了家人能拿多少？',unit:'一次',sources:[
+    {cat:'life',field:'deathAmount',label:'壽險身故金'},
+    {cat:'accident',field:'accidentDeath',label:'意外身故金'},
+    {cat:'travel',field:'travelDeath',label:'旅遊意外身故'},
+    {cat:'student',field:'accidentDeath',label:'學平險身故'},
+  ]},
+  {id:'carAccidentSelf',ico:'🚗',name:'車禍受傷（自己）',desc:'自己受傷怎麼賠',unit:'一次',sources:[
+    {cat:'accident',field:'accidentInjury',label:'意外傷害醫療'},
+    {cat:'motor',field:'driverInjury',label:'機車駕駛傷害'},
+  ]},
+  {id:'carAccidentOther',ico:'💥',name:'車禍（撞到別人）',desc:'撞到別人車/人怎麼賠',unit:'每事故',sources:[
+    {cat:'car',field:'3rdPersonInjury',label:'汽車第三人傷害'},
+    {cat:'car',field:'3rdProperty',label:'汽車財損'},
+    {cat:'motor',field:'3rdPersonInjury',label:'機車第三人傷害'},
+    {cat:'motor',field:'3rdProperty',label:'機車財損'},
+  ]},
+  {id:'cancer',ico:'🦠',name:'罹癌',desc:'診斷癌症能拿多少？',unit:'一次',sources:[
+    {cat:'medical',field:'cancerOnce',label:'癌症一次金'},
+    {cat:'medical',field:'majorIllness',label:'重大疾病'},
+  ]},
+  {id:'disability',ico:'♿',name:'失能（喪失工作能力）',desc:'收入會斷，這類最重要',unit:'一次 + 月給',sources:[
+    {cat:'life',field:'disability',label:'壽險完全失能'},
+    {cat:'life',field:'disabilityBenefit',label:'失能月給付',monthly:true},
+    {cat:'accident',field:'accidentDisable',label:'意外失能'},
+  ]},
+  {id:'fire',ico:'🏠',name:'房屋火災/地震',desc:'家被燒了/地震毀了怎麼賠',unit:'一次',sources:[
+    {cat:'fire',field:'building',label:'房屋損失'},
+    {cat:'fire',field:'earthquake',label:'地震險'},
+    {cat:'fire',field:'furniture',label:'家財損失'},
+  ]},
+  {id:'longterm',ico:'👵',name:'長期照護',desc:'老年失能需人照顧',unit:'月給',sources:[
+    {cat:'longterm',field:'longCareMonthly',label:'長照月給付',monthly:true},
+    {cat:'longterm',field:'longCareOnce',label:'長照一次金'},
+  ]},
+];
+
+// 人生必備 6 大保障（用於診斷「缺哪些」）
+const INS_ESSENTIALS=[
+  {cat:'life',name:'壽險',ico:'💀',why:'萬一身故，給家人（特別是有小孩）留一筆',priority:{adult_parent:1,adult_no_kid:3,child:5}},
+  {cat:'accident',name:'意外險',ico:'🛡️',why:'便宜大保障，涵蓋日常意外',priority:{adult_parent:2,adult_no_kid:2,child:2}},
+  {cat:'medical',name:'醫療險',ico:'🏥',why:'住院開刀健保不夠用',priority:{adult_parent:3,adult_no_kid:1,child:3}},
+  {cat:'disability',name:'失能險',ico:'♿',why:'單親或家庭主要收入者尤其重要！收入斷了很慘',priority:{adult_parent:4,adult_no_kid:5,child:6}},
+  {cat:'cancer',name:'癌症險',ico:'🦠',why:'癌症治療耗時燒錢，標靶/免疫動輒百萬',priority:{adult_parent:5,adult_no_kid:4,child:7}},
+  {cat:'longterm',name:'長照險',ico:'👵',why:'老年失能需 24 小時照護，長照費用壓垮家庭',priority:{adult_parent:6,adult_no_kid:6,child:8}},
+];
+
+// 查某成員有哪些保單類型（回傳 Set）
+function getMemberInsCategories(policies,member){
+  const set=new Set();
+  policies.filter(p=>p.member===member).forEach(p=>set.add(p.category));
+  return set;
+}
+
+// 判斷成員角色（成人+有小孩 / 成人 / 小孩）— 粗略用名字對比家庭成員
+function guessMemberRole(member){
+  // 楷宸 = 女兒
+  if(member==='楷宸')return 'child';
+  // 于蜜單親 = adult_parent
+  if(member==='于蜜')return 'adult_parent';
+  // 又權（配偶）= adult_parent（也要照顧家庭）
+  if(member==='又權')return 'adult_parent';
+  return 'adult_no_kid';
+}
+
+// 計算某成員在某事件下的總保障（加總所有相關欄位）
+function getEventCoverageForMember(policies,member,event){
+  const items=[];
+  policies.filter(p=>p.member===member).forEach(p=>{
+    event.sources.forEach(src=>{
+      if(p.category!==src.cat)return;
+      const amt=toN((p.fields||{})[src.field]);
+      if(amt>0){
+        items.push({policy:p,amount:amt,label:src.label,monthly:src.monthly||false});
+      }
+    });
+  });
+  const total=items.reduce((s,i)=>s+i.amount,0);
+  return {total,items};
+}
+
 function pgInsurance(){
   const policies=S.data.insurancePolicies||[];
   const members=S.data.familyMembers||['又權','于蜜','楷宸'];
-  const curMember=S.insMember||'全家';
+  const curMember=S.insMember||members[0]||'于蜜';
   const curCat=S.insCat||'全部';
 
   // 過濾
@@ -6349,55 +6439,160 @@ function pgInsurance(){
     catCounts[k]=policies.filter(p=>p.category===k).length;
   });
 
+  // 當前選中成員的保單（新設計以人為中心，預設選第一個成員）
+  const memberPolicies=policies.filter(p=>p.member===curMember);
+  const memberCatSet=getMemberInsCategories(policies,curMember);
+  const role=guessMemberRole(curMember);
+
+  // 年繳保費總額（如果有存 annualPremium 欄位）
+  const yearlyPremium=memberPolicies.reduce((s,p)=>s+toN((p.fields||{}).annualPremium||p.annualPremium||0),0);
+
+  // 診斷缺哪些保障（人生必備 6 類）
+  const essentials=INS_ESSENTIALS.map(e=>({...e,has:memberCatSet.has(e.cat),priority:e.priority[role]||99})).sort((a,b)=>a.priority-b.priority);
+  const missing=essentials.filter(e=>!e.has);
+  const has=essentials.filter(e=>e.has);
+
   return`
-  <div style="max-width:820px;margin:0 auto;">
+  <div style="max-width:860px;margin:0 auto;">
     <!-- 標題 -->
-    <div style="text-align:center;padding:20px 0 16px;">
-      <div style="font-size:48px;">📋</div>
-      <div style="font-family:'Noto Serif TC',serif;font-size:24px;font-weight:700;color:var(--brown);letter-spacing:0.2em;margin-top:4px;">家庭保險簿</div>
-      <div class="tm" style="font-size:12.5px;margin-top:4px;">簡單記錄保單重點，理賠時一目了然</div>
+    <div style="text-align:center;padding:20px 0 14px;">
+      <div style="font-size:48px;">🛡</div>
+      <div style="font-family:'Noto Serif TC',serif;font-size:24px;font-weight:700;color:var(--brown);letter-spacing:0.2em;margin-top:4px;">家庭保護網</div>
+      <div class="tm" style="font-size:12.5px;margin-top:4px;">發生什麼事能拿多少 · 看哪個家人缺什麼</div>
     </div>
 
-    <!-- 家庭成員 tab -->
-    <div style="display:flex;gap:6px;justify-content:center;margin-bottom:12px;flex-wrap:wrap;">
-      <button onclick="setInsMember('全家')" style="padding:8px 18px;background:${curMember==='全家'?'var(--rose)':'#fff'};color:${curMember==='全家'?'#fff':'var(--brown)'};border:2px solid ${curMember==='全家'?'var(--rose)':'var(--bdr)'};border-radius:20px;font-size:14px;font-weight:700;cursor:pointer;">👨‍👩‍👧 全家（${policies.length}）</button>
-      ${members.map(m=>`<button onclick="setInsMember('${m}')" style="padding:8px 18px;background:${curMember===m?'var(--rose)':'#fff'};color:${curMember===m?'#fff':'var(--brown)'};border:2px solid ${curMember===m?'var(--rose)':'var(--bdr)'};border-radius:20px;font-size:14px;font-weight:700;cursor:pointer;">${m}（${(byMember[m]||[]).length}）</button>`).join('')}
+    <!-- 成員 tab（以人為中心） -->
+    <div style="display:flex;gap:6px;justify-content:center;margin-bottom:16px;flex-wrap:wrap;">
+      ${members.map(m=>{
+        const n=policies.filter(p=>p.member===m).length;
+        return`<button onclick="setInsMember('${m}')" style="padding:10px 20px;background:${curMember===m?'linear-gradient(135deg,var(--rose),var(--roseDk))':'#fff'};color:${curMember===m?'#fff':'var(--brown)'};border:2px solid ${curMember===m?'var(--rose)':'var(--bdr)'};border-radius:999px;font-size:14px;font-weight:700;cursor:pointer;${curMember===m?'box-shadow:0 4px 12px rgba(194,116,122,0.3);':''}">👤 ${m}（${n} 張）</button>`;
+      }).join('')}
     </div>
 
-    <!-- 分類 tab（第二層） -->
-    <div style="display:flex;gap:4px;justify-content:center;margin-bottom:16px;flex-wrap:wrap;overflow-x:auto;padding:0 4px;">
-      <button onclick="setInsCat('全部')" style="padding:6px 12px;background:${curCat==='全部'?'var(--gold)':'#fff'};color:${curCat==='全部'?'#fff':'var(--brown)'};border:1.5px solid ${curCat==='全部'?'var(--gold)':'var(--bdr)'};border-radius:12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">全部類型</button>
-      ${Object.entries(INS_CATEGORIES).map(([k,v])=>`<button onclick="setInsCat('${k}')" style="padding:6px 12px;background:${curCat===k?'var(--gold)':'#fff'};color:${curCat===k?'#fff':'var(--brown)'};border:1.5px solid ${curCat===k?'var(--gold)':'var(--bdr)'};border-radius:12px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;">${v.ico} ${v.lbl}（${catCounts[k]||0}）</button>`).join('')}
-    </div>
-
-    <!-- 情境查詢 -->
-    <div style="background:linear-gradient(135deg,var(--goldL),#fff);border-radius:18px;padding:20px 22px;margin-bottom:16px;box-shadow:0 4px 16px rgba(196,164,107,0.15);border:2px solid var(--gold);">
-      <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--goldDk);margin-bottom:12px;text-align:center;">🚨 快速查詢「發生什麼事，全家能賠多少？」</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;">
-        <button onclick="showInsScenario('hospital','🏥 住院一天')" style="padding:16px 8px;background:#fff;border:2px solid var(--red);color:var(--red);border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;">🏥 住院一天</button>
-        <button onclick="showInsScenario('surgery','🩺 開刀手術')" style="padding:16px 8px;background:#fff;border:2px solid var(--pur);color:var(--pur);border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;">🩺 開刀手術</button>
-        <button onclick="showInsScenario('death','💀 意外身故')" style="padding:16px 8px;background:#fff;border:2px solid var(--brown);color:var(--brown);border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;">💀 意外身故</button>
-        <button onclick="showInsScenario('car','🚗 車禍受傷')" style="padding:16px 8px;background:#fff;border:2px solid var(--blu);color:var(--blu);border-radius:14px;font-size:14px;font-weight:700;cursor:pointer;">🚗 車禍受傷</button>
+    <!-- 👤 當前成員的保護網概覽 -->
+    <div style="background:linear-gradient(135deg,var(--roseL),#fff);border-radius:18px;padding:18px 22px;margin-bottom:14px;border:1.5px solid var(--rose);">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+        <div>
+          <div style="font-size:11px;color:var(--rose);letter-spacing:0.2em;font-weight:700;">${role==='child'?'👧 小朋友保護網':role==='adult_parent'?'👤 家長保護網':'👤 保護網'}</div>
+          <div style="font-family:'Noto Serif TC',serif;font-size:20px;font-weight:700;color:var(--brown);margin-top:3px;">${curMember}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center;">
+          <div>
+            <div class="tm" style="font-size:10.5px;">🛡 保單數</div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--brown);">${memberPolicies.length}</div>
+          </div>
+          <div>
+            <div class="tm" style="font-size:10.5px;">✅ 已有</div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--grn);">${has.length}/${essentials.length}</div>
+          </div>
+          <div>
+            <div class="tm" style="font-size:10.5px;">❌ 待補</div>
+            <div style="font-family:'Noto Serif TC',serif;font-size:22px;font-weight:700;color:var(--red);">${missing.length}</div>
+          </div>
+        </div>
       </div>
     </div>
+
+    ${memberPolicies.length===0?`<div style="background:#fff;border-radius:16px;padding:30px 20px;text-align:center;color:var(--mut);margin-bottom:14px;box-shadow:0 4px 16px rgba(194,116,122,0.08);">
+      <div style="font-size:40px;">📋</div>
+      <div style="margin-top:10px;font-size:14px;color:var(--brown);">${curMember} 還沒有任何保單</div>
+      <div class="tm" style="font-size:11.5px;margin-top:6px;line-height:1.7;">
+        去找出 ${curMember} 的實體保單<br>
+        按下方「＋ 新增保單」填入資料
+      </div>
+    </div>`:`
+    <!-- 🚨 事件保障卡 -->
+    <div style="background:#fff;border-radius:16px;padding:18px 22px;margin-bottom:14px;box-shadow:0 4px 16px rgba(194,116,122,0.08);border-top:4px solid var(--goldDk);">
+      <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--goldDk);margin-bottom:4px;">🚨 發生這些事，${curMember} 能拿到多少？</div>
+      <div class="tm" style="font-size:11.5px;margin-bottom:14px;">自動加總所有相關保單的賠付</div>
+
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        ${INS_EVENTS.map(ev=>{
+          const cov=getEventCoverageForMember(policies,curMember,ev);
+          const has=cov.total>0;
+          return`<div style="padding:12px 14px;background:${has?'linear-gradient(135deg,#f0fdf4,#fff)':'linear-gradient(135deg,#FEF3F2,#fff)'};border:1.5px solid ${has?'var(--grn)':'var(--red)'};border-radius:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:${cov.items.length>0?'8':'0'}px;">
+              <div style="flex:1;min-width:180px;">
+                <div style="font-size:14px;font-weight:700;color:var(--brown);">${ev.ico} ${ev.name}</div>
+                <div class="tm" style="font-size:11px;margin-top:2px;">${ev.desc}</div>
+              </div>
+              <div style="text-align:right;white-space:nowrap;">
+                ${has?`
+                  <div style="font-family:'Noto Serif TC',serif;font-size:19px;font-weight:700;color:var(--grn);">$${fmt(cov.total)}</div>
+                  <div style="font-size:10px;color:var(--mut);">${ev.unit}</div>
+                `:`
+                  <div style="background:var(--red);color:#fff;padding:4px 12px;border-radius:999px;font-size:11.5px;font-weight:700;">❌ 沒保障</div>
+                `}
+              </div>
+            </div>
+            ${cov.items.length>0?`<div style="padding-top:8px;border-top:1px dashed var(--grn)66;display:flex;flex-direction:column;gap:3px;">
+              ${cov.items.map(it=>`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--brown);">
+                <span>　· ${it.label}　<span style="color:var(--mut);font-size:10px;">(${it.policy.company||''} · ${it.policy.name||'保單'})</span></span>
+                <b style="color:var(--grn);">$${fmt(it.amount)}${it.monthly?'/月':''}</b>
+              </div>`).join('')}
+            </div>`:''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <!-- ⚠️ 保障診斷 -->
+    <div style="background:#fff;border-radius:16px;padding:18px 22px;margin-bottom:14px;box-shadow:0 4px 16px rgba(194,116,122,0.08);border-top:4px solid var(--rose);">
+      <div style="font-family:'Noto Serif TC',serif;font-size:16px;font-weight:700;color:var(--rose);margin-bottom:4px;">⚠️ ${curMember} 的保障診斷</div>
+      <div class="tm" style="font-size:11.5px;margin-bottom:14px;">${role==='child'?'小朋友必備：學平險 + 醫療險；其他可視情況':role==='adult_parent'?'家長必備：壽險（給家人）+ 失能險（收入斷了很慘）+ 醫療 + 意外':'一般成人必備：醫療 + 意外 + 壽險'}</div>
+
+      ${has.length>0?`<div style="margin-bottom:12px;">
+        <div style="font-size:12px;color:var(--grn);font-weight:700;margin-bottom:6px;">✅ 已有（${has.length}）</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          ${has.map(e=>`<span style="background:var(--grnl);color:var(--grn);padding:4px 12px;border-radius:999px;font-size:11.5px;font-weight:600;border:1px solid var(--grn);">${e.ico} ${e.name}</span>`).join('')}
+        </div>
+      </div>`:''}
+
+      ${missing.length>0?`<div>
+        <div style="font-size:12px;color:var(--red);font-weight:700;margin-bottom:6px;">❌ 建議補強（${missing.length}）</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          ${missing.map((e,i)=>`<div style="padding:10px 12px;background:${i===0?'linear-gradient(135deg,#FEE2E2,#fff)':'#F9FAFB'};border:1px solid ${i===0?'var(--red)':'var(--bdr)'};border-radius:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+              <span style="font-size:13px;color:var(--brown);font-weight:700;">${i===0?'🔥':'　'} ${e.ico} ${e.name}${i===0?'<span style="background:var(--red);color:#fff;padding:1px 8px;border-radius:999px;font-size:10px;margin-left:6px;">最優先</span>':''}</span>
+              <button onclick="openM('addIns')" style="background:var(--rose);color:#fff;border:none;padding:4px 12px;border-radius:999px;font-size:11px;font-weight:700;cursor:pointer;">＋ 加這張</button>
+            </div>
+            <div class="tm" style="font-size:11px;margin-top:4px;line-height:1.6;">💡 ${e.why}</div>
+          </div>`).join('')}
+        </div>
+      </div>`:`<div style="padding:12px 14px;background:var(--grnl);border-radius:10px;color:var(--grn);font-size:12.5px;text-align:center;font-weight:700;">🎉 6 大必備保障都齊了！</div>`}
+    </div>
+    `}
 
     <!-- 新增保單按鈕 -->
-    <button onclick="openM('addIns')" style="width:100%;padding:16px;background:linear-gradient(135deg,var(--rose),var(--roseDk));color:#fff;border:none;border-radius:14px;font-size:16px;font-weight:700;letter-spacing:0.1em;cursor:pointer;box-shadow:0 4px 12px rgba(194,116,122,0.3);margin-bottom:16px;">
-      ＋ 新增保單
+    <button onclick="openM('addIns')" style="width:100%;padding:14px;background:linear-gradient(135deg,var(--rose),var(--roseDk));color:#fff;border:none;border-radius:14px;font-size:15px;font-weight:700;letter-spacing:0.1em;cursor:pointer;box-shadow:0 4px 12px rgba(194,116,122,0.3);margin-bottom:16px;">
+      ＋ 新增 ${curMember} 的保單
     </button>
 
-    <!-- 保單清單 -->
-    ${shown.length===0?`<div style="background:#fff;border-radius:20px;padding:40px 24px;text-align:center;color:var(--mut);box-shadow:0 4px 16px rgba(194,116,122,0.10);">
-      <div style="font-size:48px;">📋</div>
-      <div style="margin-top:8px;font-size:14px;">還沒有符合條件的保單</div>
-      <div class="tm" style="font-size:11.5px;margin-top:8px;line-height:1.8;">
-        📸 找出保單 → 點「＋新增保單」<br>
-        選對保單類型 → 依照欄位填入數字<br>
-        理賠時就能一目了然
+    <!-- 📋 保單清單（預設收合，詳細資料在裡面） -->
+    <details style="background:#fff;border-radius:14px;padding:0;margin-bottom:16px;overflow:hidden;box-shadow:0 2px 8px rgba(194,116,122,0.08);">
+      <summary style="cursor:pointer;padding:14px 18px;list-style:none;display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-size:13.5px;color:var(--brown);font-weight:700;">📋 ${curMember} 的保單詳細資料（${memberPolicies.length}）</span>
+        <span style="font-size:11px;color:var(--mut);">▼ 展開看每張保單</span>
+      </summary>
+      <div style="padding:0 14px 14px;">
+        ${memberPolicies.length===0?`<div style="padding:20px;text-align:center;color:var(--mut);font-size:12px;">還沒新增保單</div>`:`<div style="display:grid;grid-template-columns:1fr;gap:10px;">
+          ${memberPolicies.map(p=>renderInsCard(p)).join('')}
+        </div>`}
       </div>
-    </div>`:`<div style="display:grid;grid-template-columns:1fr;gap:12px;">
-      ${shown.map(p=>renderInsCard(p)).join('')}
-    </div>`}
+    </details>
+
+    <!-- 看全家總覽（進階） -->
+    <details style="background:#F9FAFB;border-radius:10px;padding:0;margin-bottom:16px;overflow:hidden;">
+      <summary style="cursor:pointer;padding:10px 14px;list-style:none;font-size:12px;color:var(--mut);font-weight:600;">
+        👨‍👩‍👧 看全家總覽（所有人所有保單）<span style="float:right;">▼</span>
+      </summary>
+      <div style="padding:0 14px 14px;">
+        <div class="tm" style="font-size:11.5px;margin-bottom:8px;">全家總共 ${policies.length} 張保單</div>
+        ${policies.length===0?`<div style="padding:16px;text-align:center;color:var(--mut);font-size:12px;">還沒新增任何保單</div>`:`<div style="display:grid;grid-template-columns:1fr;gap:8px;">
+          ${policies.map(p=>renderInsCard(p)).join('')}
+        </div>`}
+      </div>
+    </details>
   </div>`;
 }
 
